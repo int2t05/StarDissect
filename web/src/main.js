@@ -1,6 +1,7 @@
-// 入口:装配路由四区(UX-21)
+// 入口:装配路由四区(UX-21)+ 组件库注册(UX-60)
 import { createApp, h } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
+import naive from 'naive-ui'
 
 import App from './App.vue'
 import './styles/tokens.css'
@@ -22,7 +23,7 @@ const router = createRouter({
   ],
 })
 
-createApp({ render: () => h(App) }).use(router).mount('#app')
+createApp({ render: () => h(App) }).use(router).use(naive).mount('#app')
 
 window.addEventListener('unhandledrejection', (e) => {
   import('./api').then(({ toast }) => toast(`出错了:${e.reason?.message ?? '未知错误'}`))

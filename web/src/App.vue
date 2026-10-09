@@ -1,55 +1,92 @@
-<!-- 应用壳:四区导航(UX-21)+ 键盘注册 + 路由出口;桌面左导航 208px(UX-22) -->
+<!-- 应用壳:顶栏导航 + 居中内容范式(UX-61);组件库 Naive UI 主题映射(UX-60) -->
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { NConfigProvider, NMessageProvider, useOsTheme } from 'naive-ui'
 import { useKeyboard } from './composables/useKeyboard'
 import { useReaderSettings } from './composables/useReaderSettings'
+import { naiveTheme, overridesFor } from './theme'
 
 useReaderSettings()
 const { handler, helpVisible } = useKeyboard()
 onMounted(() => window.addEventListener('keydown', handler))
 onUnmounted(() => window.removeEventListener('keydown', handler))
+
+const route = useRoute()
+const router = useRouter()
+const osTheme = useOsTheme()
+const { settings } = useReaderSettings()
+
+const nTheme = computed(() => naiveTheme(settings.theme, osTheme.value))
+const nOverrides = computed(() => overridesFor(settings.theme, osTheme.value))
+
+const menuOptions = [
+  { label: '阅读中心', key: '/reading' },
+  { label: '仓库库', key: '/repos' },
+  { label: '分析管理', key: '/analysis' },
+  { label: '系统设置', key: '/settings' },
+]
+function onMenu(key) {
+  router.push(key)
+}
 </script>
 
 <template>
-  <div class="shell">
-    <nav class="side">
-      <div class="brand">星剖</div>
-      <RouterLink to="/reading">阅读中心 <kbd>g u</kbd></RouterLink>
-      <RouterLink to="/repos">仓库库 <kbd>g b</kbd></RouterLink>
-      <RouterLink to="/analysis">分析管理 <kbd>g h</kbd></RouterLink>
-      <RouterLink to="/settings">系统设置 <kbd>g s</kbd></RouterLink>
-    </nav>
-    <main class="main"><RouterView /></main>
-    <div v-if="helpVisible" class="help" @click="helpVisible = false">
-      <div class="help-panel">
-        <h3>键盘快捷键</h3>
-        <p><kbd>g u/b/h/s</kbd> 跳转 阅读中心/仓库库/分析管理/设置</p>
-        <p><kbd>/</kbd> 搜索 · <kbd>j/k</kbd> 移动 · <kbd>o/Enter</kbd> 打开</p>
-        <p><kbd>m</kbd> 已读切换 · <kbd>f</kbd> 收藏 · <kbd>?</kbd> 本帮助</p>
+  <n-config-provider :theme="nTheme" :theme-overrides="nOverrides">
+    <n-message-provider>
+      <div class="app">
+        <header class="topbar">
+          <div class="topbar-inner">
+            <div class="brand" @click="router.push('/reading')">星剖</div>
+            <nav class="nav">
+              <RouterLink
+                v-for="m in menuOptions"
+                :key="m.key"
+                :to="m.key"
+                :class="{ active: route.path.startsWith(m.key) }"
+              >{{ m.label }}</RouterLink>
+            </nav>
+            <span class="kbd-hint"><kbd>/</kbd> 搜索 <kbd>?</kbd> 快捷键</span>
+          </div>
+        </header>
+        <main class="main"><RouterView /></main>
       </div>
-    </div>
-  </div>
+      <div v-if="helpVisible" class="help" @click="helpVisible = false">
+        <div class="help-panel">
+          <h3>键盘快捷键</h3>
+          <p><kbd>g u/b/h/s</kbd> 跳转四区 · <kbd>/</kbd> 搜索 · <kbd>?</kbd> 本帮助</p>
+          <p><kbd>j/k</kbd> 移动 · <kbd>o/Enter</kbd> 打开 · <kbd>g g</kbd> 回顶 · <kbd>G</kbd> 到底</p>
+          <p><kbd>m</kbd> 已读切换 · <kbd>f</kbd> 收藏 · <kbd>[ ]</kbd> 字号</p>
+        </div>
+      </div>
+    </n-message-provider>
+  </n-config-provider>
 </template>
 
 <style scoped>
-.shell { display: flex; min-height: 100vh; }
-.side {
-  width: 208px; flex: none; padding: 16px 12px;
-  background: var(--sd-surface); border-right: 1px solid var(--sd-border);
-  display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh;
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--sd-bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--sd-border);
 }
-.brand { font-size: 18px; font-weight: 600; padding: 4px 8px 16px; color: var(--sd-accent); }
-.side a { padding: 8px; border-radius: 6px; color: var(--sd-text-2); display: flex; justify-content: space-between; }
-.side a.router-link-active { background: var(--sd-accent-soft); color: var(--sd-accent); } /* 当前项单强调色(UX-01) */
-kbd { font-size: 11px; color: var(--sd-text-3); font-family: var(--sd-font-mono); }
-.main { flex: 1; min-width: 0; padding: 24px; }
+.topbar-inner {
+  max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 56px;
+  display: flex; align-items: center; gap: 32px;
+}
+.brand { font-size: 18px; font-weight: 700; color: var(--sd-accent); cursor: pointer; letter-spacing: 0.06em; }
+.nav { display: flex; gap: 4px; flex: 1; }
+.nav a { padding: 6px 14px; border-radius: 6px; color: var(--sd-text-2); font-size: 15px; }
+.nav a:hover { color: var(--sd-text); background: var(--sd-accent-soft); }
+.nav a.router-link-active { color: var(--sd-accent); background: var(--sd-accent-soft); } /* 当前项单强调色(UX-01) */
+.kbd-hint { color: var(--sd-text-3); font-size: 12px; }
+.main { flex: 1; }
 .help { position: fixed; inset: 0; background: var(--sd-overlay); display: flex; align-items: center; justify-content: center; z-index: 30; }
-.help-panel { background: var(--sd-surface); border: 1px solid var(--sd-border-strong); border-radius: 6px; padding: 20px 28px; }
+.help-panel { background: var(--sd-surface); border: 1px solid var(--sd-border-strong); border-radius: 8px; padding: 20px 28px; }
 .help-panel h3 { margin-top: 0; color: var(--sd-accent); }
-.help-panel kbd { border: 1px solid var(--sd-border); border-radius: 3px; padding: 0 4px; }
-@media (max-width: 767px) { /* UX-24:移动抽屉简化为顶部横排 */
-  .shell { flex-direction: column; }
-  .side { width: 100%; height: auto; position: static; flex-direction: row; }
-  .main { padding: 12px; }
+@media (max-width: 767px) {
+  .topbar-inner { gap: 12px; padding: 0 12px; }
+  .kbd-hint { display: none; }
 }
 </style>

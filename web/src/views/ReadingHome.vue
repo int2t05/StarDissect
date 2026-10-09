@@ -1,7 +1,8 @@
-<!-- 阅读中心:报告条目列表(miniflux 式),含全局搜索入口(UX-38..42)与未读筛选 -->
+<!-- 阅读中心:报告条目列表 + 全局搜索(UX-38..42);条目聚合 /api/entries(REQ-READ-006) -->
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { NButton, NEmpty, NInput, NSelect, NTag } from 'naive-ui'
 import { api } from '../api'
 
 const router = useRouter()
@@ -15,6 +16,12 @@ const searchActive = ref(-1)
 const searchInput = ref(null)
 const searchPop = ref(null)
 let debounceTimer = null
+
+const filterOptions = [
+  { label: '全部', value: 'all' },
+  { label: '未读', value: 'unread' },
+  { label: '收藏', value: 'favorited' },
+]
 
 // 检索结果按「报告>章节」两级分组(REQ-SRCH-001)
 const groupedHits = () => {
@@ -84,6 +91,7 @@ watch(searchOpen, (open) => {
   }
 })
 
+// 焦点陷阱(UX-40):Tab 环绕弹层内,Esc 关闭并还原焦点
 function trapFocus(e) {
   if (e.key === 'Escape') {
     searchOpen.value = false
@@ -113,17 +121,13 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
     <header class="bar">
       <h1>阅读中心</h1>
       <div class="bar-tools">
-        <select v-model="filter">
-          <option value="all">全部</option>
-          <option value="unread">未读</option>
-          <option value="favorited">收藏</option>
-        </select>
-        <button data-search-open @click="searchOpen = !searchOpen">搜索 <kbd>/</kbd></button>
+        <n-select v-model:value="filter" :options="filterOptions" size="small" style="width: 110px" />
+        <n-button size="small" secondary data-search-open @click="searchOpen = !searchOpen">搜索 <kbd>/</kbd></n-button>
       </div>
     </header>
 
     <div v-if="searchOpen" ref="searchPop" class="search-pop" @keydown="trapFocus">
-      <input ref="searchInput" v-model="q" placeholder="搜索报告、知识点、仓库…" @input="doSearch" @keydown="onSearchKey" />
+      <n-input ref="searchInput" v-model:value="q" placeholder="搜索报告、知识点、仓库…" @input="doSearch" @keydown="onSearchKey" />
       <template v-if="hits.length">
         <div v-for="[group, items] in groupedHits()" :key="group" class="group">
           <div class="group-name">{{ group }}</div>
@@ -134,46 +138,47 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
             :class="{ active: hits[searchActive] === h }"
             @click="goto(h)"
           >
-            <span class="kind">{{ { report: '报告', knowledge: '知识点', repo: '仓库' }[h.kind] }}</span>
+            <span class="kind"><n-tag size="tiny" :bordered="false">{{ { report: '报告', knowledge: '知识点', repo: '仓库' }[h.kind] }}</n-tag></span>
             <span class="title">{{ h.title || h.full_name }}</span>
             <span class="snip" v-html="h.snippet"></span><!-- 服务端已 nh3 转义,仅 <mark> 白名单(UX-41) -->
           </button>
         </div>
       </template>
-      <div v-else-if="searchEmpty" class="empty">无结果</div>
+      <div v-else-if="searchEmpty" class="empty"><n-empty description="无结果" size="small" /></div>
     </div>
 
     <ul class="entries">
       <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
         <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
           <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
-          <span class="meta">v{{ e.version_no }} · {{ e.created_at }}</span>
+          <span class="meta"><n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag> {{ e.created_at }}</span>
         </RouterLink>
       </li>
     </ul>
-    <p v-if="!entries.length" class="hint">还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。</p>
+    <n-empty v-if="!entries.length" description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint" />
   </div>
 </template>
 
 <style scoped>
-.bar { display: flex; justify-content: space-between; align-items: center; }
-.bar-tools { display: flex; gap: 8px; }
+.entries { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+.entries li { border-bottom: 1px solid var(--sd-border); content-visibility: auto; contain-intrinsic-size: auto 64px; } /* UX-15 */
 .entries li.active { background: var(--sd-accent-soft); }
-.entries .dot { color: var(--sd-accent); font-size: 0.7em; margin-left: 6px; }
-.entries { list-style: none; padding: 0; max-width: var(--sd-width); }
-.entries li { border-bottom: 1px solid var(--sd-border); content-visibility: auto; contain-intrinsic-size: auto 60px; } /* UX-15 */
-.entries a { display: flex; justify-content: space-between; padding: 12px 8px; color: var(--sd-text); }
+.entries a { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 12px; color: var(--sd-text); border-radius: 6px; }
 .entries a:hover { background: var(--sd-accent-soft); }
-.meta { color: var(--sd-text-3); font-size: 0.85em; }
-.search-pop { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); width: min(640px, 92vw); background: var(--sd-elevated); border: 1px solid var(--sd-border-strong); border-radius: 6px; padding: 8px; z-index: 10; }
-.search-pop input { width: 100%; }
-.group { margin-top: 4px; }
-.group-name { color: var(--sd-text-3); font-size: 0.78em; padding: 6px 8px 2px; }
-.hit { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--sd-border); background: none; padding: 8px; }
+.entries .dot { color: var(--sd-accent); font-size: 0.65em; margin-left: 8px; vertical-align: 2px; }
+.meta { color: var(--sd-text-3); font-size: 0.85em; display: flex; align-items: center; gap: 8px; }
+.search-pop {
+  position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+  width: min(680px, 92vw); background: var(--sd-elevated);
+  border: 1px solid var(--sd-border-strong); border-radius: 8px; padding: 10px; z-index: 25;
+  box-shadow: 0 12px 40px #0006;
+}
+.group { margin-top: 6px; }
+.group-name { color: var(--sd-text-3); font-size: 0.78em; padding: 8px 8px 2px; }
+.hit { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--sd-border); background: none; padding: 10px; color: var(--sd-text); }
 .hit:hover, .hit.active { background: var(--sd-accent-soft); }
-.kind { color: var(--sd-text-3); font-size: 0.8em; margin-right: 8px; }
+.title { display: block; margin: 2px 0; }
 .snip { display: block; color: var(--sd-text-2); font-size: 0.85em; }
 .snip :deep(mark) { background: var(--sd-accent-soft); color: var(--sd-accent); }
-.empty { color: var(--sd-text-3); padding: 12px; }
-.hint { color: var(--sd-text-3); }
+.empty { padding: 12px; }
 </style>
