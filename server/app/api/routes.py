@@ -416,6 +416,19 @@ async def export_report(request: Request, version_id: int, conn=Depends(get_conn
     )
 
 
+@router.get("/entries")
+async def entries(request: Request, state: str = "all", conn=Depends(get_conn)):
+    # 阅读中心条目聚合:单查询返回报告条目+仓库信息(消除前端逐仓库 N+1)
+    where = {"unread": "WHERE v.read=0", "favorited": "WHERE v.favorited=1"}.get(state, "")
+    rows = conn.execute(
+        f"""SELECT v.id, v.version_no, v.read, v.favorited, v.created_at,
+                   r.id AS repo_id, r.full_name
+            FROM report_versions v JOIN repos r ON r.id = v.repo_id {where}
+            ORDER BY v.id DESC LIMIT 200"""
+    ).fetchall()
+    return [dict(x) for x in rows]
+
+
 # ---------- 检索(REQ-SRCH) ----------
 
 @router.get("/search")

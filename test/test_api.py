@@ -166,3 +166,16 @@ async def test_healthz(client):
     c, _ = client
     r = await c.get("/healthz")
     assert r.status_code == 200 and r.json() == {"ok": True}
+
+
+async def test_entries_aggregated_with_state_filter(client):
+    # G1:阅读中心条目聚合,单查询含仓库信息与已读/收藏;服务端筛选(REQ-READ-006)
+    c, conn = client
+    await _seed_report(conn)
+    await c.patch("/api/reports/1/state", json={"read": True, "favorited": True})
+    r = await c.get("/api/entries")
+    assert r.json() and r.json()[0]["full_name"] == "o/demo"
+    r = await c.get("/api/entries", params={"state": "unread"})
+    assert r.json() == []
+    r = await c.get("/api/entries", params={"state": "favorited"})
+    assert len(r.json()) == 1

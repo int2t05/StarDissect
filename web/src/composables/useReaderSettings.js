@@ -8,7 +8,10 @@ function load() {
   try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch { return { ...defaults } }
 }
 
+let instance = null
+
 export function useReaderSettings() {
+  if (instance) return instance  // 单例:多视图共享同一偏好状态,避免双写
   const settings = reactive(load())
   watchEffect(() => {
     const root = document.documentElement
@@ -19,5 +22,6 @@ export function useReaderSettings() {
     root.style.setProperty('--sd-contrast', settings.contrast ? '1' : '0')
     localStorage.setItem(KEY, JSON.stringify({ ...settings }))
   })
-  return { settings }
+  instance = { settings }
+  return instance
 }

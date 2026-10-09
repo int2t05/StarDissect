@@ -7,7 +7,7 @@ import pytest
 
 from app.agents import runner, tools
 from app.agents.runner import ClassificationResult, KnowledgePoint, ReportDraft, Section
-from app.db import init_db
+from app.db import connect, init_db
 from app.search import indexer
 
 
@@ -15,7 +15,7 @@ from app.search import indexer
 def db(tmp_path):
     p = tmp_path / "app.db"
     init_db(p)
-    return indexer.connect(p)
+    return connect(p)
 
 
 @pytest.fixture()
@@ -129,7 +129,7 @@ async def test_run_task_end_to_end_with_real_llm(tmp_path):
 
     db_path = tmp_path / "app.db"
     init_db(db_path)
-    conn = indexer.connect(db_path)
+    conn = connect(db_path)
     conn.execute(
         "INSERT INTO repos(id, github_id, full_name, status, default_branch) VALUES (1, 1, 'pallets/click', '已分类')"
     )

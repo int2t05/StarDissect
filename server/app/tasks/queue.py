@@ -34,12 +34,6 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def connect(db_path):
-    from app.db import connect
-
-    return connect(db_path)
-
-
 def enqueue(conn: sqlite3.Connection, repo_id: int, kind: str, priority: int, turn_limit: int, time_limit_sec: int) -> dict:
     repo = conn.execute("SELECT excluded FROM repos WHERE id=?", (repo_id,)).fetchone()
     if repo is None:

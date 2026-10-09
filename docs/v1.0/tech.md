@@ -129,10 +129,12 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/repos/{id}/reports         | GET(版本列表)  | RPT-004、TASK-005       |
 | /api/reports/{version_id}       | GET(html/sections) | READ-001…005        |
 | /api/reports/{version_id}/progress | PUT/GET     | READ-003                |
+| /api/entries                    | GET(state=)    | READ-006(条目聚合,消 N+1)|
 | /api/search                     | GET(q=)        | SRCH-001/002            |
 | /api/reports/{version_id}/export | GET(.md)     | OUT-001                 |
 | /rss.xml                        | GET            | OUT-002                 |
 | /api/settings                   | GET/PATCH      | CFG-001/002(密钥仅尾号) |
+| /healthz                        | GET            | 运维探活(库可读即健康) |
 
 ## 7. 部署形态
 

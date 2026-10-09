@@ -1,6 +1,6 @@
 <!-- 阅读中心:报告条目列表(miniflux 式),含全局搜索入口(UX-38..42)与未读筛选 -->
 <script setup>
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 
@@ -12,6 +12,8 @@ const q = ref('')
 const hits = ref([])
 const searchEmpty = ref(false)
 const searchActive = ref(-1)
+const searchInput = ref(null)
+const searchPop = ref(null)
 let debounceTimer = null
 
 // 检索结果按「报告>章节」两级分组(REQ-SRCH-001)
@@ -26,25 +28,17 @@ const groupedHits = () => {
 }
 
 async function load() {
-  const repos = await api('/api/repos?filter=all')
-  const list = []
-  for (const r of repos.filter((x) => x.versions > 0)) {
-    const versions = await api(`/api/repos/${r.id}/reports`)
-    for (const v of versions) list.push({ ...v, repo: r })
-  }
-  entries.value = list.sort((a, b) => b.id - a.id)
+  entries.value = await api(`/api/entries?state=${filter.value}`) // 聚合端点,消除逐仓库 N+1
   if (active.value >= entries.value.length) active.value = entries.value.length - 1
 }
 
-// 列表筛选(REQ-READ-006):未读/收藏
-const shown = () => entries.value.filter((e) =>
-  filter.value === 'all' || (filter.value === 'unread' && !e.read) || (filter.value === 'favorited' && e.favorited))
+watch(filter, load) // 筛选服务端执行(REQ-READ-006)
 
 // 列表键盘 j/k 移动、o/Enter 打开、m/f 切换(REQ-READ-004)
 const active = ref(-1)
 function onListKey(e) {
   if (e.isComposing || searchOpen.value) return
-  const list = shown()
+  const list = entries.value
   if (e.key === 'j') { active.value = Math.min(active.value + 1, list.length - 1); scrollActiveEntry() }
   else if (e.key === 'k') { active.value = Math.max(active.value - 1, 0); scrollActiveEntry() }
   else if ((e.key === 'o' || e.key === 'Enter') && list[active.value]) router.push(`/repos/${list[active.value].repo.id}/report/${list[active.value].id}`)
@@ -80,6 +74,30 @@ function scrollActive() {
   nextTick(() => document.querySelectorAll('.hit')[searchActive.value]?.scrollIntoView({ block: 'nearest' }))
 }
 
+let lastFocus = null
+watch(searchOpen, (open) => {
+  if (open) {
+    lastFocus = document.activeElement
+    nextTick(() => searchInput.value?.focus())
+  } else {
+    lastFocus?.focus()
+  }
+})
+
+function trapFocus(e) {
+  if (e.key === 'Escape') {
+    searchOpen.value = false
+    return
+  }
+  if (e.key !== 'Tab') return
+  const focusables = [...searchPop.value.querySelectorAll('input, button')]
+  if (!focusables.length) return
+  const first = focusables[0]
+  const last = focusables[focusables.length - 1]
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+}
+
 function goto(hit) {
   searchOpen.value = false
   if (hit.kind === 'repo') router.push('/repos')
@@ -104,8 +122,8 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
       </div>
     </header>
 
-    <div v-if="searchOpen" class="search-pop">
-      <input v-model="q" placeholder="搜索报告、知识点、仓库…" @input="doSearch" @keydown="onSearchKey" />
+    <div v-if="searchOpen" ref="searchPop" class="search-pop" @keydown="trapFocus">
+      <input ref="searchInput" v-model="q" placeholder="搜索报告、知识点、仓库…" @input="doSearch" @keydown="onSearchKey" />
       <template v-if="hits.length">
         <div v-for="[group, items] in groupedHits()" :key="group" class="group">
           <div class="group-name">{{ group }}</div>
@@ -126,7 +144,7 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
     </div>
 
     <ul class="entries">
-      <li v-for="(e, i) in shown()" :key="e.id" :class="{ active: i === active }">
+      <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
         <RouterLink :to="`/repos/${e.repo.id}/report/${e.id}`">
           <span class="name">{{ e.repo.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
           <span class="meta">v{{ e.version_no }} · {{ e.created_at }}</span>

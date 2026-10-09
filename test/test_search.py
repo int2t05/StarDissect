@@ -1,11 +1,11 @@
 # S3 检索测试:jieba 分词、三域索引、snippet 命中(ADR-0006、REQ-SRCH-001)
-from app.db import init_db
+from app.db import connect, init_db
 from app.search import indexer
 
 
 def _seed(db_path):
     init_db(db_path)
-    conn = indexer.connect(db_path)
+    conn = connect(db_path)
     conn.execute("INSERT INTO repos(id, github_id, full_name, description) VALUES (1, 11, 'miniflux/miniflux', '极简 订阅 阅读器 扩展 机制 示例')")
     conn.execute(
         "INSERT INTO report_versions(id, repo_id, version_no, commit_anchor, html, sections_json)"

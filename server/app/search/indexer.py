@@ -1,5 +1,4 @@
 # 检索:三域索引与查询(ADR-0006;范围=报告章节/知识点/仓库元信息,REQ-SRCH-001)
-from app.db import connect  # noqa: F401  测试与调用方共用同一连接工厂
 import re
 
 import jieba

@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from app.db import init_db
+from app.db import connect, init_db
 from app.search import indexer
 from app.sync import syncer
 
@@ -12,7 +12,7 @@ from app.sync import syncer
 def conn(tmp_path):
     p = tmp_path / "app.db"
     init_db(p)
-    return indexer.connect(p)
+    return connect(p)
 
 
 def _star(full_name, github_id, fork=False, archived=False, starred_at="2026-10-01T00:00:00Z"):
@@ -67,7 +67,7 @@ async def test_sync_star_real(tmp_path):
 
     db = tmp_path / "app.db"
     init_db(db)
-    conn = indexer.connect(db)
+    conn = connect(db)
     counts = await syncer.sync_star(conn, os.environ["GITHUB_TOKEN"])
     assert counts["added"] > 0
     run = conn.execute("SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1").fetchone()

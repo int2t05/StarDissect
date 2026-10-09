@@ -27,3 +27,20 @@
 - [x] T-15 【接受】RPT-001 通用基础章节硬模板校验:提示词约束+首批验证校准(OPN-01)
 
 关闭记录:用户 2026-10-09 授权「跑 code-review」并指示深度调研纳入,全部 Critical/Required 由 AI 修复并通过 51 项测试;接受项理由如上,可驳回重开。
+
+---
+
+## 成熟度批次(2026-10-09,提交 542a278 + G 批次)
+
+- [x] 「受限完成」语义:DEC-09 轻量闭环(超限即失败可重试),审计待人工项关闭
+- [x] ReadingHome N+1 → /api/entries 聚合端点(G1)
+- [x] scrollspy → useScrollSpy 完整移植 UX-59 算法(G2)
+- [x] 搜索弹层 focus-trap + Esc + 焦点还原(UX-40,G3)
+- [x] useReaderSettings 单例、queue.connect/indexer 转发清理(G4)
+- [x] README、.env.example、/healthz、启动自检、unhandledrejection 兜错(M3)
+
+## 遗留(有意接受,复核点)
+
+- web_fetch 无 SSRF 限制(单用户内网,DEC-04)
+- 停机不等待进行中 worker(日志警告 + recover 兜底)
+- CI/发布流程:待建远程仓库后排期

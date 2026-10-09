@@ -1,7 +1,7 @@
 # S4 任务队列测试:状态机全路径(执行器注入,无 LLM;REQ-TASK-001..006、PRD FIG-02)
 import pytest
 
-from app.db import init_db
+from app.db import connect, init_db
 from app.tasks import queue
 
 
@@ -9,7 +9,7 @@ from app.tasks import queue
 def conn(tmp_path):
     db = tmp_path / "app.db"
     init_db(db)
-    c = queue.connect(db)
+    c = connect(db)
     c.execute("INSERT INTO repos(id, full_name, status) VALUES (1,'o/r','已分类')")
     c.execute("INSERT INTO repos(id, full_name, status) VALUES (2,'o/r2','已分类')")
     c.commit()

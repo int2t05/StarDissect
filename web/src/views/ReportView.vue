@@ -4,6 +4,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useReadingProgress } from '../composables/useReadingProgress'
+import { useScrollSpy } from '../composables/useScrollSpy'
 import { useReaderSettings } from '../composables/useReaderSettings'
 
 const route = useRoute()
@@ -25,14 +26,7 @@ onMounted(async () => {
   const meta = JSON.parse(report.value.meta || '{}')
   violations.value = meta.typography_check?.status === 'checked' ? meta.typography_check.violations.length : -1
   renderMermaid()
-  // scrollspy:最后一个越过视口顶的标题(UX-59 语义);滚动在 window(审查 T-04)
-  io = new IntersectionObserver(
-    (ents) => {
-      for (const e of ents) if (e.isIntersecting) activeSeq.value = Number(e.target.dataset.seq)
-    },
-    { rootMargin: '0px 0px -90% 0px' },
-  )
-  document.querySelectorAll('.article [data-seq]').forEach((el) => io.observe(el))
+  spy.mount() // scrollspy:UX-59 完整算法(useScrollSpy)
   progress.mount()
   window.addEventListener('keydown', onKey)
   await nextTick()
@@ -90,21 +84,16 @@ function onKey(e) {
 }
 
 onUnmounted(() => {
-  io?.disconnect()
+  spy.unmount()
   progress.unmount()
   window.removeEventListener('keydown', onKey)
 })
 
-// 当前阅读位置:最后越过视口顶的章节 + 页面滚动百分比
+// 当前阅读位置:scrollspy 判定的章节 + 页面滚动百分比(与目录高亮同源)
 function computeCurrent() {
-  const anchors = [...document.querySelectorAll('.article [data-seq]')]
-  let seq = 0
-  for (const el of anchors) {
-    if (el.getBoundingClientRect().top <= 80) seq = Number(el.dataset.seq)
-  }
   const doc = document.documentElement
   const top = Math.round((doc.scrollTop / Math.max(1, doc.scrollHeight - doc.clientHeight)) * 100)
-  return { anchor_seq: seq, top }
+  return { anchor_seq: Math.max(spy.activeSeq.value, 0), top }
 }
 
 const progress = useReadingProgress(vid, computeCurrent)
@@ -156,7 +145,8 @@ function jump(seq) {
           v-for="s in toc"
           :key="s.seq"
           :class="{ active: activeSeq === s.seq, sub: s.level === 3 }"
-          @click="jump(s.seq)"
+          :data-seq="s.seq"
+          @click="spy.ignoreScrollOnce = true; jump(s.seq)"
         >
           {{ s.title }}
         </button>
