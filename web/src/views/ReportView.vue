@@ -77,24 +77,32 @@ async function renderMermaid() {
     const src = b.textContent
     const fig = document.createElement('figure')
     const holder = document.createElement('div')
+    holder.className = 'zoomable'  // 放大触发/hover 仅作用于图本体,不与源码折叠区重叠
     const cap = document.createElement('figcaption')
     cap.textContent = `图 ${++figIndex} · 点击放大`
     const fallback = document.createElement('details')
     fallback.innerHTML = `<summary>图表源码</summary><pre>${src.replace(/</g, '&lt;')}</pre>`
     b.replaceWith(fig)
     fig.append(holder, cap, fallback)
-    try {
-      const mermaid = (await import('mermaid')).default  // 本地依赖随构建打包(E16:内网自托管不依赖外部 CDN)
-      mermaid.initialize({ startOnLoad: false, theme })
-      const { svg } = await mermaid.render(`m${Math.random().toString(36).slice(2)}`, src)
+    const mermaid = (await import('mermaid')).default  // 本地依赖随构建打包(E16:内网自托管不依赖外部 CDN)
+    mermaid.initialize({ startOnLoad: false, theme })
+    const tryRender = async (text) => {
+      const { svg } = await mermaid.render(`m${Math.random().toString(36).slice(2)}`, text)
       holder.innerHTML = svg
-      fig.classList.add('fig-ok')
-      fig.addEventListener('click', (e) => {
-        if (e.target.closest('details')) return  // 源码折叠区不触发放大
-        openZoom(holder.querySelector('svg'), cap.textContent)
-      })
+      holder.addEventListener('click', () => openZoom(holder.querySelector('svg'), cap.textContent))
+    }
+    try {
+      await tryRender(src)
     } catch {
-      fallback.open = true
+      // 旧版报告的标签可能含 { } 等结构字符:确定性修复=未加引号的节点标签补双引号(引号内 {} 合法)
+      const repaired = src.replace(/([A-Za-z0-9_]+)\[(?!")([^\]\[]+)\]/g, '$1["$2"]')
+      try {
+        if (repaired === src) throw new Error('unrepairable')
+        await tryRender(repaired)
+        cap.textContent += ' · 已自动修复语法'
+      } catch {
+        fallback.open = true  // 仍失败才走源码后备
+      }
     }
   }
 }
@@ -124,20 +132,36 @@ function openZoom(svg, title) {
   const onDown = (e) => { drag = { x: e.clientX - tx, y: e.clientY - ty }; ov.setPointerCapture(e.pointerId) }
   const onMove = (e) => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; applyT() } }
   const onUp = () => { drag = null }
+  let closed = false
   const close = () => {
+    if (closed) return
+    closed = true
     ov.removeEventListener('wheel', onWheel)
     ov.removeEventListener('pointerdown', onDown)
+    ov.removeEventListener('pointermove', onMove)
+    ov.removeEventListener('pointerup', onUp)
+    ov.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', onKey, true)
     ov.remove()
     document.querySelector('.article .fig-ok')?.focus?.()
   }
-  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close() } }
   ov.addEventListener('wheel', onWheel, { passive: false })
-  ov.addEventListener('pointerdown', onDown)
+  // 拖拽仅从图区起始:控制区(pointerdown 落在按钮/标题栏)绝不抢指针捕获,
+  // 否则后续 click 的 target 被重定向到覆盖层,关闭按钮永远点不中(部署实测缺陷)
+  ov.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.zoom-head, button')) return
+    onDown(e)
+  })
   ov.addEventListener('pointermove', onMove)
   ov.addEventListener('pointerup', onUp)
+  ov.addEventListener('pointercancel', onUp)
   ov.querySelector('.zoom-close').addEventListener('click', close)
-  ov.addEventListener('click', (e) => { if (e.target === ov.querySelector('.zoom-stage')) close() })
+  ov.addEventListener('click', (e) => {
+    // 点暗背景关闭;图与控制区除外
+    if (!e.target.closest('.zoom-canvas') && !e.target.closest('.zoom-head')) close()
+  })
+  ov.addEventListener('keydown', onKey)
   window.addEventListener('keydown', onKey, true)
 }
 
@@ -292,8 +316,8 @@ function jump(seq) {
 .article .ev .ev-date { color: var(--sd-text-3); font-size: 0.8em; margin-left: 8px; }
 .article .mermaid { text-align: center; }
 .article figcaption { font-size: 0.75em; color: var(--sd-text-3); text-align: center; padding-top: 6px; letter-spacing: 0.04em; }
-.article .fig-ok { cursor: zoom-in; }
-.article .fig-ok:hover { background: color-mix(in srgb, var(--sd-accent) 4%, var(--sd-surface)); }
+.article .zoomable { cursor: zoom-in; border-radius: 6px; }
+.article .zoomable:hover { background: color-mix(in srgb, var(--sd-accent) 4%, var(--sd-surface)); }
 #sd-zoom { position: fixed; inset: 0; z-index: 60; background: #000d; display: flex; flex-direction: column; outline: none; }
 #sd-zoom .zoom-head { color: var(--sd-text); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; background: var(--sd-surface); }
 #sd-zoom .zoom-close { background: var(--sd-elevated); }
