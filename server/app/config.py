@@ -1,4 +1,4 @@
-# 应用配置:数据目录与路径(STARDISSECT_DATA 可注入,测试隔离用);.env 加载(密钥不入库)
+# 应用配置:路径、运行参数与白名单(STARDISSECT_DATA 可注入;.env 加载不入库)
 import os
 from pathlib import Path
 
@@ -13,6 +13,23 @@ ENV_SEED_MAP = {
     "TAVILY_API_KEY": "tavily_api_key",
     "EXA_API_KEY": "exa_api_key",
 }
+
+# 运行参数(集中管理,消除魔法数)
+CLASSIFIER_TIMEOUT_SEC = 120
+QUEUE_INTERVAL_ACTIVE = 0.2    # 有任务时的轮询间隔(秒)
+QUEUE_INTERVAL_IDLE = 2.0      # 空闲轮询间隔
+QUEUE_RETRY_ON_ERROR = 5.0     # 循环异常后的重试间隔
+TERMINATE_POLL_SEC = 0.5       # 终止请求轮询间隔
+DAILY_SYNC_CRON = {"hour": 3, "minute": 17}  # 每日定时同步(REQ-SYNC-001)
+
+# agent 工具限制
+MAX_FILE_LINES = 400
+MAX_SEARCH_HITS = 50
+MAX_WEB_CHARS = 8000
+MAX_DEEP_PAGES = 5
+
+# 中文排版校验白名单(产品名官方拼写所在行豁免中英/数字间距规则)
+TYPOGRAPHY_WHITELIST = {"GitHub", "GitLab", "TypeScript"}
 
 
 def repo_root() -> Path:
@@ -41,6 +58,10 @@ def data_dir() -> Path:
 
 def db_path() -> Path:
     return data_dir() / "app.db"
+
+
+def logs_dir() -> Path:
+    return data_dir() / "logs"
 
 
 def web_dist() -> Path:

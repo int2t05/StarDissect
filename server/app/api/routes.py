@@ -169,6 +169,17 @@ async def delete_knowledge_point(request: Request, kp_id: int):
     return {"ok": True}
 
 
+@router.post("/knowledge_points/{kp_id}/restore")
+async def restore_knowledge_point(request: Request, kp_id: int):
+    # 软删除的恢复动作(AC-020 闭环)
+    conn = request.app.state.conn
+    conn.execute("UPDATE knowledge_points SET deleted=0 WHERE id=?", (kp_id,))
+    conn.commit()
+    indexer.index_knowledge(conn, kp_id)
+    conn.commit()
+    return {"ok": True}
+
+
 @router.post("/repos/{repo_id}/lock")
 async def lock_classification(request: Request, repo_id: int, body: dict):
     conn = request.app.state.conn
@@ -217,7 +228,7 @@ async def manual_scope(request: Request, repo_id: int, body: dict):
     runner.upsert_classification(conn, repo_id, body["type"], body.get("reason", "人工选择范围"), body.get("confidence", "高"), "manual_scope")
     conn.execute("UPDATE repos SET status='已分类', updated_at=datetime('now') WHERE id=?", (repo_id,))
     conn.commit()
-    limits = syncer._task_limits(conn)
+    limits = queue.task_limits(conn)
     try:
         queue.enqueue(conn, repo_id, "analyze", priority=100, turn_limit=limits["turn_limit"], time_limit_sec=limits["time_limit_sec"])
     except queue.DuplicateTask:
@@ -228,7 +239,7 @@ async def manual_scope(request: Request, repo_id: int, body: dict):
 @router.post("/repos/{repo_id}/analyze")
 async def analyze(request: Request, repo_id: int, body: dict = None):
     conn = request.app.state.conn
-    limits = syncer._task_limits(conn)
+    limits = queue.task_limits(conn)
     priority = 0 if (body or {}).get("priority") == "front" else 100
     kind = "reanalyze" if conn.execute(
         "SELECT 1 FROM report_versions WHERE repo_id=?", (repo_id,)
@@ -266,7 +277,7 @@ async def patch_task(request: Request, task_id: int, body: dict):
 
 @router.delete("/tasks/{task_id}")
 async def cancel_task(request: Request, task_id: int):
-    # 只取消指定排队任务(审查 T-01:此前误删全队列)
+    # 只取消指定排队任务,不影响队列其余任务(REQ-TASK-002)
     conn = request.app.state.conn
     n = queue.cancel_pending(conn, task_id=task_id)
     if n == 0:
@@ -290,7 +301,7 @@ async def retry_task(request: Request, task_id: int):
         raise HTTPException(404, "任务不存在")
     if task["status"] not in ("失败", "受限完成", "中断"):
         raise HTTPException(400, f"状态 {task['status']} 不可重试")
-    limits = syncer._task_limits(conn)
+    limits = queue.task_limits(conn)
     try:
         new = queue.enqueue(conn, task["repo_id"], task["kind"], priority=task["priority"],
                             turn_limit=limits["turn_limit"], time_limit_sec=limits["time_limit_sec"])
@@ -459,21 +470,40 @@ async def get_settings(request: Request):
 async def patch_settings(request: Request, body: dict):
     conn = request.app.state.conn
     allowed = PUBLIC_KEYS + list(SECRET_KEYS)
+    github_token_change = None
     for k, v in body.items():
         if k not in allowed:
             raise HTTPException(400, f"未知配置项: {k}")
         text = str(v)
-        if k in SECRET_KEYS and text.startswith("…"):
-            continue  # 掩码回显原样提交:保留服务端真值(审查 T-02)
+        if k in SECRET_KEYS and (not text or text.startswith("…")):
+            continue  # 空值/掩码=保留服务端原值
         if k in LIMIT_KEYS:
             try:
                 if int(text) <= 0:
                     raise ValueError
             except ValueError:
                 raise HTTPException(422, f"{k} 必须为正整数") from None
+        if k == "github_token":
+            github_token_change = text
+            continue  # 校验通过后再落库(AC-027)
         conn.execute(
             "INSERT INTO settings(key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (k, text),
         )
     conn.commit()
+    if github_token_change:
+        import httpx
+
+        try:
+            r = await httpx.AsyncClient(timeout=15).get(
+                "https://api.github.com/user", headers={"Authorization": f"Bearer {github_token_change}"}
+            )
+            r.raise_for_status()
+        except httpx.HTTPError:
+            raise HTTPException(422, "GitHub 凭据校验失败,其余设置已保存;请核对 token 后重试") from None
+        conn.execute(
+            "INSERT INTO settings(key, value) VALUES ('github_token',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (github_token_change,),
+        )
+        conn.commit()
     return {"ok": True}

@@ -47,7 +47,7 @@ def test_plain_text_skips_code():
 
 
 def test_heading_anchors_injected():
-    # 审查 T-03:h2/h3 必须带 id/data-seq,供目录/scrollspy/进度消费(ADR-0007)
+    # h2/h3 必须带 id/data-seq,供目录/scrollspy/进度消费(ADR-0007)
     md = "## 系统设计\n\n内容\n\n### 数据流\n\n内容乙"
     html, sections, _ = _sections(md)
     assert 'data-seq="0"' in html and 'id="sec-0"' in html and 'data-seq="1"' in html

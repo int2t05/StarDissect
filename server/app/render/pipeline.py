@@ -34,7 +34,7 @@ def _evidence_html(kind: str, body: str) -> str:
 
 
 def _plain_of_inline(token: Token) -> str:
-    # 行内纯文本:跳过行内代码(代码内容不进校验/索引流,UX-52)
+    # 行内纯文本:跳过行内代码(代码内容不进校验/索引流,规则源=UIUX §3 校验输入)
     parts = []
     for child in token.children or []:
         if child.type != "code_inline":
@@ -90,7 +90,7 @@ def _sections_and_text(tokens: list[Token]) -> tuple[list[dict], str]:
     for t in tokens:
         if t.type in ("code_block", "fence"):
             if t.info and t.info.strip() == "mermaid":
-                t.tag = "div"  # mermaid 块标记为图表容器,前端渲染+文字后备(RPT-005)
+                t.tag = "div"  # mermaid 块标记为图表容器,前端渲染+文字后备(REQ-RPT-005)
                 t.attrs = {"class": "mermaid"}
             continue
         if t.type == "heading_open" and t.tag in ("h2", "h3"):

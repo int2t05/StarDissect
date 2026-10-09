@@ -8,7 +8,6 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "markdown-it-py[plugins,linkify]>=3.0",
-    "pygments>=2.17",
     "jieba>=0.42",
     "gidgethub>=5.3",
     "apscheduler>=3.10,<4",

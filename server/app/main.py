@@ -1,6 +1,8 @@
 # 应用装配:单进程 FastAPI(ADR-0001);调度+队列随 lifespan 启动(ADR-0004)
 import asyncio
 import contextlib
+import logging
+import logging.handlers
 import os
 from contextlib import asynccontextmanager
 
@@ -14,18 +16,35 @@ from app.api import routes
 from app.db import connect, init_db
 from app.tasks import queue
 
+logger = logging.getLogger("stardissect")
+
+
+def setup_logging() -> None:
+    # 可观测性基座:stdout + 轮转文件,双路输出
+    config.logs_dir().mkdir(parents=True, exist_ok=True)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+    handlers = [logging.StreamHandler(), logging.handlers.RotatingFileHandler(
+        config.logs_dir() / "app.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")]
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    for h in handlers:
+        h.setFormatter(fmt)
+        root.addHandler(h)
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
 
 async def _queue_loop():
-    # 服务循环:独立连接(写者隔离,审查 T-05);无任务时间歇;异常兜底防停摆
+    # 服务循环:独立连接(与 API 连接写者隔离);异常记日志后重试,不静默假活
     conn = connect(config.db_path())
     while True:
         try:
             stepped = await asyncio.to_thread(queue.step, conn, _execute)
-            await asyncio.sleep(0.2 if stepped else 2.0)
+            await asyncio.sleep(config.QUEUE_INTERVAL_ACTIVE if stepped else config.QUEUE_INTERVAL_IDLE)
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001 —— 单次失败不杀死循环
-            await asyncio.sleep(5.0)
+        except Exception:
+            logger.exception("队列循环异常,%.0fs 后重试", config.QUEUE_RETRY_ON_ERROR)
+            await asyncio.sleep(config.QUEUE_RETRY_ON_ERROR)
 
 
 def _execute(task_id: int):
@@ -33,6 +52,7 @@ def _execute(task_id: int):
     conn = connect(config.db_path())
     task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
     repo = conn.execute("SELECT * FROM repos WHERE id=?", (task["repo_id"],)).fetchone()
+    logger.info("任务开始 id=%s repo=%s turn_limit=%s time_limit=%ss", task_id, repo["full_name"], task["turn_limit"], task["time_limit_sec"])
 
     async def _run():
         run = asyncio.ensure_future(runner.run_task(conn, task, repo))
@@ -42,50 +62,68 @@ def _execute(task_id: int):
         finally:
             term.cancel()
 
-    return asyncio.run(_run())
+    try:
+        return asyncio.run(_run())
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("任务执行异常 id=%s repo=%s", task_id, repo["full_name"])
+        raise
 
 
 async def _watch_terminate(run, task_id: int):
     while True:
         if task_id in queue.TERMINATE_REQUESTS:
             queue.TERMINATE_REQUESTS.discard(task_id)
+            logger.info("任务被人工终止 id=%s", task_id)
             run.cancel()
             return
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(config.TERMINATE_POLL_SEC)
 
 
 def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
     if data_dir:
-        import os
-
         os.environ["STARDISSECT_DATA"] = data_dir
     config.load_env()
+    setup_logging()
     init_db(config.db_path())
     conn = connect(config.db_path())
     _seed_settings(conn)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        queue.recover(conn)  # 启动恢复(REQ-TASK-006)
+        recovered = queue.recover(conn)
+        if recovered:
+            logger.info("启动恢复:%d 个中断任务等待人工重试", recovered)
         scheduler = None
         loop_task = None
         if workers:
             loop_task = asyncio.create_task(_queue_loop())
             scheduler = AsyncIOScheduler()
             async def _daily_sync():
-                # 定时同步(REQ-SYNC-001);进行中则跳过本轮(REQ-SYNC-002 合并语义)
+                # 定时同步(REQ-SYNC-001);进行中跳过本轮(REQ-SYNC-002 合并语义);失败不再静默
                 row = conn.execute("SELECT value FROM settings WHERE key='github_token'").fetchone()
                 flag = conn.execute("SELECT value FROM settings WHERE key='syncing'").fetchone()
-                if row and (flag is None or flag["value"] != "1"):
-                    from app.sync import syncer
+                if not row:
+                    logger.info("定时同步跳过:未配置 github_token")
+                    return
+                if flag and flag["value"] == "1":
+                    logger.info("定时同步跳过:手动同步进行中")
+                    return
+                from app.sync import syncer
 
-                    with contextlib.suppress(Exception):
-                        await syncer.sync_star(conn, row["value"])
-            scheduler.add_job(_daily_sync, "cron", hour=3, minute=17)
+                try:
+                    counts = await syncer.sync_star(conn, row["value"])
+                    logger.info("定时同步完成:%s", counts)
+                except Exception:
+                    logger.exception("定时同步失败(下轮重试)")
+
+            scheduler.add_job(_daily_sync, "cron", **config.DAILY_SYNC_CRON)
             scheduler.start()
         yield
         if loop_task:
             loop_task.cancel()
+            logger.warning("停机:进行中任务将标记中断,重启后由 recover 兜底等待人工重试")
         if scheduler:
             scheduler.shutdown(wait=False)
 

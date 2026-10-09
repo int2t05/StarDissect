@@ -1246,7 +1246,6 @@ dependencies = [
     { name = "markdown-it-py", extra = ["linkify", "plugins"] },
     { name = "nh3" },
     { name = "pydantic-ai-slim", extra = ["anthropic", "openai"] },
-    { name = "pygments" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1267,7 +1266,6 @@ requires-dist = [
     { name = "markdown-it-py", extras = ["plugins", "linkify"], specifier = ">=3.0" },
     { name = "nh3", specifier = ">=0.2" },
     { name = "pydantic-ai-slim", extras = ["openai", "anthropic"], specifier = ">=0.4" },
-    { name = "pygments", specifier = ">=2.17" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 

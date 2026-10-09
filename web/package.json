@@ -8,6 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "mermaid": "^12.1.0",
     "vue": "^3.5.0",
     "vue-router": "^4.4.0"
   },

@@ -1,8 +1,17 @@
 # 任务队列(ADR-0004):状态机=docs/PRD.md FIG-02;tasks 表即持久层,重启天然恢复
 # step() 处理一个任务,服务端以循环驱动;执行器契约见 step 内注释(REQ-TASK-003 归档语义)
 import asyncio
+import logging
 import sqlite3
 from datetime import datetime, timezone
+
+logger = logging.getLogger("stardissect.queue")
+
+
+def task_limits(conn: sqlite3.Connection) -> dict:
+    """从设置读取任务限额默认值(公共入口,同步器与 API 共用)。"""
+    s = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
+    return {"turn_limit": int(s.get("turn_limit", "30")), "time_limit_sec": int(s.get("time_limit_sec", "1800"))}
 
 
 class DuplicateTask(Exception):
@@ -128,8 +137,9 @@ def step(conn: sqlite3.Connection, executor) -> bool:
         status, reason = ("受限完成", e.reason) if e.partial else ("失败", e.reason)
     except asyncio.CancelledError:
         status, reason = "失败", "人工终止"
-    except Exception as e:  # noqa: BLE001 —— 归档为失败,原因入 fail_reason
+    except Exception as e:  # noqa: BLE001 —— 归档为失败,原因入 fail_reason 与日志
         status, reason = "失败", f"{type(e).__name__}: {e}"
+    logger.info("任务归档 id=%s repo=%s status=%s reason=%s", task["id"], task["repo_id"], status, reason)
     conn.execute(
         "UPDATE tasks SET status=?, fail_reason=?, finished_at=? WHERE id=?",
         (status, reason, _now(), task["id"]),

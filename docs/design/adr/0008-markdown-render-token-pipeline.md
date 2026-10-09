@@ -14,14 +14,13 @@ markdown-it-py(commonmark+table/strikethrough 等有限插件)服务端渲染:�
 
 - 前端渲染(markdown-it 浏览器版):四消费方仍需服务端重做解析,双份逻辑必然漂移。落选。
 - mistune/markdown-py:token 流开放性与插件生态不及 markdown-it 系;UIUX 既有依据链(VitePress 同源生态)亦指向 markdown-it。落选。
-- markdown-it token `map` 行号能力已核验(reference/markdown-it-py/docs/using.md:229,查阅 2026-10-09);代码高亮用 pygments 挂 renderer(参考 pygments,查阅 2026-10-09)。
+- markdown-it token `map` 行号能力已核验(reference/markdown-it-py/docs/using.md:229,查阅 2026-10-09);代码高亮暂不引入(pygments 落选:v1.0 纯净优先,`<pre><code>` 等宽呈现已满足精读)。
 
 ## 影响
 
-证据块语法(agent 产出约定)与渲染器一一对应,是 agent 提示词与校验器的共同契约(细化见 v1.0/tech.md 渲染管线节);UIUX.md 中「校验输入用 ADR-0008 的 token 流」的引用自此闭合。
+证据块语法(agent 产出约定)与渲染器一一对应,是 agent 提示词与校验器的共同契约(细化见 v1.0/tech.md 渲染管线节);UIUX.md 中「校验输入用 ADR-0008 的 token 流」指向本 ADR。
 
 ## 参考
 
 - reference/markdown-it-py/docs/using.md:229(查阅 2026-10-09):Token 构造与 map 行区间。
-- reference/pygments/(查阅 2026-10-09):服务端代码高亮。
 - reference/vitepress/(查阅 2026-10-09):markdown-it 生态内「token→目录/搜索」的完整先例。

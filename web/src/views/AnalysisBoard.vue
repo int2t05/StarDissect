@@ -1,36 +1,37 @@
 <!-- 分析管理:队列状态、暂停/恢复、优先级、取消、重试(REQ-TASK-001..005,US-04) -->
 <script setup>
+import { api } from '../api'
 import { onMounted, onUnmounted, ref } from 'vue'
 
 const data = ref({ paused: false, tasks: [] })
 let timer = null
 
 async function load() {
-  data.value = await (await fetch('/api/tasks')).json()
+  data.value = await api('/api/tasks')
 }
 
 async function togglePause() {
-  await fetch('/api/queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paused: !data.value.paused }) })
+  await api('/api/queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paused: !data.value.paused }) })
   await load()
 }
 
 async function cancel(id) {
-  await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+  await api(`/api/tasks/${id}`, { method: 'DELETE' })
   await load()
 }
 
 async function retry(id) {
-  await fetch(`/api/tasks/${id}/retry`, { method: 'POST' })
+  await api(`/api/tasks/${id}/retry`, { method: 'POST' })
   await load()
 }
 
 async function setPriority(id, priority) {
-  await fetch(`/api/tasks/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority }) })
+  await api(`/api/tasks/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority }) })
   await load()
 }
 
 async function syncNow() {
-  await fetch('/api/sync', { method: 'POST' })
+  await api('/api/sync', { method: 'POST' })
 }
 
 onMounted(() => { load(); timer = setInterval(load, 3000) })

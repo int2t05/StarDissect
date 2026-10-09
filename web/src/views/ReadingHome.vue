@@ -1,7 +1,8 @@
 <!-- 阅读中心:报告条目列表(miniflux 式),含全局搜索入口(UX-38..42)与未读筛选 -->
 <script setup>
-import { nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { api } from '../api'
 
 const router = useRouter()
 const entries = ref([])
@@ -25,13 +26,36 @@ const groupedHits = () => {
 }
 
 async function load() {
-  const repos = await (await fetch('/api/repos?filter=all')).json()
+  const repos = await api('/api/repos?filter=all')
   const list = []
   for (const r of repos.filter((x) => x.versions > 0)) {
-    const versions = await (await fetch(`/api/repos/${r.id}/reports`)).json()
+    const versions = await api(`/api/repos/${r.id}/reports`)
     for (const v of versions) list.push({ ...v, repo: r })
   }
   entries.value = list.sort((a, b) => b.id - a.id)
+  if (active.value >= entries.value.length) active.value = entries.value.length - 1
+}
+
+// 列表筛选(REQ-READ-006):未读/收藏
+const shown = () => entries.value.filter((e) =>
+  filter.value === 'all' || (filter.value === 'unread' && !e.read) || (filter.value === 'favorited' && e.favorited))
+
+// 列表键盘 j/k 移动、o/Enter 打开、m/f 切换(REQ-READ-004)
+const active = ref(-1)
+function onListKey(e) {
+  if (e.isComposing || searchOpen.value) return
+  const list = shown()
+  if (e.key === 'j') { active.value = Math.min(active.value + 1, list.length - 1); scrollActiveEntry() }
+  else if (e.key === 'k') { active.value = Math.max(active.value - 1, 0); scrollActiveEntry() }
+  else if ((e.key === 'o' || e.key === 'Enter') && list[active.value]) router.push(`/repos/${list[active.value].repo.id}/report/${list[active.value].id}`)
+  else if ((e.key === 'm' || e.key === 'f') && list[active.value]) toggleEntryState(list[active.value], e.key === 'm' ? 'read' : 'favorited')
+}
+function scrollActiveEntry() {
+  nextTick(() => document.querySelectorAll('.entries li')[active.value]?.scrollIntoView({ block: 'nearest' }))
+}
+async function toggleEntryState(entry, field) {
+  await api(`/api/reports/${entry.id}/state`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [field]: !entry[field] }) })
+  entry[field] = !entry[field]
 }
 
 async function doSearch() {
@@ -62,14 +86,22 @@ function goto(hit) {
   else router.push(`/repos/${hit.repo_id}/report/${hit.version_id}`)
 }
 
-onMounted(load)
+onMounted(() => { load(); window.addEventListener('keydown', onListKey) })
+onUnmounted(() => window.removeEventListener('keydown', onListKey))
 </script>
 
 <template>
   <div class="page">
     <header class="bar">
       <h1>阅读中心</h1>
-      <button data-search-open @click="searchOpen = !searchOpen">搜索 <kbd>/</kbd></button>
+      <div class="bar-tools">
+        <select v-model="filter">
+          <option value="all">全部</option>
+          <option value="unread">未读</option>
+          <option value="favorited">收藏</option>
+        </select>
+        <button data-search-open @click="searchOpen = !searchOpen">搜索 <kbd>/</kbd></button>
+      </div>
     </header>
 
     <div v-if="searchOpen" class="search-pop">
@@ -94,9 +126,9 @@ onMounted(load)
     </div>
 
     <ul class="entries">
-      <li v-for="e in entries" :key="e.id">
+      <li v-for="(e, i) in shown()" :key="e.id" :class="{ active: i === active }">
         <RouterLink :to="`/repos/${e.repo.id}/report/${e.id}`">
-          <span class="name">{{ e.repo.full_name }}</span>
+          <span class="name">{{ e.repo.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
           <span class="meta">v{{ e.version_no }} · {{ e.created_at }}</span>
         </RouterLink>
       </li>
@@ -107,6 +139,9 @@ onMounted(load)
 
 <style scoped>
 .bar { display: flex; justify-content: space-between; align-items: center; }
+.bar-tools { display: flex; gap: 8px; }
+.entries li.active { background: var(--sd-accent-soft); }
+.entries .dot { color: var(--sd-accent); font-size: 0.7em; margin-left: 6px; }
 .entries { list-style: none; padding: 0; max-width: var(--sd-width); }
 .entries li { border-bottom: 1px solid var(--sd-border); content-visibility: auto; contain-intrinsic-size: auto 60px; } /* UX-15 */
 .entries a { display: flex; justify-content: space-between; padding: 12px 8px; color: var(--sd-text); }

@@ -1,6 +1,7 @@
 # Agent 运行器:克隆准备、classifier/analyzer 构建与执行、产物落库(ADR-0005;队列 executor 契约=S4)
 import asyncio
 import json
+import logging
 import subprocess
 from pathlib import Path
 
@@ -16,7 +17,9 @@ from app.render import pipeline, validator
 from app.search import indexer
 from app.tasks.queue import TaskLimited
 
-# 消毒白名单:报告 HTML 存库前执行(审查 T-07;对齐 UX-41 的服务端消毒纪律)
+logger = logging.getLogger("stardissect.agent")
+
+# 消毒白名单:报告 HTML 存库前执行(服务端消毒纪律,对齐 UX-41)
 # rel 由 nh3 link_rel 自动管理,不入白名单
 CLEAN_TAGS = {"div", "span", "code", "pre", "a", "p", "h1", "h2", "h3", "h4", "ul", "ol", "li",
               "table", "thead", "tbody", "tr", "th", "td", "blockquote", "br", "hr", "em", "strong", "figure", "figcaption", "mark"}
@@ -57,14 +60,19 @@ class ReportDraft(BaseModel):
 
 def prepare_clone(repo_full_name: str, clone_url: str, clones_dir: Path | None = None) -> tuple[Path, str]:
     """浅克隆默认分支,返回 (克隆目录, head_commit);已存在则复用。commit_anchor=分析时快照(REQ-RPT-002)。"""
-    clones_dir = clones_dir or config.data_dir() / "clones"  # 落点随数据目录(审查 T-06)
+    clones_dir = clones_dir or config.data_dir() / "clones"  # 落点随数据目录
     dest = clones_dir / repo_full_name.replace("/", "__")
     if not (dest / ".git").exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            ["git", "clone", "--depth", "1", clone_url, str(dest)],
-            check=True, capture_output=True, text=True,
-        )
+        try:
+            subprocess.run(
+                ["git", "clone", "--depth", "1", clone_url, str(dest)],
+                check=True, capture_output=True, text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            # 携带 git stderr,鉴权/网络/仓库不存在等真因进 fail_reason
+            detail = (e.stderr or "").strip().splitlines()[-1:] or ["未知错误"]
+            raise RuntimeError(f"git clone 失败: {detail[0][:200]}") from e
     sha = subprocess.run(
         ["git", "-C", str(dest), "rev-parse", "HEAD"],
         check=True, capture_output=True, text=True,
@@ -120,7 +128,7 @@ def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: 
     )
     md = "\n\n".join(f"## {s.title}\n\n{s.body}" for s in draft.sections)
     html, sections, plain = pipeline.render(md)
-    html = nh3.clean(html, tags=CLEAN_TAGS, attributes=CLEAN_ATTRS, url_schemes={"http", "https", "mailto"})  # T-07
+    html = nh3.clean(html, tags=CLEAN_TAGS, attributes=CLEAN_ATTRS, url_schemes={"http", "https", "mailto"})
     meta = {"commit_anchor": commit_anchor, "typography_check": _typography_check(plain)}
     cur = conn.execute(
         "INSERT INTO report_versions(repo_id, version_no, task_id, commit_anchor, markdown, html, sections_json, meta_json)"
@@ -187,11 +195,20 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
         readme_path = clone_root / "README.md"
         readme = f"README 摘要: {readme_path.read_text(encoding='utf-8', errors='replace')[:4000]}" if readme_path.exists() else "README 摘要: (无)"
         tree = "\n".join(f"{'d ' if p.is_dir() else 'f '}{p.name}" for p in sorted(clone_root.iterdir(), key=lambda x: (x.is_file(), x.name)))
-        # classifier 同受约束(NFR-01):一次调用,墙钟 120s
-        async with asyncio.timeout(120):
-            c = await classifier.run(f"{readme}\n\n文件树:\n{tree}", usage_limits=UsageLimits(request_limit=3))
+        # classifier 同受约束(NFR-01):一次调用,墙钟限时;触限转中文 reason(F5)
+        try:
+            async with asyncio.timeout(config.CLASSIFIER_TIMEOUT_SEC):
+                c = await classifier.run(f"{readme}\n\n文件树:\n{tree}", usage_limits=UsageLimits(request_limit=3))
+        except (UsageLimitExceeded, TimeoutError) as e:
+            raise TaskLimited(partial=False, reason="分类触达轮次上限" if isinstance(e, UsageLimitExceeded) else "分类超时") from e
         upsert_classification(conn, repo["id"], c.output.type, c.output.reason, c.output.confidence, "auto")
         cls_row = current_classification(conn, repo["id"])
+        logger.info("分类完成 repo=%s type=%s confidence=%s", repo["full_name"], cls_row["type"], cls_row["confidence"])
+        if cls_row["type"] == "混合/未识别":
+            # 无法形成可信范围 → 待处理,等待人工选择范围(REQ-CLS-002/FIG-02)
+            conn.execute("UPDATE repos SET status='待处理', updated_at=datetime('now') WHERE id=?", (repo["id"],))
+            conn.commit()
+            raise TaskLimited(partial=False, reason="待人工选择范围(混合/未识别)")
     conn.execute("UPDATE repos SET status='已分类', updated_at=datetime('now') WHERE id=?", (repo["id"],))
     conn.commit()
 

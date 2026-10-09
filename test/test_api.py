@@ -29,12 +29,20 @@ async def _seed_report(conn):
 
 async def test_settings_secret_masked(client):
     c, conn = client
-    r = await c.patch("/api/settings", json={"github_token": "ghp_1234567890abcd", "turn_limit": "25"})
+    r = await c.patch("/api/settings", json={"ai_api_key": "sk-1234567890abcd", "turn_limit": "25"})
     assert r.status_code == 200
     r = await c.get("/api/settings")
-    assert r.json()["github_token"] == "…abcd"  # 密钥只回尾号(REQ-CFG-001)
+    assert r.json()["ai_api_key"] == "…abcd"  # 密钥只回尾号(REQ-CFG-001)
     assert r.json()["turn_limit"] == "25"
-    assert "ghp_1234567890abcd" not in r.text
+    assert "sk-1234567890abcd" not in r.text
+
+
+async def test_settings_github_token_validated(client):
+    # AC-027:token 校验失败不影响其他项保存,且无效 token 不落库
+    c, conn = client
+    r = await c.patch("/api/settings", json={"github_token": "ghp_invalid_token_xxx", "turn_limit": "18"})
+    assert r.status_code == 422
+    assert conn.execute("SELECT value FROM settings WHERE key='turn_limit'").fetchone()["value"] == "18"
 
 
 async def test_sync_requires_token_and_reports_status(client):
@@ -49,7 +57,7 @@ async def test_sync_requires_token_and_reports_status(client):
 
 
 async def test_settings_masked_value_not_overwritten(client):
-    # 审查 T-02:掩码「…尾号」原样提交不得覆盖服务端真值;内部键不外吐
+    # 掩码「…尾号」原样提交不得覆盖服务端真值;内部键不外吐
     c, conn = client
     real = "sk-real-secret-9999"
     conn.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('ai_api_key', ?)", (real,))

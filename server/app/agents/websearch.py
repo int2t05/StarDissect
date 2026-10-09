@@ -1,6 +1,8 @@
 # 网络搜索工具链(参考 Cognik:server/internal/infra/adapter/search_client.go 降级链模式)
-# 顺序降级 Tavily→Exa→DuckDuckGo,首个成功即返回;片段是线索不是证据,引用前须 web_fetch 核实
+# 顺序降级 Tavily→Exa→DuckDuckGo,首个成功即返回;「线索≠证据」纪律的唯一陈述见 docs/v1.0/tech.md §4
 import re
+
+from app import config
 from dataclasses import dataclass
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
@@ -75,20 +77,20 @@ class DuckDuckGoClient:
 class SearchChain:
     def __init__(self, backends: list):
         self.backends = backends
+        self.last_errors: list[str] = []  # 最近一轮各后端失败摘要,空结果时供上层透出
 
     async def search(self, query: str, max_results: int = 5) -> list[WebSearchResult]:
-        errors: list[str] = []
+        self.last_errors = []
+        results: list[WebSearchResult] = []
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             for backend in self.backends:
+                if results:
+                    break
                 try:
                     results = await backend.search(client, query, max_results)
-                    if results:
-                        return results
-                except Exception as e:  # noqa: BLE001 —— 降级到下一后端
-                    errors.append(f"{backend.name}: {type(e).__name__}")
-        if errors and not self.backends:
-            raise RuntimeError("未配置任何搜索后端")
-        return []
+                except Exception as e:  # noqa: BLE001 —— 降级到下一后端,记录失败摘要
+                    self.last_errors.append(f"{backend.name}: {type(e).__name__}: {e}")
+        return results
 
 
 def build_chain(settings: dict) -> SearchChain:
@@ -118,7 +120,7 @@ _WS = re.compile(r"\s+")
 async def deep_research(chain: SearchChain, query: str, max_pages: int = 3, page_chars: int = 2000) -> str:
     """深度调研:搜索→抓取前 N 页→蒸馏正文(参考 gpt-researcher 的 search+fetch 合一模式)。
     单次工具调用内完成多页核实,消耗计入任务轮次预算(DEC-03)。"""
-    results = await chain.search(query, max(5, max_pages))
+    results = await chain.search(query, max(config.MAX_DEEP_PAGES, max_pages))
     if not results:
         return "无搜索结果"
     parts: list[str] = []

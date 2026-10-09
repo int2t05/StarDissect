@@ -21,7 +21,7 @@ def _star(full_name, github_id, fork=False, archived=False, starred_at="2026-10-
 
 def test_apply_stars_inserts_and_enqueues(conn):
     counts = syncer.apply_stars(conn, [_star("o/good", 1)])
-    assert counts == {"added": 1, "removed": 0, "skipped": 0, "failed": 0}
+    assert counts == {"added": 1, "removed": 0, "skipped": 0}
     repo = conn.execute("SELECT * FROM repos").fetchone()
     assert repo["status"] == "已收录"
     task = conn.execute("SELECT * FROM tasks").fetchone()

@@ -71,7 +71,7 @@ def test_cancel_pending_only_target(conn):
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
     queue.enqueue(conn, 2, "analyze", priority=100, turn_limit=30, time_limit_sec=1800)
     target = conn.execute("SELECT id FROM tasks WHERE repo_id=1").fetchone()["id"]
-    assert queue.cancel_pending(conn, task_id=target) == 1  # 只删目标(审查 T-01)
+    assert queue.cancel_pending(conn, task_id=target) == 1  # 只删目标
     assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE status='排队'").fetchone()["c"] == 1
 
 

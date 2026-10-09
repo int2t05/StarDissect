@@ -3,15 +3,16 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useReadingProgress } from '../composables/useReadingProgress'
 import { useReaderSettings } from '../composables/useReaderSettings'
 
 const route = useRoute()
 const { settings } = useReaderSettings()
+const vid = () => route.params.vid
 const report = ref(null)
 const sections = ref([])
 const state = ref({ read: false, favorited: false })
 const violations = ref(-1) // -1=未显示;排版校验违规数(REQ-RPT-003)
-let scrollTimer = null
 let io = null
 const activeSeq = ref(-1)
 
@@ -23,10 +24,6 @@ onMounted(async () => {
   report.value.repo_name = (await (await fetch(`/api/repos/${report.value.repo_id}`)).json()).repo.full_name
   const meta = JSON.parse(report.value.meta || '{}')
   violations.value = meta.typography_check?.status === 'checked' ? meta.typography_check.violations.length : -1
-  const saved = await (await fetch(`/api/reports/${route.params.vid}/progress`)).json()
-  await nextTick()
-  const target = document.querySelector(`[data-seq="${saved.anchor_seq ?? 0}"]`)
-  if (target) target.scrollIntoView({ block: 'start' })
   renderMermaid()
   // scrollspy:最后一个越过视口顶的标题(UX-59 语义);滚动在 window(审查 T-04)
   io = new IntersectionObserver(
@@ -36,8 +33,10 @@ onMounted(async () => {
     { rootMargin: '0px 0px -90% 0px' },
   )
   document.querySelectorAll('.article [data-seq]').forEach((el) => io.observe(el))
-  window.addEventListener('scroll', onScroll, { passive: true })
+  progress.mount()
   window.addEventListener('keydown', onKey)
+  await nextTick()
+  await progress.restore()  // 跨设备恢复(REQ-READ-003)
 })
 
 // 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)
@@ -62,7 +61,7 @@ async function renderMermaid() {
     b.replaceWith(fig)
     fig.append(holder, fallback)
     try {
-      const mermaid = (await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs')).default
+      const mermaid = (await import('mermaid')).default  // 本地依赖随构建打包(E16:内网自托管不依赖外部 CDN)
       mermaid.initialize({ startOnLoad: false, theme: 'dark' })
       const { svg } = await mermaid.render(`m${Math.random().toString(36).slice(2)}`, src)
       holder.innerHTML = svg
@@ -92,35 +91,23 @@ function onKey(e) {
 
 onUnmounted(() => {
   io?.disconnect()
-  window.removeEventListener('scroll', onScroll)
+  progress.unmount()
   window.removeEventListener('keydown', onKey)
 })
 
-function onScroll() {
-  clearTimeout(scrollTimer)
-  scrollTimer = setTimeout(async () => {
-    const anchors = [...document.querySelectorAll('.article [data-seq]')]
-    let seq = 0
-    for (const el of anchors) {
-      if (el.getBoundingClientRect().top <= 80) seq = Number(el.dataset.seq)
-    }
-    const doc = document.documentElement
-    const top = Math.round((doc.scrollTop / Math.max(1, doc.scrollHeight - doc.clientHeight)) * 100)
-    await fetch(`/api/reports/${route.params.vid}/progress`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ anchor_seq: seq, top_percent: top, bottom_percent: top }),
-    })
-  }, 800) // 节流上报(UX-28)
+// 当前阅读位置:最后越过视口顶的章节 + 页面滚动百分比
+function computeCurrent() {
+  const anchors = [...document.querySelectorAll('.article [data-seq]')]
+  let seq = 0
+  for (const el of anchors) {
+    if (el.getBoundingClientRect().top <= 80) seq = Number(el.dataset.seq)
+  }
+  const doc = document.documentElement
+  const top = Math.round((doc.scrollTop / Math.max(1, doc.scrollHeight - doc.clientHeight)) * 100)
+  return { anchor_seq: seq, top }
 }
 
-function resetProgress() {
-  fetch(`/api/reports/${route.params.vid}/progress`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ anchor_seq: 0, top_percent: 0, bottom_percent: 0, reset: true }),
-  }).then(() => window.scrollTo(0, 0))
-}
+const progress = useReadingProgress(vid, computeCurrent)
 
 function jump(seq) {
   document.querySelector(`[data-seq="${seq}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -138,7 +125,7 @@ function jump(seq) {
       <div class="tools">
         <button @click="toggleState('read')">{{ state.read ? '已读' : '未读' }} <kbd>m</kbd></button>
         <button @click="toggleState('favorited')">{{ state.favorited ? '★' : '☆' }} <kbd>f</kbd></button>
-        <select v-model.number="settings.fontSize" @change="0">
+        <select v-model.number="settings.fontSize">
           <option v-for="s in [12, 13, 14, 15.5, 17, 19, 21, 22]" :key="s" :value="s">{{ s }}px</option>
         </select>
         <select v-model="settings.width">
@@ -151,12 +138,13 @@ function jump(seq) {
           <option value="1.8">1.8</option>
           <option value="2.0">密 2.0</option>
         </select>
+        <button @click="settings.contrast = !settings.contrast">{{ settings.contrast ? '标准对比' : '强对比' }}</button>
         <select v-model="settings.theme">
           <option value="light">浅</option>
           <option value="dark">深</option>
           <option value="auto">跟随系统</option>
         </select>
-        <button @click="resetProgress">重置进度</button>
+        <button @click="progress.reset()">重置进度</button>
         <a :href="`/api/reports/${route.params.vid}/export`">导出 MD</a>
       </div>
     </header>
@@ -199,7 +187,7 @@ kbd { font-size: 10px; color: var(--sd-text-3); }
 /* 服务端渲染正文内证据块(UX-43..47):虚线只属于分析推断 */
 .article { overflow-wrap: break-word; }
 .article h2, .article h3 { border-top: 1px solid var(--sd-border); padding-top: 20px; margin-top: 32px; }
-.article pre { background: #0c0c10; color: var(--sd-text); font-family: var(--sd-font-mono); padding: 12px; border-radius: 4px; overflow-x: auto; }
+.article pre { background: var(--sd-code-bg); color: var(--sd-text); font-family: var(--sd-font-mono); padding: 12px; border-radius: 4px; overflow-x: auto; }
 .article code { font-family: var(--sd-font-mono); }
 .article table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; }
 .article th, .article td { border: 1px solid var(--sd-border); padding: 4px 10px; }

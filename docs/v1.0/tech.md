@@ -12,17 +12,15 @@
 ```text
 server/                     # 单进程 FastAPI 应用(ADR-0001)
   app/
-    main.py                 # 应用装配:路由挂载、静态托管、调度与队列启动
+    main.py                 # 应用装配:路由挂载、静态托管、调度与队列启动、日志
     config.py               # 环境与路径配置
     db.py                   # SQLite 连接(WAL)、schema 迁移
-    models.py               # Pydantic 模型(表行与 API 契约共用)
     sync/                   # 同步器(ADR-0003)
     tasks/                  # 队列与状态机(ADR-0004)
     agents/                 # classifier / analyzer 及工具集(ADR-0005)
     render/                 # 渲染管线(ADR-0008)
     search/                 # 分词与索引(ADR-0006)
     api/                    # REST 路由(§6)
-  tests → ../test           # 测试入口
 web/                        # Vue 3 SPA(UIUX §11 结构:tokens/组件树/composables)
 test/                       # 测试(真实调用,无 mock,见 §8)
 data/                       # 运行产物:app.db、仓库克隆克隆区(不入库)
@@ -33,7 +31,7 @@ docs/                       # 本文档体系
 
 ```sql
 repos(id PK, github_id UNIQUE, full_name, description, language, default_branch,
-      head_commit, status,            -- PRD FIG-02 状态
+      status,                          -- PRD FIG-02 状态
       excluded INT DEFAULT 0, unstarred INT DEFAULT 0,
       starred_at, created_at, updated_at)
 
@@ -61,12 +59,12 @@ knowledge_points(id PK, repo_id FK, report_version_id FK,
 reading_progress(report_version_id PK, anchor, top_percent, bottom_percent,
       highest_anchor, updated_at)                  -- UX-26…28,高水位写入
 
-sync_runs(id PK, started_at, finished_at, added, removed, skipped, failed, cursor)
+sync_runs(id PK, started_at, finished_at, added, removed, skipped, failed)
 
 settings(key PK, value)                            -- token/密钥/限额;API 永不回显明文
 
 report_sections(id PK, report_version_id FK, seq, title, path_chain, text_content)
-report_fts(fts5, 自持分词副本)                      -- snippet 取自索引副本(ADR-0006 修订)
+report_fts(fts5, 自持分词副本)                      -- snippet 取自索引副本(ADR-0006)
 knowledge_fts(fts5, 自持分词副本)                    -- 知识点检索域(REQ-SRCH-001)
 repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检索域(REQ-SRCH-001)
 ```
@@ -83,7 +81,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 
 ## 4. 分析 agent 规格(ADR-0005)
 
-**输入上下文**:仓库浅克隆到 `data/clones/<repo>/` 并检出 head_commit(即 commit_anchor);README、元数据、目录树随 prompt 注入。
+**输入上下文**:仓库浅克隆默认分支,以克隆时 HEAD 为快照锚点(commit_anchor)写入 `data/clones/<repo>/`;README、元数据、目录树随 prompt 注入。
 
 **工具集**(作用域限克隆目录与 GitHub 只读):
 
@@ -111,8 +109,8 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
    - `> [infer] 文本` → 分析推断(UX-45)
    - `> [external] 文本 (url, 日期)` → 外部背景(UX-46)
    - `> [unknown] 文本` → 未知/冲突提示条(UX-47)
-2. markdown-it-py 解析 → token 流:渲染器把上述引用块转为 UIUX §8 结构;pygments 高亮。
-3. 同一 token 流派生:h2/h3 章节+`map` 行号链(ADR-0007)→ sections_json;跳过代码区段的纯文本 → report_sections.text_content(校验输入与 FTS 索引共用)。
+2. markdown-it-py 解析 → token 流:渲染器把上述引用块转为 UIUX §8 结构。
+3. 同一 token 流派生:h2/h3 章节+`map` 行号链+锚点 id/data-seq(ADR-0007)→ sections_json;跳过代码区段的纯文本 → report_sections.text_content(校验输入与 FTS 索引共用)。
 4. 排版校验(REQ-RPT-003):UIUX-16…20 规则作用于纯文本流,违规记录入 meta_json(标记不阻断,→OPN-04)。
 
 ## 6. API 面(REST,`/api` 前缀;SPA 由同进程静态托管)

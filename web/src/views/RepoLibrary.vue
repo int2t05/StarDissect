@@ -1,5 +1,6 @@
 <!-- 仓库库:列表筛选、仓库详情(分类/锁定/标签/排除/重新分析/版本列表,US-02/03/08) -->
 <script setup>
+import { api } from '../api'
 import { onMounted, ref } from 'vue'
 
 const repos = ref([])
@@ -8,16 +9,16 @@ const filter = ref('active')
 const detail = ref(null)
 
 async function load() {
-  repos.value = await (await fetch(`/api/repos?filter=${filter.value}&q=${encodeURIComponent(q.value)}`)).json()
+  repos.value = await api(`/api/repos?filter=${filter.value}&q=${encodeURIComponent(q.value)}`)
 }
 
 async function open(id) {
-  detail.value = await (await fetch(`/api/repos/${id}`)).json()
+  detail.value = await api(`/api/repos/${id}`)
 }
 
 async function toggleLock() {
   const c = detail.value.classification
-  await fetch(`/api/repos/${detail.value.repo.id}/lock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locked: !c.locked }) })
+  await api(`/api/repos/${detail.value.repo.id}/lock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locked: !c.locked }) })
   await open(detail.value.repo.id)
 }
 
@@ -25,24 +26,24 @@ async function addTag(e) {
   const name = e.target.value.trim()
   e.target.value = ''
   if (!name) return
-  await fetch(`/api/repos/${detail.value.repo.id}/tags`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+  await api(`/api/repos/${detail.value.repo.id}/tags`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
   await open(detail.value.repo.id)
   await load()
 }
 
 async function delTag(name) {
-  await fetch(`/api/repos/${detail.value.repo.id}/tags/${encodeURIComponent(name)}`, { method: 'DELETE' })
+  await api(`/api/repos/${detail.value.repo.id}/tags/${encodeURIComponent(name)}`, { method: 'DELETE' })
   await open(detail.value.repo.id)
 }
 
 async function toggleExclude() {
-  await fetch(`/api/repos/${detail.value.repo.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ excluded: !detail.value.repo.excluded }) })
+  await api(`/api/repos/${detail.value.repo.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ excluded: !detail.value.repo.excluded }) })
   await open(detail.value.repo.id)
   await load()
 }
 
 async function analyze() {
-  await fetch(`/api/repos/${detail.value.repo.id}/analyze`, { method: 'POST' })
+  await api(`/api/repos/${detail.value.repo.id}/analyze`, { method: 'POST' })
   await open(detail.value.repo.id)
 }
 
@@ -120,7 +121,7 @@ onMounted(load)
 .desc { color: var(--sd-text-2); margin: 4px 0 0; font-size: 0.9em; }
 .chip { display: inline-block; font-size: 0.78em; border: 1px solid var(--sd-border); border-radius: 10px; padding: 1px 8px; margin-left: 8px; color: var(--sd-text-2); }
 .chip.lock { color: var(--sd-accent); border-color: var(--sd-accent); }
-.drawer { position: fixed; inset: 0; background: #0009; display: flex; justify-content: flex-end; z-index: 20; }
+.drawer { position: fixed; inset: 0; background: var(--sd-overlay); display: flex; justify-content: flex-end; z-index: 20; }
 .panel { width: min(520px, 94vw); background: var(--sd-surface); padding: 20px; overflow-y: auto; }
 .reason { color: var(--sd-text-2); font-size: 0.9em; }
 .tags input { width: 60%; margin-top: 6px; }

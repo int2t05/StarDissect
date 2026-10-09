@@ -17,7 +17,7 @@
 
 ## 影响
 
-UIUX.md 中「ADR-0008 token map 提供」「map 行号用于目录树与命中片段回源」的引用自本 ADR 与 ADR-0008 闭合;scrollspy 算法本体仍以 UX-59(改写 VitePress outline)为准,本 ADR 只供数据。
+UIUX.md 中「ADR-0008 token map 提供」「map 行号用于目录树与命中片段回源」两处引用,指向本 ADR 与 ADR-0008;scrollspy 算法本体仍以 UX-59(改写 VitePress outline)为准,本 ADR 只供数据。
 
 ## 参考
 

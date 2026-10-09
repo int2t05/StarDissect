@@ -59,14 +59,14 @@ flowchart TB
 
 ## 3. 数据层(概览;DDL 见 v1.0/tech.md)
 
-单一 SQLite 库(WAL;ADR-0002):业务表(repos/classifications/tags/tasks/report_versions/knowledge_points/reading_progress/sync_runs/settings)+ 章节级 FTS5 虚表(external content,jieba 预分词)。报告版本只增不覆(DEC-06);人工锁定/标签/修订由写入路径保证不被自动流程触碰(REQ-CLS-003/005、KP-002)。
+单一 SQLite 库(WAL;ADR-0002):业务表(repos/classifications/tags/tasks/report_versions/knowledge_points/reading_progress/sync_runs/settings)+ 三张 FTS5 检索虚表(自持分词副本,ADR-0006)。报告版本只增不覆(DEC-06);人工锁定/标签/修订由写入路径保证不被自动流程触碰(REQ-CLS-003/005、KP-002)。
 
 ## 4. NFR 落点
 
 | NFR      | 机制                                                                                    |
 | -------- | --------------------------------------------------------------------------------------- |
 | NFR-01 限额 | pydantic-ai `UsageLimits.request_limit` + asyncio 墙钟超时,双约束在 agent 运行层强制(ADR-0005) |
-| NFR-02 性能 | 章节级 FTS5 预建索引;报告 HTML 服务端预渲染存库,阅读页零渲染开销                        |
+| NFR-02 性能 | 章节级 FTS5 预建索引;报告 HTML 服务端预渲染存库,阅读页零渲染开销                           |
 | NFR-03 可靠性 | SQLite WAL+单文件;任务状态持久库,重启后「分析中」标记中断(REQ-TASK-006)               |
 | NFR-04 安全 | 密钥仅存 settings 表,API 永不回显明文;日志脱敏;无登录前提=内网/反代(DEC-04)           |
 | NFR-05 响应式 | 前端断点按 UIUX §4 实现,390/768/1024/1440 手测                                        |
@@ -75,7 +75,7 @@ flowchart TB
 
 | 失败模式                 | 缓解                                                                       |
 | ------------------------ | -------------------------------------------------------------------------- |
-| LLM 调用失败/超时        | agent 循环内单工具调用重试一次;任务级失败可手动重试(REQ-TASK-004)        |
+| LLM 调用失败/超时        | 网络类工具失败返回错误文本,agent 降级为未知证据;任务级失败可手动重试(REQ-TASK-004) |
 | 任务执行中进程崩溃       | 启动扫描:进行中→标「中断」;产物写入以事务提交,无半成品(REQ-TASK-006)    |
 | GitHub 限流              | 同步器本轮记「跳过」待下轮;agent 的 GitHub 工具失败降级为「作者说明/未知」证据 |
 | 排版校验器故障           | 跳过校验并标注「未校验」(REQ-RPT-003)                                     |

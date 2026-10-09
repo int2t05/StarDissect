@@ -1,5 +1,6 @@
-# Agent 工具集:作用域限仓库克隆区与只读外部访问(docs/v1.0/tech.md §4)
+# Agent 工具集:作用域限仓库克隆区与只读外部访问(契约=docs/v1.0/tech.md §4)
 # 证据锚定:read_file/search_code 输出带真实行号,供 [source] 证据引用(REQ-RPT-002)
+# 网络搜索纪律(线索≠证据)的唯一陈述在 tech.md §4,此处工具 docstring 仅简述并回指
 import os
 import re
 from dataclasses import dataclass
@@ -8,11 +9,8 @@ from pathlib import Path
 import httpx
 from pydantic_ai import RunContext
 
+from app import config
 from app.agents import websearch
-
-MAX_SEARCH_HITS = 50
-MAX_FILE_LINES = 400
-MAX_WEB_CHARS = 8000
 
 REPO_SUFFIXES = {
     ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs", ".java", ".rb", ".c", ".h", ".cpp",
@@ -36,7 +34,7 @@ def _resolve(deps: AgentDeps, rel: str) -> Path:
     return p
 
 
-async def read_file(ctx: RunContext[AgentDeps], path: str, start: int = 1, end: int = MAX_FILE_LINES) -> str:
+async def read_file(ctx: RunContext[AgentDeps], path: str, start: int = 1, end: int = config.MAX_FILE_LINES) -> str:
     """读克隆区文件,返回带行号文本;行区间限长防刷屏;系统路径异常如实报错不崩溃。"""
     try:
         p = _resolve(ctx.deps, path)
@@ -44,7 +42,7 @@ async def read_file(ctx: RunContext[AgentDeps], path: str, start: int = 1, end: 
     except OSError as e:
         return f"读取失败: {e}"
     start = max(1, start)
-    end = min(len(lines), end, start + MAX_FILE_LINES - 1)
+    end = min(len(lines), end, start + config.MAX_FILE_LINES - 1)
     body = "\n".join(f"{i}: {lines[i - 1]}" for i in range(start, end + 1))
     if end < len(lines):
         body += f"\n…(共 {len(lines)} 行,已截断)"
@@ -73,7 +71,7 @@ async def search_code(ctx: RunContext[AgentDeps], pattern: str, suffix: str = ""
                     if rx.search(line):
                         rel = f.relative_to(root).as_posix()
                         hits.append(f"{rel}:{i}: {line.strip()}")
-                        if len(hits) >= MAX_SEARCH_HITS:
+                        if len(hits) >= config.MAX_SEARCH_HITS:
                             return "\n".join(hits) + "\n…(已达上限)"
             except OSError:
                 continue
@@ -102,12 +100,12 @@ async def fetch_github(ctx: RunContext[AgentDeps], kind: str, number: int = 0) -
             if kind == "readme":
                 r = await client.get(f"{base}/readme", headers={**headers, "Accept": "application/vnd.github.raw"})
                 r.raise_for_status()
-                return r.text[:MAX_WEB_CHARS]
+                return r.text[:config.MAX_WEB_CHARS]
             if kind == "issue":
                 r = await client.get(f"{base}/issues/{number}")
                 r.raise_for_status()
                 d = r.json()
-                return f"#{d['number']} {d['title']}\n{d.get('body') or ''}"[:MAX_WEB_CHARS]
+                return f"#{d['number']} {d['title']}\n{d.get('body') or ''}"[:config.MAX_WEB_CHARS]
             if kind == "issues_list":
                 r = await client.get(f"{base}/issues", params={"per_page": 10, "state": "all"})
                 r.raise_for_status()
@@ -123,6 +121,9 @@ async def web_search(ctx: RunContext[AgentDeps], query: str, max_results: int = 
     if ctx.deps.search_chain is None:
         return "未配置搜索后端"
     results = await ctx.deps.search_chain.search(query, max(max_results, 1))
+    if not results and ctx.deps.search_chain.last_errors:
+        # 全后端失败:透出错误摘要,不让 agent 误判为「无结果」
+        return "搜索后端均失败:" + "; ".join(ctx.deps.search_chain.last_errors)
     return websearch.format_results(results)
 
 
@@ -131,7 +132,7 @@ async def deep_research(ctx: RunContext[AgentDeps], topic: str, max_pages: int =
     适合为「外部背景/方案取舍」收集多源材料;调用消耗计入轮次预算。"""
     if ctx.deps.search_chain is None:
         return "未配置搜索后端"
-    return await websearch.deep_research(ctx.deps.search_chain, topic, max(min(max_pages, 5), 1))
+    return await websearch.deep_research(ctx.deps.search_chain, topic, max(min(max_pages, config.MAX_DEEP_PAGES), 1))
 
 
 async def web_fetch(ctx: RunContext[AgentDeps], url: str) -> str:
@@ -140,6 +141,6 @@ async def web_fetch(ctx: RunContext[AgentDeps], url: str) -> str:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             r = await client.get(url)
             r.raise_for_status()
-            return r.text[:MAX_WEB_CHARS]
+            return r.text[:config.MAX_WEB_CHARS]
     except httpx.HTTPError as e:
         return f"获取失败: {e}"

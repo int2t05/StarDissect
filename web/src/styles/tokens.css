@@ -58,6 +58,14 @@
   --sd-width: 72ch;
   --sd-font-size: 15.5px;
   --sd-line-height: 1.8;
+  --sd-code-bg: #0c0c10;   /* 代码块底(UIUX-13) */
+  --sd-overlay: #0009;     /* 抽屉/弹层遮罩 */
+}
+:root[data-contrast="1"] { /* 强对比文本(UX-34):双轴之外的独立开关 */
+  --sd-text: #ffffff;
+  --sd-text-2: #cfcfda;
+  --sd-text-3: #9a9aac;
+  --sd-border-strong: #55556a;
 }
 :root[data-width="narrow"] { --sd-width: 62ch; }
 :root[data-width="wide"] { --sd-width: 88ch; }
@@ -89,3 +97,7 @@ button:hover, input:focus-visible, select:focus-visible, [tabindex]:focus-visibl
   outline: 2px solid var(--sd-focus); /* 焦点环瞬时(UX-49/UX-08) */
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } } /* UX-08/53 */
+
+/* 全局 toast(api.js 错误透出) */
+#sd-toast { position: fixed; top: 16px; right: 16px; z-index: 99; display: flex; flex-direction: column; gap: 8px; }
+.sd-toast-item { background: var(--sd-elevated); color: var(--sd-text); border: 1px solid var(--sd-accent); border-radius: 6px; padding: 8px 14px; box-shadow: 0 4px 16px #0006; font-size: 0.9em; }

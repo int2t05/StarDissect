@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS repos (
     description TEXT,
     language TEXT,
     default_branch TEXT,
-    head_commit TEXT,
     status TEXT NOT NULL DEFAULT '已收录',
     excluded INTEGER NOT NULL DEFAULT 0,
     unstarred INTEGER NOT NULL DEFAULT 0,
@@ -106,8 +105,7 @@ CREATE TABLE IF NOT EXISTS sync_runs (
     added INTEGER NOT NULL DEFAULT 0,
     removed INTEGER NOT NULL DEFAULT 0,
     skipped INTEGER NOT NULL DEFAULT 0,
-    failed INTEGER NOT NULL DEFAULT 0,
-    cursor TEXT
+    failed INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS settings (
