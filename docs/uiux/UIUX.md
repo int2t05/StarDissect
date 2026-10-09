@@ -146,7 +146,7 @@
 
 | ID    | 项     | 规定                                                                                                                                                              |
 | ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UX-54 | 图标   | 五角星三层切片、顶片琥珀（提取出的设计）、逐级右移——「星剖」直译；单色变体（[icons/mono/icon-a-mono.svg](icons/mono/icon-a-mono.svg)，`fill:currentColor` 随上下文着色）用于 favicon、暗色顶栏与单色场景；落地：16/32/48px favicon + PWA 192/512 + 浅色底对照（预览基准见 [icons/preview.html](icons/preview.html) 的 A 行） |
+| UX-54 | 图标   | 五角星三层切片、顶片琥珀（提取出的设计）、逐级右移——「星剖」直译；单色变体（[icons/mono/icon-a-mono.svg](icons/mono/icon-a-mono.svg)，`fill:currentColor` 随上下文着色）用于 favicon、暗色顶栏与单色场景；落地：favicon.svg（全细节）+ favicon-bold.svg（小尺寸简化变体）+ 16/32/48px favicon + favicon.ico + apple-touch 180 + PWA 192/512 + site.webmanifest（web/public/，`npm run icons` 再生成）；页面已接线 index.html；预览基准见 [icons/preview.html](icons/preview.html) 的 A 行 |
 
 ## 11. 实施映射（Vue 3）
 
