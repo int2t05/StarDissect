@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="星剖 · 解剖星图标">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a2432"/>
+      <stop offset="1" stop-color="#14111a"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6c15c"/>
+      <stop offset="1" stop-color="#d97c2b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.28" cy="0.2" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.14"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 五角星基础形：中心(256,236) 外径150 -->
+    <path id="star" d="M256 86 L291.3 187.5 L398.7 189.6 L313.1 254.5 L344.2 357.4 L256 296 L167.8 357.4 L198.9 254.5 L113.3 189.6 L220.7 187.5 Z"/>
+    <clipPath id="cutTop"><rect x="80" y="60" width="352" height="128"/></clipPath>
+    <clipPath id="cutMid"><rect x="80" y="196" width="352" height="86"/></clipPath>
+    <clipPath id="cutBot"><rect x="80" y="290" width="352" height="110"/></clipPath>
+  </defs>
+
+  <!-- 底面 -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#glow)"/>
+
+  <!-- 解剖星：三层切片，下层逐级右移，顶片为提取出的"设计"（琥珀） -->
+  <g stroke="#14111a" stroke-width="8" stroke-linejoin="round">
+    <g clip-path="url(#cutBot)"><use href="#star" transform="translate(30 14)" fill="#ffffff" fill-opacity="0.42"/></g>
+    <g clip-path="url(#cutMid)"><use href="#star" transform="translate(15 7)" fill="#ffffff" fill-opacity="0.78"/></g>
+    <g clip-path="url(#cutTop)"><use href="#star" fill="url(#amber)"/></g>
+  </g>
+</svg>

@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Style A · 书斋 — 纸上杂志方向 · GitHub Star Insight</title>
+<style>
+  /* ============ Style A「书斋」tokens ============ */
+  :root{
+    --sd-bg:#faf7f2; --sd-surface:#ffffff; --sd-elevated:#fffdf9;
+    --sd-border:#e7e0d3; --sd-border-strong:#d8cfc0;
+    --sd-text:#262220; --sd-text-2:#5c554d; --sd-text-3:#8f877c;
+    --sd-accent:#b3401f; --sd-accent-soft:#f6e8e2; --sd-focus:#b3401f80;
+    --sd-ev-source:#2f6f4f; --sd-ev-author:#2b5d8a; --sd-ev-infer:#9a6b1f; --sd-ev-external:#6b5d8a; --sd-ev-unknown:#8f877c;
+    --sd-font-display:Georgia,"Times New Roman","Songti SC","Noto Serif SC","Source Han Serif SC","SimSun",serif;
+    --sd-font-body:Georgia,"Times New Roman","Songti SC","Noto Serif SC","Source Han Serif SC","SimSun",serif;
+    --sd-font-mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+    --sd-measure:72ch; --sd-r:0px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--sd-bg);color:var(--sd-text);font:17px/1.9 var(--sd-font-body)}
+  a{color:var(--sd-accent)}
+  :focus-visible{outline:2px solid var(--sd-accent);outline-offset:2px}
+  .skip{position:absolute;left:-999px;top:8px;background:var(--sd-accent);color:#fff;padding:8px 16px;z-index:99}
+  .skip:focus{left:8px}
+  .demo-tag{position:sticky;top:0;z-index:50;background:#262220;color:#e9e2d8;font:12px/1 var(--sd-font-mono);
+    padding:8px 16px;display:flex;justify-content:space-between;letter-spacing:.08em}
+
+  /* ============ 布局骨架 ============ */
+  .shell{display:grid;grid-template-columns:216px minmax(0,1fr)}
+  @media (max-width:1023px){.shell{grid-template-columns:1fr}.nav{display:none}}
+  .nav{border-right:1px solid var(--sd-border);padding:28px 0;position:sticky;top:32px;height:calc(100vh - 32px);overflow:auto}
+  .nav .brand{padding:0 20px 24px}
+  .nav .brand .name{font:700 19px/1.3 var(--sd-font-display);letter-spacing:.02em}
+  .nav .brand .sub{font:11px/1 var(--sd-font-mono);color:var(--sd-text-3);letter-spacing:.22em;margin-top:6px}
+  .nav a.item{display:flex;align-items:center;gap:10px;padding:10px 20px;color:var(--sd-text-2);text-decoration:none;font-size:14.5px;border-left:3px solid transparent}
+  .nav a.item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6}
+  .nav a.item:hover{color:var(--sd-text);background:var(--sd-elevated)}
+  .nav a.item.active{color:var(--sd-accent);border-left-color:var(--sd-accent);background:linear-gradient(90deg,var(--sd-accent-soft),transparent 70%)}
+  .nav .group{font:11px/1 var(--sd-font-mono);color:var(--sd-text-3);letter-spacing:.18em;padding:20px 20px 8px}
+
+  .main{min-width:0}
+  .screen{padding:40px 48px 96px;max-width:1280px;margin:0 auto}
+  @media (max-width:767px){.screen{padding:24px 16px 72px}}
+
+  /* ============ 首屏：阅读中心 ============ */
+  .masthead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px double var(--sd-border-strong);padding-bottom:16px;margin-bottom:32px}
+  .masthead h1{font:700 30px/1.2 var(--sd-font-display);margin:0}
+  .masthead .meta{font:12px/1 var(--sd-font-mono);color:var(--sd-text-3);letter-spacing:.14em}
+  .masthead .meta b{color:var(--sd-accent);font-weight:700}
+
+  .digest{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:36px}
+  .digest .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--sd-border);background:var(--sd-surface);
+    padding:8px 14px;font-size:13px;color:var(--sd-text-2)}
+  .digest .pill .num{font:700 15px/1 var(--sd-font-mono);color:var(--sd-text)}
+  .digest .pill.run .num{color:var(--sd-accent)}
+
+  .continue{border:1px solid var(--sd-border);border-top:4px solid var(--sd-accent);background:var(--sd-surface);
+    padding:28px 32px;margin-bottom:44px}
+  .continue .kicker{font:11px/1 var(--sd-font-mono);letter-spacing:.2em;color:var(--sd-accent)}
+  .continue h2{font:700 24px/1.4 var(--sd-font-display);margin:10px 0 6px}
+  .continue p{margin:0 0 16px;color:var(--sd-text-2);font-size:15px}
+  .progress{height:3px;background:var(--sd-border);position:relative;margin-bottom:10px}
+  .progress i{position:absolute;inset:0;width:42%;background:var(--sd-accent)}
+  .progress-label{display:flex;justify-content:space-between;font:12px/1 var(--sd-font-mono);color:var(--sd-text-3)}
+  .btn{display:inline-block;background:var(--sd-accent);color:#fff;text-decoration:none;font-size:14px;
+    padding:10px 22px;letter-spacing:.04em}
+  .btn:hover{background:#93341a}
+  .btn.ghost{background:transparent;color:var(--sd-accent);border:1px solid var(--sd-accent)}
+
+  .section-head{display:flex;align-items:baseline;gap:14px;margin:0 0 20px}
+  .section-head .no{font:700 15px/1 var(--sd-font-mono);color:var(--sd-accent)}
+  .section-head h2{font:700 21px/1.3 var(--sd-font-display);margin:0}
+  .section-head .more{margin-left:auto;font-size:13px;text-decoration:none}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  @media (max-width:1023px){.cards{grid-template-columns:1fr 1fr}}
+  @media (max-width:767px){.cards{grid-template-columns:1fr}}
+  .card{border:1px solid var(--sd-border);background:var(--sd-surface);padding:22px 24px;display:flex;flex-direction:column;gap:12px}
+  .card .type{font:11px/1 var(--sd-font-mono);letter-spacing:.16em;color:var(--sd-accent)}
+  .card h3{font:700 18px/1.5 var(--sd-font-display);margin:0}
+  .card h3 a{color:inherit;text-decoration:none}
+  .card h3 a:hover{color:var(--sd-accent)}
+  .card .repo{font:12.5px/1 var(--sd-font-mono);color:var(--sd-text-3)}
+  .card ul{margin:0;padding:0;list-style:none;color:var(--sd-text-2);font-size:14px;line-height:1.7}
+  .card ul li{padding-left:16px;position:relative}
+  .card ul li::before{content:"—";position:absolute;left:0;color:var(--sd-accent)}
+  .card .foot{margin-top:auto;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--sd-border);padding-top:12px;font:12px/1 var(--sd-font-mono);color:var(--sd-text-3)}
+  .dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--sd-accent);display:inline-block;vertical-align:-1px;margin-right:6px}
+  .dot.half{background:linear-gradient(90deg,var(--sd-accent) 50%,transparent 50%)}
+  .dot.full{background:var(--sd-accent)}
+
+  /* ============ 第二屏：报告精读 ============ */
+  .paper{max-width:calc(var(--sd-measure) + 420px);margin:0 auto}
+  .crumb{font:12px/1 var(--sd-font-mono);color:var(--sd-text-3);letter-spacing:.06em;margin-bottom:20px}
+  .infobar{display:flex;flex-wrap:wrap;gap:8px 20px;border-top:1px solid var(--sd-border);border-bottom:1px solid var(--sd-border);
+    padding:12px 0;margin-bottom:36px;font:12.5px/1.5 var(--sd-font-mono);color:var(--sd-text-2)}
+  .infobar .t{color:var(--sd-accent)}
+  .paper h1.title{font:700 34px/1.35 var(--sd-font-display);margin:0 0 8px}
+  .paper .subtitle{color:var(--sd-text-2);font-size:15px;margin:0 0 40px}
+
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 200px;gap:48px;align-items:start}
+  @media (max-width:1279px){.layout{grid-template-columns:1fr}.toc{display:none}}
+
+  .toc{position:sticky;top:64px;font-size:13px;border-left:1px solid var(--sd-border);padding-left:0}
+  .toc .cap{font:11px/1 var(--sd-font-mono);letter-spacing:.2em;color:var(--sd-text-3);padding:0 0 10px 16px}
+  .toc a{display:block;color:var(--sd-text-2);text-decoration:none;padding:7px 16px;border-left:2px solid transparent;margin-left:-1.5px}
+  .toc a.on{color:var(--sd-accent);border-left-color:var(--sd-accent);background:linear-gradient(90deg,var(--sd-accent-soft),transparent 80%)}
+  .toc a:hover{color:var(--sd-text)}
+  .toc .lv2{padding-left:30px;font-size:12.5px}
+
+  .prose h2{font:700 23px/1.4 var(--sd-font-display);margin:56px 0 16px;scroll-margin-top:64px}
+  .prose h2 .no{color:var(--sd-accent);font:700 15px/1 var(--sd-font-mono);margin-right:12px}
+  .prose h3{font:700 18px/1.5 var(--sd-font-display);margin:32px 0 12px;scroll-margin-top:64px}
+  .prose p{margin:0 0 18px}
+  .prose blockquote{margin:24px 0;padding:4px 0 4px 20px;border-left:3px solid var(--sd-accent);color:var(--sd-text-2)}
+  .prose code{font:0.86em/1.6 var(--sd-font-mono);background:var(--sd-elevated);border:1px solid var(--sd-border);padding:1px 6px}
+
+  /* 证据块 —— 图标 + 文字标签 + 结构差异，不只靠颜色 */
+  .ev{margin:22px 0;border:1px solid var(--sd-border);background:var(--sd-surface)}
+  .ev .head{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--sd-border);
+    font:12px/1 var(--sd-font-mono);letter-spacing:.08em}
+  .ev .head svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .ev .head .src{color:var(--sd-ev-source)} .ev .head .auth{color:var(--sd-ev-author)}
+  .ev .head .inf{color:var(--sd-ev-infer)} .ev .head .ext{color:var(--sd-ev-external)} .ev .head .unk{color:var(--sd-ev-unknown)}
+  .ev .body{padding:14px 16px;font-size:15px}
+  .ev.source{border-left:3px solid var(--sd-ev-source)}
+  .ev.author{border-left:3px solid var(--sd-ev-author)}
+  .ev.infer{border-left:3px dashed var(--sd-ev-infer);background:transparent}
+  .ev.external{border-left:3px solid var(--sd-ev-external)}
+  .ev.unknown{border-left:3px solid var(--sd-ev-unknown);background:var(--sd-elevated)}
+  .ev .ref{font:12px/1.6 var(--sd-font-mono);color:var(--sd-text-3);display:block;margin-top:10px}
+  .ev .ref a{color:inherit}
+
+  figure{margin:28px 0;border:1px solid var(--sd-border);background:var(--sd-surface)}
+  figure .fig-body{padding:24px;display:flex;justify-content:center}
+  figure figcaption{border-top:1px solid var(--sd-border);padding:10px 14px;font-size:13px;color:var(--sd-text-2);display:flex;justify-content:space-between;gap:12px}
+  figure .zoom{font:12px/1 var(--sd-font-mono);color:var(--sd-accent);text-decoration:none;white-space:nowrap}
+
+  table.decision{width:100%;border-collapse:collapse;margin:24px 0;font-size:14px}
+  table.decision caption{caption-side:top;text-align:left;font:12px/1 var(--sd-font-mono);letter-spacing:.14em;color:var(--sd-text-3);padding-bottom:10px}
+  table.decision th{font:700 12.5px/1.5 var(--sd-font-body);text-align:left;border-bottom:2px solid var(--sd-text);padding:10px 12px}
+  table.decision td{border-bottom:1px solid var(--sd-border);padding:12px;vertical-align:top;color:var(--sd-text-2)}
+  table.decision td:first-child{color:var(--sd-text);font-weight:700;white-space:nowrap}
+  .tw{overflow-x:auto}
+
+  details.codefold{margin:22px 0;border:1px solid var(--sd-border);background:var(--sd-elevated)}
+  details.codefold summary{cursor:pointer;list-style:none;padding:10px 14px;font:12.5px/1.4 var(--sd-font-mono);color:var(--sd-text-2);display:flex;gap:10px;align-items:center}
+  details.codefold summary::before{content:"▸";color:var(--sd-accent)}
+  details.codefold[open] summary::before{content:"▾"}
+  details.codefold pre{margin:0;padding:14px 16px;border-top:1px solid var(--sd-border);overflow:auto;font:13px/1.7 var(--sd-font-mono)}
+
+  .endnote{border-top:3px double var(--sd-border-strong);margin-top:56px;padding-top:18px;font-size:13.5px;color:var(--sd-text-2)}
+  .endnote .cap{font:11px/1 var(--sd-font-mono);letter-spacing:.2em;color:var(--sd-accent);display:block;margin-bottom:10px}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<div class="demo-tag"><span>STYLE A · 书斋 — 纸上杂志方向（演示数据）</span><span>docs/uiux/mockups/style-a-editorial.html</span></div>
+
+<!-- ══════════════ 屏一：阅读中心 ══════════════ -->
+<div class="shell">
+  <nav class="nav" aria-label="主导航">
+    <div class="brand"><div class="name">星剖 · Star Insight</div><div class="sub">READING ROOM</div></div>
+    <a class="item active" href="#"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z M4 9h16"/></svg>阅读中心</a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z M4 14h16v6H4z"/></svg>仓库库</a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M12 3v18 M3 12h18 M5.6 5.6l12.8 12.8"/></svg>分析管理</a>
+    <div class="group">系统</div>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3"/></svg>系统设置</a>
+  </nav>
+
+  <main class="main" id="main">
+    <section class="screen">
+      <header class="masthead">
+        <h1>阅读中心</h1>
+        <div class="meta">周四 · 未读 <b>07</b> · 进行中 <b>02</b></div>
+      </header>
+
+      <div class="digest">
+        <span class="pill run"><span class="num">1</span>正在分析 · ripgrep 快照研究</span>
+        <span class="pill"><span class="num">4</span>排队</span>
+        <span class="pill"><span class="num">2</span>今日完成</span>
+        <span class="pill"><span class="num">98%</span>本月额度余量</span>
+      </div>
+
+      <article class="continue">
+        <div class="kicker">继续阅读 · 42%</div>
+        <h2>ripgrep：面向开发者的并行文本搜索设计</h2>
+        <p>上次读到「二、系统全貌」——目录如何驱动递归遍历，以及并行边界划在何处。</p>
+        <div class="progress" role="img" aria-label="阅读进度 42%"><i></i></div>
+        <div class="progress-label"><span>第二章 · 系统全貌</span><span>42%</span></div>
+        <p style="margin:18px 0 0"><a class="btn" href="#">恢复阅读</a></p>
+      </article>
+
+      <div class="section-head">
+        <span class="no">01</span><h2>最新报告</h2>
+        <a class="more" href="#">全部报告 →</a>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <div class="type">应用 / 平台 / 服务</div>
+          <h3><a href="#">miniflux：把"极简"做成架构约束</a></h3>
+          <div class="repo">miniflux/v2 · Go</div>
+          <ul><li>单写者 SQLite 与部署形态的互锁</li><li>以标准库为边的依赖策略</li></ul>
+          <div class="foot"><span><i class="dot" aria-hidden="true"></i>未读 · 16 分钟</span><span>10-02</span></div>
+        </article>
+        <article class="card">
+          <div class="type">框架 / 库 / SDK</div>
+          <h3><a href="#">instructor：把 LLM 输出变成类型契约</a></h3>
+          <div class="repo">jxnl/instructor · Python</div>
+          <ul><li>重试循环与 schema 修复的边界</li><li>错误信息回流提示词的设计</li></ul>
+          <div class="foot"><span><i class="dot half" aria-hidden="true"></i>读至 61% · 18 分钟</span><span>10-01</span></div>
+        </article>
+        <article class="card">
+          <div class="type">教程 / 课程 / 示例</div>
+          <h3><a href="#">craftinginterpreters：教学顺序即知识组织</a></h3>
+          <div class="repo">munificent/craftinginterpreters · Java/C</div>
+          <ul><li>两次实现交替的课程结构</li><li>示例代码的生产边界声明</li></ul>
+          <div class="foot"><span><i class="dot full" aria-hidden="true"></i>已读 · 22 分钟</span><span>09-29</span></div>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ══════════════ 屏二：报告精读 ══════════════ -->
+<div class="shell" style="border-top:1px solid var(--sd-border)">
+  <nav class="nav" aria-label="主导航">
+    <div class="brand"><div class="name">星剖 · Star Insight</div><div class="sub">READING ROOM</div></div>
+    <a class="item active" href="#"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z M4 9h16"/></svg>阅读中心</a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z M4 14h16v6H4z"/></svg>仓库库</a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M12 3v18 M3 12h18 M5.6 5.6l12.8 12.8"/></svg>分析管理</a>
+    <div class="group">系统</div>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3"/></svg>系统设置</a>
+  </nav>
+
+  <main class="main">
+    <section class="screen">
+      <div class="paper">
+        <div class="crumb">阅读中心 / ripgrep / 报告 v2</div>
+        <h1 class="title">ripgrep：面向开发者的并行文本搜索设计</h1>
+        <p class="subtitle">一个问题驱动的设计解剖：为什么"快"来自边界划分而不是线程数。</p>
+        <div class="infobar">
+          <span><span class="t">仓库</span> BurntSushi/ripgrep</span>
+          <span><span class="t">类型</span> CLI / 开发工具</span>
+          <span><span class="t">固定于</span> commit 14.1.0</span>
+          <span><span class="t">分析</span> 2026-10-01</span>
+          <span><span class="t">预计</span> 18 分钟</span>
+        </div>
+
+        <div class="layout">
+          <article class="prose">
+            <h2 id="look"><span class="no">§</span>学习看点</h2>
+            <ul>
+              <li>并行边界为什么划在"目录遍历"而不是"文件读取"。</li>
+              <li>字面量优化器如何把"正则搜索"降级为"字面查找"。</li>
+              <li>CLI 体验被当作架构需求对待的具体做法。</li>
+            </ul>
+
+            <h2 id="s1"><span class="no">01</span>需求与约束</h2>
+            <p>ripgrep 的目标是替代 <code>grep</code> 的日常使用而非全部场景：默认递归、尊重 ignore 规则、输出面向人。约束决定了后面的每一个取舍——工具被成千上万次调用，单次启动延迟比吞吐更显性。</p>
+
+            <h2 id="s2"><span class="no">02</span>核心决策：并行边界的位置</h2>
+            <p>遍历目录产生的"待搜文件"被送入有界队列，固定数量的工作线程消费并执行搜索。<strong>并行单位是文件，不是行。</strong>行内并行要处理行边界与可变编码，而文件边界天然独立，且与 ignore 规则的判定主体一致。</p>
+
+            <div class="ev source">
+              <div class="head"><svg viewBox="0 0 24 24"><path d="M8 6 3 12l5 6 M16 6l5 6-5 6"/></svg><span class="src">源码事实</span></div>
+              <div class="body">目录遍历器与工作线程之间通过有界通道衔接；遍历线程生产路径，worker 池消费并搜索。生产者不做搜索，消费者不做遍历。</div>
+              <span class="ref"><a href="#">crates/ignore/src/walk.rs · DirWalk 相关符号 · commit 14.1.0</a></span>
+            </div>
+
+            <div class="ev infer">
+              <div class="head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4 M12 15.5v.5"/></svg><span class="inf">分析推断</span></div>
+              <div class="body">分析推断：选择文件级并行的另一半原因是有界队列天然提供背压，避免目录爆炸时内存失控。作者未在文档中明确说明此动机。</div>
+            </div>
+
+            <figure>
+              <div class="fig-body">
+                <svg width="480" height="150" viewBox="0 0 480 150" role="img" aria-label="遍历与搜索的并行边界示意">
+                  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z" fill="#b3401f"/></marker></defs>
+                  <g font-family="ui-monospace,monospace" font-size="12">
+                    <rect x="16" y="50" width="108" height="44" fill="#fffdf9" stroke="#d8cfc0"/><text x="70" y="76" text-anchor="middle" fill="#262220">目录遍历</text>
+                    <rect x="186" y="42" width="108" height="60" fill="#f6e8e2" stroke="#b3401f"/><text x="240" y="66" text-anchor="middle" fill="#b3401f">有界队列</text><text x="240" y="84" text-anchor="middle" fill="#8f877c">背压</text>
+                    <rect x="356" y="50" width="108" height="44" fill="#fffdf9" stroke="#d8cfc0"/><text x="410" y="70" text-anchor="middle" fill="#262220">worker × N</text><text x="410" y="88" text-anchor="middle" fill="#8f877c">搜索</text>
+                    <line x1="124" y1="72" x2="180" y2="72" stroke="#b3401f" marker-end="url(#ar)"/>
+                    <line x1="294" y1="72" x2="350" y2="72" stroke="#b3401f" marker-end="url(#ar)"/>
+                  </g>
+                </svg>
+              </div>
+              <figcaption><span>图 1 · 并行边界示意：遍历、队列、搜索三段职责</span><a class="zoom" href="#">放大</a></figcaption>
+            </figure>
+
+            <h2 id="s3"><span class="no">03</span>字面量优化：正则的降级路径</h2>
+            <p>当模式可以被判定为"只匹配字面量"时，引擎直接退化为 memchr 式查找。这条降级路径把最常见用例（搜一个词）从"有限自动机"降为"字节扫描"，是启动延迟与吞吐同时受益的少数设计。</p>
+
+            <div class="tw">
+              <table class="decision">
+                <caption>表 1 · 搜索路径取舍</caption>
+                <thead><tr><th>路径</th><th>动机</th><th>代价</th></tr></thead>
+                <tbody>
+                  <tr><td>字面量快速查找</td><td>最常见的"搜词"场景零自动机开销</td><td>判定与回退逻辑增加复杂度</td></tr>
+                  <tr><td>有界并行</td><td>多核利用且内存可控</td><td>跨平台线程语义差异</td></tr>
+                  <tr><td>尊重 ignore 规则</td><td>开发者目录的默认语义</td><td>需要内建 gitignore 解析器</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2 id="s4"><span class="no">04</span>证据与未知</h2>
+            <div class="ev author">
+              <div class="head"><svg viewBox="0 0 24 24"><path d="M10 11a5 5 0 0 1 7.5-6.7 5 5 0 0 1 0 7.4L15 14"/><path d="M14 13a5 5 0 0 1-7.5 6.7 5 5 0 0 1 0-7.4L9 10"/></svg><span class="auth">作者说明</span></div>
+              <div class="body">作者在博客中说明性能目标的来源：用户抱怨的是"感觉慢"，因此把冷启动纳入一等目标。</div>
+              <span class="ref"><a href="#">作者博客 · 2016 · 外链</a></span>
+            </div>
+            <div class="ev unknown">
+              <div class="head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.1 1-1.1 1.8v.5 M12 17v.5"/></svg><span class="unk">证据不足</span></div>
+              <div class="body">队列容量取值的演进历史未在 Issue 与提交信息中找到，无法确认是否经过压测调参。</div>
+            </div>
+
+            <details class="codefold">
+              <summary>src/搜索入口.rs : 88-104 · 搜索路径选择（折叠）</summary>
+              <pre>// 演示内容：仅示意代码折叠块的呈现形态
+match pattern.kind() {
+    Literal(bytes) => searcher.search_slice(bytes),
+    Regex(re)      => searcher.search_regex(re),
+}</pre>
+            </details>
+
+            <div class="endnote">
+              <span class="cap">覆盖范围与说明</span>
+              覆盖并行与字面量优化两条主线；编码检测、输出着色未纳入本次分析。分析推断均已标注；"用于比较的备选方案"见表 1，不代表作者评估过的选项。本文为<strong>演示数据</strong>。
+            </div>
+          </article>
+
+          <nav class="toc" aria-label="目录">
+            <div class="cap">目录</div>
+            <a href="#look" class="on">学习看点</a>
+            <a href="#s1">01 · 需求与约束</a>
+            <a href="#s2">02 · 并行边界</a>
+            <a class="lv2" href="#s3">03 · 字面量优化</a>
+            <a class="lv2" href="#s4">04 · 证据与未知</a>
+          </nav>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

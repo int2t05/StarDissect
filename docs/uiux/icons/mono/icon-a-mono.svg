@@ -1,0 +1,14 @@
+<!-- 单色变体：fill 用 currentColor，嵌入方控制颜色（深底建议 #f5f5f7，浅底建议 #262626） -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="星剖 · 解剖星 单色">
+  <defs>
+    <path id="m" d="M256 86 L291.3 187.5 L398.7 189.6 L313.1 254.5 L344.2 357.4 L256 296 L167.8 357.4 L198.9 254.5 L113.3 189.6 L220.7 187.5 Z"/>
+    <clipPath id="ct"><rect x="80" y="60" width="352" height="128"/></clipPath>
+    <clipPath id="cm"><rect x="80" y="196" width="352" height="86"/></clipPath>
+    <clipPath id="cb"><rect x="80" y="290" width="352" height="110"/></clipPath>
+  </defs>
+  <g fill="currentColor">
+    <g clip-path="url(#cb)"><use href="#m" transform="translate(30 14)" opacity="0.4"/></g>
+    <g clip-path="url(#cm)"><use href="#m" transform="translate(15 7)" opacity="0.7"/></g>
+    <g clip-path="url(#ct)"><use href="#m"/></g>
+  </g>
+</svg>

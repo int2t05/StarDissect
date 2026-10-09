@@ -1,0 +1,11 @@
+# 运行产物与依赖不入库
+data/
+server/.venv/
+node_modules/
+web/dist/
+__pycache__/
+*.pyc
+.env
+
+# 外部参考仓库(自带 .git,仅本地研读)
+reference/

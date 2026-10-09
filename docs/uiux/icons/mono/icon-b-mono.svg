@@ -1,0 +1,7 @@
+<!-- 单色变体：fill 用 currentColor -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="星剖 · 星与透镜 单色">
+  <path d="M336 336 L428 428" stroke="currentColor" stroke-width="40" stroke-linecap="round"/>
+  <circle cx="240" cy="240" r="152" fill="none" stroke="currentColor" stroke-width="14"/>
+  <path d="M256 148 L278 210 L344 212 L291 254 L309 320 L256 283 L203 320 L221 254 L168 212 L234 210 Z" fill="currentColor"/>
+  <path d="M132 176 A128 128 0 0 1 208 116" stroke="currentColor" stroke-opacity="0.45" stroke-width="14" stroke-linecap="round" fill="none"/>
+</svg>

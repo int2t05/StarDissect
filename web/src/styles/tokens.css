@@ -1,0 +1,91 @@
+/* 设计 tokens(UIUX §2 定稿):明暗轴 × 字体轴成对变量;组件零硬编码色值(UX-55)
+   深色为第一公民;浅色轴同名换值;color-scheme 声明使原生控件跟随(UX-52) */
+:root {
+  --sd-font-body: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --sd-font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+
+  --sd-bg: #101014;
+  --sd-surface: #18181f;
+  --sd-elevated: #20202a;
+  --sd-border: #2b2b36;
+  --sd-border-strong: #3d3d4c;
+  --sd-text: #e9e9ee;
+  --sd-text-2: #a3a3b3;
+  --sd-text-3: #6e6e80;
+  --sd-accent: #e8a33d;
+  --sd-accent-soft: #e8a33d1c;
+  --sd-focus: #e8a33d88;
+  --sd-ev-source: #4ade80;
+  --sd-ev-author: #67b7ff;
+  --sd-ev-infer: #e8a33d;
+  --sd-ev-external: #c4a5ff;
+  --sd-ev-unknown: #7a7a8c;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --sd-bg: #f7f7f8;
+  --sd-surface: #ffffff;
+  --sd-elevated: #ffffff;
+  --sd-border: #e2e2e6;
+  --sd-border-strong: #c9c9d0;
+  --sd-text: #1d1d22;
+  --sd-text-2: #5b5b66;
+  --sd-text-3: #90909c;
+  --sd-accent: #b06f0a;
+  --sd-accent-soft: #b06f0a1c;
+  --sd-focus: #b06f0a88;
+  --sd-ev-source: #15803d;
+  --sd-ev-author: #1d4ed8;
+  --sd-ev-infer: #b06f0a;
+  --sd-ev-external: #7c3aed;
+  --sd-ev-unknown: #6e6e80;
+  color-scheme: light;
+}
+:root[data-theme="auto"] { color-scheme: light dark; }
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    --sd-bg: #f7f7f8; --sd-surface: #ffffff; --sd-elevated: #ffffff;
+    --sd-border: #e2e2e6; --sd-border-strong: #c9c9d0;
+    --sd-text: #1d1d22; --sd-text-2: #5b5b66; --sd-text-3: #90909c;
+    --sd-accent: #b06f0a; --sd-accent-soft: #b06f0a1c; --sd-focus: #b06f0a88;
+    --sd-ev-source: #15803d; --sd-ev-author: #1d4ed8; --sd-ev-infer: #b06f0a;
+    --sd-ev-external: #7c3aed; --sd-ev-unknown: #6e6e80;
+  }
+}
+
+/* 排版(UX-09..13):三档行宽 62/72/88ch,字号/行高走可调变量 */
+:root {
+  --sd-width: 72ch;
+  --sd-font-size: 15.5px;
+  --sd-line-height: 1.8;
+}
+:root[data-width="narrow"] { --sd-width: 62ch; }
+:root[data-width="wide"] { --sd-width: 88ch; }
+:root[data-lh="1.6"] { --sd-line-height: 1.6; }
+:root[data-lh="2.0"] { --sd-line-height: 2.0; }
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--sd-bg);
+  color: var(--sd-text);
+  font-family: var(--sd-font-body);
+  font-size: var(--sd-font-size);
+  line-height: var(--sd-line-height);
+  overflow-wrap: break-word;
+}
+a { color: var(--sd-accent); text-decoration: none; }
+button, input, select {
+  font: inherit;
+  color: inherit;
+  background: var(--sd-surface);
+  border: 1px solid var(--sd-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+button { cursor: pointer; }
+button:hover, input:focus-visible, select:focus-visible, [tabindex]:focus-visible, a:focus-visible {
+  border-color: var(--sd-accent);
+  outline: 2px solid var(--sd-focus); /* 焦点环瞬时(UX-49/UX-08) */
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } } /* UX-08/53 */

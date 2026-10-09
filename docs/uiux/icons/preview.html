@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>产品图标方案对比 · GitHub Star Insight</title>
+<style>
+  :root{--bg:#f4f4f6;--card:#fff;--text:#1c1c22;--text2:#6b6b78;--bd:#e4e4ea}
+  [data-theme=dark]{--bg:#141419;--card:#1c1c24;--text:#ececf2;--text2:#9a9aa8;--bd:#2e2e3a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.8 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;transition:background .15s}
+  .bar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;background:var(--text);color:var(--bg);font:12px/1 ui-monospace,monospace;padding:9px 16px;letter-spacing:.08em}
+  .bar button{background:none;border:1px solid currentColor;border-radius:6px;color:inherit;padding:3px 10px;cursor:pointer;font:inherit}
+  main{max-width:1080px;margin:0 auto;padding:36px 20px 80px}
+  h1{font-size:22px;margin:0 0 6px}
+  .lead{color:var(--text2);margin:0 0 32px;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+  @media (max-width:767px){.grid{grid-template-columns:1fr}}
+  .opt{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:24px}
+  .opt h2{font-size:16.5px;margin:0 0 4px}
+  .opt .file{font:11px/1.5 ui-monospace,monospace;color:var(--text2)}
+  .opt p{font-size:13.5px;color:var(--text2);margin:8px 0 18px}
+  .sizes{display:flex;align-items:flex-end;gap:18px}
+  .sizes img{display:block}
+  .cell{display:flex;flex-direction:column;gap:8px;align-items:center}
+  .cell small{font:10.5px/1 ui-monospace,monospace;color:var(--text2)}
+  .chip{border-radius:22.5%;padding:10px}
+  .chip.dark{background:#14111a}.chip.light{background:#fafafa;border:1px solid var(--bd)}
+  .mono-row{margin-top:20px;padding-top:16px;border-top:1px dashed var(--bd);display:flex;align-items:flex-end;gap:22px}
+  .mono-row .m{width:56px;height:56px;color:var(--text)}
+  .mono-row .m2{width:56px;height:56px;color:#14111a;background:#fafafa;border-radius:12px;padding:10px;border:1px solid var(--bd)}
+  [data-theme=dark] .mono-row .m2{color:#ececf2;background:#1c1c24;border-color:var(--bd)}
+  .mono-row .cap{margin-left:auto;align-self:center;font-size:12.5px;color:var(--text2);max-width:280px}
+  .how{margin-top:36px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:20px 24px;font-size:14px}
+  .how h2{font-size:15.5px;margin:0 0 10px}
+  .how ol{margin:0;padding-left:20px;color:var(--text2)}
+  .how li{margin:4px 0}
+  code{font:0.9em ui-monospace,monospace;background:var(--bg);border:1px solid var(--bd);border-radius:4px;padding:1px 6px}
+</style>
+</head>
+<body>
+<div class="bar"><span>产品图标方案 · GITHUB STAR INSIGHT（演示预览）</span><button id="t">切换深色</button></div>
+<main>
+  <h1>四个方向，选一个作为产品标</h1>
+  <p class="lead">均为自包含 SVG（512 viewBox，渐变 + 多层结构）；下方依次为 512 / 64 / 16px 与深浅底对照，重点看 <strong>16px 是否仍可辨认</strong>。</p>
+
+  <div class="grid">
+    <section class="opt">
+      <h2>A · 解剖星</h2>
+      <div class="file">icons/icon-a-dissected-star.svg</div>
+      <p>五角星被水平切成三层并逐级右移，顶片琥珀色代表"提取出的设计"。直译"星剖"，叙事感最强；小尺寸下层次感仍可辨。</p>
+      <div class="sizes">
+        <div class="cell"><img class="chip dark" src="icon-a-dissected-star.svg" width="128" height="128" alt="解剖星 128px"><small>128</small></div>
+        <div class="cell"><img class="chip dark" src="icon-a-dissected-star.svg" width="64" height="64" alt="解剖星 64px"><small>64</small></div>
+        <div class="cell"><img class="chip dark" src="icon-a-dissected-star.svg" width="16" height="16" alt="解剖星 16px"><small>16</small></div>
+        <div class="cell"><img class="chip light" src="icon-a-dissected-star.svg" width="64" height="64" alt="解剖星 浅底"><small>浅底</small></div>
+      </div>
+      <div class="mono-row">
+        <img class="m" src="mono/icon-a-mono.svg" alt="解剖星单色">
+        <img class="m2" src="mono/icon-a-mono.svg" alt="解剖星单色反白">
+        <span class="cap">单色版 fill=<code>currentColor</code>，随上下文着色（favicon、插件图标、暗色顶栏）。</span>
+      </div>
+    </section>
+
+    <section class="opt">
+      <h2>B · 星与透镜</h2>
+      <div class="file">icons/icon-b-star-lens.svg</div>
+      <p>放大镜内的星——"审视与分析"，隐喻最直白、识别度最高；镜柄与亮圈构成外扩动势。</p>
+      <div class="sizes">
+        <div class="cell"><img class="chip dark" src="icon-b-star-lens.svg" width="128" height="128" alt="星与透镜 128px"><small>128</small></div>
+        <div class="cell"><img class="chip dark" src="icon-b-star-lens.svg" width="64" height="64" alt="星与透镜 64px"><small>64</small></div>
+        <div class="cell"><img class="chip dark" src="icon-b-star-lens.svg" width="16" height="16" alt="星与透镜 16px"><small>16</small></div>
+        <div class="cell"><img class="chip light" src="icon-b-star-lens.svg" width="64" height="64" alt="星与透镜 浅底"><small>浅底</small></div>
+      </div>
+      <div class="mono-row">
+        <img class="m" src="mono/icon-b-mono.svg" alt="星与透镜单色">
+        <img class="m2" src="mono/icon-b-mono.svg" alt="星与透镜单色反白">
+        <span class="cap">单色版保留镜柄/镜圈/星三元素，最耐缩。</span>
+      </div>
+    </section>
+
+    <section class="opt">
+      <h2>C · 星出书页</h2>
+      <div class="file">icons/icon-c-star-book.svg</div>
+      <p>摊开的书页上升起星与浮尘——"从收藏到学习资产"的转化，与产品价值链同构；叙事最完整，小尺寸下书页为主要识别体。</p>
+      <div class="sizes">
+        <div class="cell"><img class="chip dark" src="icon-c-star-book.svg" width="128" height="128" alt="星出书页 128px"><small>128</small></div>
+        <div class="cell"><img class="chip dark" src="icon-c-star-book.svg" width="64" height="64" alt="星出书页 64px"><small>64</small></div>
+        <div class="cell"><img class="chip dark" src="icon-c-star-book.svg" width="16" height="16" alt="星出书页 16px"><small>16</small></div>
+        <div class="cell"><img class="chip light" src="icon-c-star-book.svg" width="64" height="64" alt="星出书页 浅底"><small>浅底</small></div>
+      </div>
+      <div class="mono-row">
+        <img class="m" src="mono/icon-c-mono.svg" alt="星出书页单色">
+        <img class="m2" src="mono/icon-c-mono.svg" alt="星出书页单色反白">
+        <span class="cap">单色版书页以透明度分层，星保持实心。</span>
+      </div>
+    </section>
+
+    <section class="opt">
+      <h2>D · 聚焦星徽</h2>
+      <div class="file">icons/icon-d-focus-star.svg</div>
+      <p>由外向内三层星形轮廓收束到核心实心星——"逐层解剖聚焦"，最抽象、几何感最强，16px 下轮廓最稳。</p>
+      <div class="sizes">
+        <div class="cell"><img class="chip dark" src="icon-d-focus-star.svg" width="128" height="128" alt="聚焦星徽 128px"><small>128</small></div>
+        <div class="cell"><img class="chip dark" src="icon-d-focus-star.svg" width="64" height="64" alt="聚焦星徽 64px"><small>64</small></div>
+        <div class="cell"><img class="chip dark" src="icon-d-focus-star.svg" width="16" height="16" alt="聚焦星徽 16px"><small>16</small></div>
+        <div class="cell"><img class="chip light" src="icon-d-focus-star.svg" width="64" height="64" alt="聚焦星徽 浅底"><small>浅底</small></div>
+      </div>
+      <div class="mono-row">
+        <img class="m" src="mono/icon-d-mono.svg" alt="聚焦星徽单色">
+        <img class="m2" src="mono/icon-d-mono.svg" alt="聚焦星徽单色反白">
+        <span class="cap">单色版即三嵌套轮廓，任意底色可用。</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="how">
+    <h2>如何选择</h2>
+    <ol>
+      <li>先看 16px 列：哪个在"最小处"仍然像自己的产品——favicon 与浏览器标签是出现频率最高的位置。</li>
+      <li>再看叙事契合：A 讲"解剖"（过程），C 讲"收藏变学习"（价值链），B 讲"分析"（动作），D 讲"聚焦"（态度）。</li>
+      <li>把候选放到模板里看：打开 [style-a / style-b / style-c 模板](../mockups/style-a-editorial.html)，其导航品牌位可临时替换为候选 SVG 再决定。</li>
+      <li>选定后由实现落地为 favicon.ico + PWA 图标 + 浅色/深色变体，本页的深浅底对照即验收基准。</li>
+    </ol>
+  </div>
+</main>
+<script>
+  document.getElementById('t').addEventListener('click',()=>{
+    const r=document.documentElement;
+    r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'':'dark');
+  });
+</script>
+</body>
+</html>

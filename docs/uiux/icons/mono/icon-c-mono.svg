@@ -1,0 +1,10 @@
+<!-- 单色变体：fill 用 currentColor -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="星剖 · 星出书页 单色">
+  <g fill="currentColor">
+    <path d="M110 336 C168 306 220 306 256 330 L256 412 C220 388 168 388 110 418 Z" opacity="0.85"/>
+    <path d="M402 336 C344 306 292 306 256 330 L256 412 C292 388 344 388 402 418 Z" opacity="0.5"/>
+  </g>
+  <circle cx="204" cy="268" r="9" fill="currentColor" opacity="0.5"/>
+  <circle cx="304" cy="238" r="7" fill="currentColor" opacity="0.35"/>
+  <path d="M256 118 L274 170 L330 172 L285 206 L301 262 L256 231 L211 262 L227 206 L182 172 L238 170 Z" fill="currentColor"/>
+</svg>

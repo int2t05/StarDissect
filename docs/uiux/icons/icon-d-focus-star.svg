@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="星剖 · 切片星徽图标">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e293b"/>
+      <stop offset="1" stop-color="#0d1422"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6c15c"/>
+      <stop offset="1" stop-color="#d97c2b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.18" r="0.95">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <path id="starD" d="M256 86 L291.3 187.5 L398.7 189.6 L313.1 254.5 L344.2 357.4 L256 296 L167.8 357.4 L198.9 254.5 L113.3 189.6 L220.7 187.5 Z"/>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#glow)"/>
+
+  <!-- 由外向内的聚焦解剖：外轮廓 → 中层 → 核心实心 -->
+  <use href="#starD" fill="none" stroke="#ffffff" stroke-opacity="0.34" stroke-width="11" stroke-linejoin="round"/>
+  <use href="#starD" transform="translate(256 234) scale(0.64) translate(-256 -236)" fill="none" stroke="#ffffff" stroke-opacity="0.68" stroke-width="16" stroke-linejoin="round"/>
+  <use href="#starD" transform="translate(255 230) scale(0.34) translate(-256 -236)" fill="url(#amber)"/>
+</svg>

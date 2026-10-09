@@ -1,0 +1,162 @@
+# SQLite 数据层:WAL 连接、schema 迁移(ADR-0002;DDL 契约=docs/v1.0/tech.md §2)
+# 约束:report_versions 只增不覆(DEC-06);tags/knowledge_points 修订无自动写路径(REQ-CLS-005/KP-002)
+import sqlite3
+from pathlib import Path
+
+# FTS5 自持文本表:索引存分词副本,snippet() 从副本取(中文预分词与 external content 的
+# 偏移矛盾,修订见 ADR-0006);写入方在检索模块(ADR-0006)
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS repos (
+    id INTEGER PRIMARY KEY,
+    github_id INTEGER UNIQUE,
+    full_name TEXT NOT NULL,
+    description TEXT,
+    language TEXT,
+    default_branch TEXT,
+    head_commit TEXT,
+    status TEXT NOT NULL DEFAULT '已收录',
+    excluded INTEGER NOT NULL DEFAULT 0,
+    unstarred INTEGER NOT NULL DEFAULT 0,
+    starred_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS classifications (
+    id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    type TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    confidence TEXT NOT NULL CHECK (confidence IN ('高','中','低')),
+    source TEXT NOT NULL CHECK (source IN ('auto','deep','manual_lock','manual_scope')),
+    locked INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS classification_history (
+    id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    old_type TEXT,
+    new_type TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (repo_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    kind TEXT NOT NULL CHECK (kind IN ('analyze','reanalyze')),
+    status TEXT NOT NULL CHECK (status IN ('排队','进行','完成','受限完成','失败','中断')),
+    priority INTEGER NOT NULL DEFAULT 100,
+    turn_limit INTEGER NOT NULL,
+    time_limit_sec INTEGER NOT NULL,
+    turns_used INTEGER NOT NULL DEFAULT 0,
+    started_at TEXT,
+    finished_at TEXT,
+    fail_reason TEXT
+);
+
+CREATE TABLE IF NOT EXISTS report_versions (
+    id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    version_no INTEGER NOT NULL,
+    task_id INTEGER REFERENCES tasks(id),
+    commit_anchor TEXT NOT NULL,
+    markdown TEXT NOT NULL DEFAULT '',
+    html TEXT NOT NULL,
+    sections_json TEXT NOT NULL,
+    meta_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (repo_id, version_no)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_points (
+    id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    report_version_id INTEGER NOT NULL REFERENCES report_versions(id),
+    statement TEXT NOT NULL,
+    evidence_json TEXT NOT NULL,
+    human_edited INTEGER NOT NULL DEFAULT 0,
+    revision_note TEXT,
+    deleted INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS reading_progress (
+    report_version_id INTEGER PRIMARY KEY REFERENCES report_versions(id),
+    anchor TEXT,
+    top_percent REAL NOT NULL DEFAULT 0,
+    bottom_percent REAL NOT NULL DEFAULT 0,
+    highest_anchor TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS sync_runs (
+    id INTEGER PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    added INTEGER NOT NULL DEFAULT 0,
+    removed INTEGER NOT NULL DEFAULT 0,
+    skipped INTEGER NOT NULL DEFAULT 0,
+    failed INTEGER NOT NULL DEFAULT 0,
+    cursor TEXT
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS report_sections (
+    id INTEGER PRIMARY KEY,
+    report_version_id INTEGER NOT NULL REFERENCES report_versions(id),
+    seq INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    path_chain TEXT NOT NULL,
+    text_content TEXT NOT NULL DEFAULT ''
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS report_fts USING fts5(
+    title, text_content
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+    statement
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS repo_fts USING fts5(
+    full_name, description
+);
+"""
+
+ALL_TABLES = {
+    "repos", "classifications", "classification_history", "tags", "tasks",
+    "report_versions", "knowledge_points", "reading_progress", "sync_runs",
+    "settings", "report_sections", "report_fts", "knowledge_fts", "repo_fts",
+}
+
+
+def connect(db_path: Path) -> sqlite3.Connection:
+    # WAL + 外键强制;check_same_thread 关闭:连接由调用方保证单线程使用
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db(db_path: Path) -> None:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = connect(db_path)
+    try:
+        conn.executescript(SCHEMA)
+        conn.commit()
+    finally:
+        conn.close()

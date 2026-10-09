@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Style B · 工坊 — 现代工具方向 · GitHub Star Insight</title>
+<style>
+  /* ============ Style B「工坊」tokens（浅/深成对） ============ */
+  :root{
+    --sd-bg:#f8fafc; --sd-surface:#ffffff; --sd-elevated:#f1f5f9;
+    --sd-border:#e2e8f0; --sd-border-strong:#cbd5e1;
+    --sd-text:#0f172a; --sd-text-2:#475569; --sd-text-3:#94a3b8;
+    --sd-accent:#1d6feb; --sd-accent-soft:#e8f1fe; --sd-focus:#1d6feb66;
+    --sd-shadow:0 1px 2px #0f172a0d,0 1px 3px #0f172a14;
+    --sd-ev-source:#0e9f6e; --sd-ev-author:#2563eb; --sd-ev-infer:#d97706; --sd-ev-external:#7c3aed; --sd-ev-unknown:#64748b;
+    --sd-font-body:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    --sd-font-display:var(--sd-font-body);
+    --sd-font-mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+    --sd-r:8px;
+  }
+  [data-theme="dark"]{
+    --sd-bg:#0b0f16; --sd-surface:#111826; --sd-elevated:#182130;
+    --sd-border:#24304a; --sd-border-strong:#33415e;
+    --sd-text:#e7edf6; --sd-text-2:#9db0c9; --sd-text-3:#64748b;
+    --sd-accent:#5b9bff; --sd-accent-soft:#182b47; --sd-focus:#5b9bff88;
+    --sd-shadow:none;
+    --sd-ev-source:#34d399; --sd-ev-author:#7fb0ff; --sd-ev-infer:#fbbf24; --sd-ev-external:#b79bff; --sd-ev-unknown:#8098b3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--sd-bg);color:var(--sd-text);font:14.5px/1.75 var(--sd-font-body);transition:background .15s}
+  a{color:var(--sd-accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--sd-accent);outline-offset:2px}
+  .skip{position:absolute;left:-999px;top:8px;background:var(--sd-accent);color:#fff;padding:8px 16px;z-index:99}
+  .skip:focus{left:8px}
+  .demo-tag{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;
+    background:var(--sd-text);color:var(--sd-bg);font:12px/1 var(--sd-font-mono);padding:8px 16px;letter-spacing:.06em}
+  .demo-tag button{background:transparent;color:inherit;border:1px solid currentColor;border-radius:6px;padding:3px 10px;cursor:pointer;font:inherit}
+
+  .shell{display:grid;grid-template-columns:200px minmax(0,1fr)}
+  @media (max-width:1023px){.shell{grid-template-columns:1fr}.nav{display:none}}
+  .nav{background:var(--sd-surface);border-right:1px solid var(--sd-border);padding:16px 10px;position:sticky;top:31px;height:calc(100vh - 31px);overflow:auto}
+  .brand{display:flex;gap:10px;align-items:center;padding:6px 10px 18px}
+  .brand svg{width:26px;height:26px}
+  .brand b{font-size:15px}
+  .brand small{display:block;font:10.5px/1 var(--sd-font-mono);color:var(--sd-text-3);margin-top:3px;letter-spacing:.12em}
+  .nav a.item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--sd-r);color:var(--sd-text-2);font-weight:500}
+  .nav a.item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .nav a.item:hover{background:var(--sd-elevated);text-decoration:none}
+  .nav a.item.active{background:var(--sd-accent-soft);color:var(--sd-accent)}
+  .nav .count{margin-left:auto;font:11px/1 var(--sd-font-mono);color:var(--sd-text-3);background:var(--sd-elevated);border-radius:99px;padding:3px 8px}
+  .nav a.item.active .count{background:#fff0}
+  .nav .group{font:11px/1 var(--sd-font-mono);color:var(--sd-text-3);padding:16px 12px 6px;letter-spacing:.16em}
+
+  .screen{padding:28px 36px 80px;max-width:1240px;margin:0 auto}
+  @media (max-width:767px){.screen{padding:20px 14px 64px}}
+  .top{display:flex;gap:12px;align-items:center;margin-bottom:22px}
+  .top h1{font:700 22px/1.3 var(--sd-font-display);margin:0}
+  .search{flex:1;max-width:340px;margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--sd-surface);
+    border:1px solid var(--sd-border);border-radius:var(--sd-r);padding:8px 12px;color:var(--sd-text-3)}
+  .search input{border:0;outline:0;background:transparent;color:var(--sd-text);font:inherit;width:100%}
+  .search kbd{font:11px/1 var(--sd-font-mono);border:1px solid var(--sd-border);border-radius:4px;padding:2px 5px}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+  .chip{border:1px solid var(--sd-border);background:var(--sd-surface);border-radius:99px;padding:6px 14px;font-size:13px;color:var(--sd-text-2);cursor:pointer}
+  .chip:hover{border-color:var(--sd-accent)}
+  .chip.on{background:var(--sd-accent);border-color:var(--sd-accent);color:#fff}
+  [data-theme="dark"] .chip.on{color:#0b0f16}
+
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  @media (max-width:1023px){.metrics{grid-template-columns:1fr 1fr}}
+  .metric{background:var(--sd-surface);border:1px solid var(--sd-border);border-radius:var(--sd-r);box-shadow:var(--sd-shadow);padding:14px 16px}
+  .metric .v{font:700 24px/1.2 var(--sd-font-mono)}
+  .metric .k{font-size:12.5px;color:var(--sd-text-2);display:flex;gap:6px;align-items:center;margin-top:2px}
+  .metric .k svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .metric.run .v{color:var(--sd-accent)}
+
+  .resume{display:flex;gap:16px;align-items:center;background:linear-gradient(90deg,var(--sd-accent-soft),transparent 60%),var(--sd-surface);
+    border:1px solid var(--sd-border);border-radius:var(--sd-r);box-shadow:var(--sd-shadow);padding:18px 20px;margin-bottom:26px}
+  .resume .bar{flex:1}
+  .resume h2{font-size:16.5px;margin:0 0 4px}
+  .resume p{margin:0;font-size:13px;color:var(--sd-text-2)}
+  .progress{height:4px;border-radius:99px;background:var(--sd-elevated);margin-top:12px;overflow:hidden}
+  .progress i{display:block;height:100%;width:42%;background:var(--sd-accent)}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--sd-accent);color:#fff;border:0;border-radius:var(--sd-r);
+    font:600 13.5px/1 var(--sd-font-body);padding:11px 18px;cursor:pointer}
+  [data-theme="dark"] .btn{color:#0b0f16}
+  .btn:hover{filter:brightness(1.06)}
+  .btn.ghost{background:transparent;color:var(--sd-accent);border:1px solid var(--sd-accent)}
+
+  .list-head{display:flex;align-items:baseline;gap:12px;margin:0 0 14px}
+  .list-head h2{font-size:16px;margin:0}
+  .list-head .more{margin-left:auto;font-size:13px}
+
+  .rows{display:grid;gap:10px}
+  .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;background:var(--sd-surface);border:1px solid var(--sd-border);
+    border-radius:var(--sd-r);box-shadow:var(--sd-shadow);padding:16px 18px}
+  .row:hover{border-color:var(--sd-accent)}
+  .row .t{font-weight:600;font-size:15px}
+  .row .t a{color:inherit}
+  .row .m{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12.5px;color:var(--sd-text-2)}
+  .badge{display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:2px 8px;font:500 11.5px/1.5 var(--sd-font-body);background:var(--sd-elevated)}
+  .badge.acc{background:var(--sd-accent-soft);color:var(--sd-accent)}
+  .badge.ok{color:var(--sd-ev-source)} .badge.warn{color:var(--sd-ev-infer)}
+  .badge svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+  .row .looks{grid-column:1/-1;margin:4px 0 0;padding:0;list-style:none;font-size:13px;color:var(--sd-text-2)}
+  .row .looks li::before{content:"· ";color:var(--sd-accent);font-weight:700}
+  .row .side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;font:11.5px/1 var(--sd-font-mono);color:var(--sd-text-3);white-space:nowrap}
+  .st{display:inline-flex;align-items:center;gap:6px}
+  .st i{width:8px;height:8px;border-radius:50%;background:var(--sd-accent)}
+  .st.half i{background:conic-gradient(var(--sd-accent) 0 50%,var(--sd-border-strong) 50% 100%)}
+  .st.done i{background:var(--sd-text-3)}
+
+  /* ---- 精读页 ---- */
+  .paper{max-width:calc(72ch + 260px);margin:0 auto}
+  .crumb{font-size:12.5px;color:var(--sd-text-3);margin-bottom:14px}
+  .info{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .info .badge svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.8}
+  h1.title{font:700 26px/1.4 var(--sd-font-display);margin:0 0 6px}
+  .subtitle{color:var(--sd-text-2);margin:0 0 26px}
+
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:40px;align-items:start}
+  @media (max-width:1279px){.layout{grid-template-columns:1fr}.toc{display:none}}
+  .prose{font-size:15.5px;line-height:1.85;min-width:0}
+  .prose h2{font-size:19px;margin:40px 0 12px;padding-top:20px;border-top:1px solid var(--sd-border);scroll-margin-top:60px}
+  .prose h3{font-size:16px;margin:24px 0 10px;scroll-margin-top:60px}
+  .prose p{margin:0 0 14px}
+  .prose code{font:.9em/1.6 var(--sd-font-mono);background:var(--sd-elevated);border-radius:4px;padding:1px 5px}
+
+  .ev{border:1px solid var(--sd-border);border-radius:var(--sd-r);background:var(--sd-surface);margin:16px 0;overflow:hidden}
+  .ev .head{display:flex;align-items:center;gap:7px;padding:7px 12px;background:var(--sd-elevated);font:600 12px/1.4 var(--sd-font-body)}
+  .ev .head svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.9}
+  .ev .head.src{color:var(--sd-ev-source)} .ev .head.auth{color:var(--sd-ev-author)}
+  .ev .head.inf{color:var(--sd-ev-infer)} .ev .head.ext{color:var(--sd-ev-external)} .ev .head.unk{color:var(--sd-ev-unknown)}
+  .ev .body{padding:12px 14px;font-size:14px}
+  .ev.source{border-left:3px solid var(--sd-ev-source)}
+  .ev.author{border-left:3px solid var(--sd-ev-author)}
+  .ev.infer{border-left:3px dashed var(--sd-ev-infer)}
+  .ev.external{border-left:3px solid var(--sd-ev-external)}
+  .ev.unknown{border-left:3px solid var(--sd-ev-unknown);background:var(--sd-elevated)}
+  .ev .ref{display:block;padding:8px 14px;border-top:1px dashed var(--sd-border);font:12px/1.5 var(--sd-font-mono);color:var(--sd-text-3)}
+
+  figure{margin:20px 0;border:1px solid var(--sd-border);border-radius:var(--sd-r);background:var(--sd-surface);box-shadow:var(--sd-shadow)}
+  figure .fig-body{padding:20px;display:flex;justify-content:center}
+  figure figcaption{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--sd-border);padding:9px 14px;font-size:12.5px;color:var(--sd-text-2)}
+  figure .zoom{font-weight:600;white-space:nowrap}
+
+  .tw{overflow-x:auto;border-radius:var(--sd-r);border:1px solid var(--sd-border)}
+  table.decision{width:100%;border-collapse:collapse;background:var(--sd-surface);font-size:13.5px}
+  table.decision th{text-align:left;background:var(--sd-elevated);padding:10px 14px;font-weight:600}
+  table.decision td{padding:12px 14px;border-top:1px solid var(--sd-border);color:var(--sd-text-2);vertical-align:top}
+  table.decision td:first-child{color:var(--sd-text);font-weight:600;white-space:nowrap}
+
+  details.codefold{margin:16px 0;border:1px solid var(--sd-border);border-radius:var(--sd-r);background:var(--sd-surface);overflow:hidden}
+  details.codefold summary{list-style:none;cursor:pointer;display:flex;gap:8px;align-items:center;padding:10px 14px;font:12.5px/1.4 var(--sd-font-mono);color:var(--sd-text-2)}
+  details.codefold summary::before{content:"＋";color:var(--sd-accent)}
+  details.codefold[open] summary::before{content:"－"}
+  details.codefold pre{margin:0;padding:12px 14px;border-top:1px solid var(--sd-border);overflow:auto;font:12.5px/1.7 var(--sd-font-mono)}
+
+  .endnote{margin-top:36px;border:1px dashed var(--sd-border-strong);border-radius:var(--sd-r);padding:14px 16px;font-size:13px;color:var(--sd-text-2)}
+  .toc{position:sticky;top:60px;font-size:13px}
+  .toc .cap{font:11px/1 var(--sd-font-mono);letter-spacing:.16em;color:var(--sd-text-3);margin-bottom:8px}
+  .toc a{display:block;color:var(--sd-text-2);padding:6px 12px;border-left:2px solid var(--sd-border)}
+  .toc a.on{color:var(--sd-accent);border-left-color:var(--sd-accent);background:var(--sd-accent-soft);border-radius:0 6px 6px 0}
+  .toc a:hover{text-decoration:none;color:var(--sd-text)}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<div class="demo-tag"><span>STYLE B · 工坊 — 现代工具方向（演示数据）</span><button id="themeBtn" type="button">切换深色</button></div>
+
+<!-- ══════════════ 屏一：阅读中心 ══════════════ -->
+<div class="shell">
+  <nav class="nav" aria-label="主导航">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="3" y="3" width="42" height="42" rx="10" fill="#1d6feb"/><path d="M24 10l4 9 10 1-7.5 6.6L33 36l-9-5-9 5 2.5-9.4L10 20l10-1z" fill="#fff"/></svg>
+      <div><b>Star Insight</b><small>星剖</small></div>
+    </div>
+    <a class="item active" href="#"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z M4 9h16"/></svg>阅读中心<span class="count">7</span></a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z M4 14h16v6H4z"/></svg>仓库库<span class="count">128</span></a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M12 3v18 M3 12h18"/></svg>分析管理<span class="count">5</span></a>
+    <div class="group">系统</div>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3 M12 18v3 M3 12h3 M18 12h3"/></svg>系统设置</a>
+  </nav>
+
+  <main class="main" id="main">
+    <section class="screen">
+      <div class="top">
+        <h1>阅读中心</h1>
+        <label class="search"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" placeholder="搜索仓库、报告、知识点…" aria-label="搜索"><kbd>⌘K</kbd></label>
+      </div>
+
+      <div class="metrics">
+        <div class="metric run"><div class="v">1</div><div class="k"><svg viewBox="0 0 24 24"><path d="M12 3v18 M3 12h18"/></svg>正在分析 · ripgrep</div></div>
+        <div class="metric"><div class="v">4</div><div class="k"><svg viewBox="0 0 24 24"><path d="M4 6h16 M4 12h16 M4 18h10"/></svg>排队中</div></div>
+        <div class="metric"><div class="v">2</div><div class="k"><svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>今日完成</div></div>
+        <div class="metric"><div class="v">98%</div><div class="k"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 8v4l3 3"/></svg>本月额度余量</div></div>
+      </div>
+
+      <article class="resume">
+        <div class="bar">
+          <h2>继续阅读：ripgrep：面向开发者的并行文本搜索设计</h2>
+          <p>上次读到「02 · 并行边界的位置」</p>
+          <div class="progress" role="img" aria-label="阅读进度 42%"><i></i></div>
+        </div>
+        <button class="btn" type="button">恢复阅读</button>
+      </article>
+
+      <div class="list-head"><h2>最新报告</h2><a class="more" href="#">全部 →</a></div>
+      <div class="chips" role="group" aria-label="类型筛选">
+        <button class="chip on" type="button">全部</button>
+        <button class="chip" type="button">应用/平台</button>
+        <button class="chip" type="button">框架/库</button>
+        <button class="chip" type="button">CLI 工具</button>
+        <button class="chip" type="button">教程/示例</button>
+        <button class="chip" type="button">资源清单</button>
+      </div>
+
+      <div class="rows">
+        <article class="row">
+          <div class="t"><a href="#">miniflux：把"极简"做成架构约束</a></div>
+          <div class="side"><span class="st"><i></i>未读 · 16 分钟</span><span>10-02</span></div>
+          <div class="m"><span class="badge acc">应用/平台/服务</span><span class="badge">miniflux/v2 · Go</span></div>
+          <ul class="looks"><li>单写者 SQLite 与部署形态的互锁</li><li>以标准库为边的依赖策略</li></ul>
+        </article>
+        <article class="row">
+          <div class="t"><a href="#">instructor：把 LLM 输出变成类型契约</a></div>
+          <div class="side"><span class="st half"><i></i>61% · 18 分钟</span><span>10-01</span></div>
+          <div class="m"><span class="badge acc">框架/库/SDK</span><span class="badge">jxnl/instructor · Python</span></div>
+          <ul class="looks"><li>重试循环与 schema 修复的边界</li><li>错误信息回流提示词的设计</li></ul>
+        </article>
+        <article class="row">
+          <div class="t"><a href="#">craftinginterpreters：教学顺序即知识组织</a></div>
+          <div class="side"><span class="st done"><i></i>已读 · 22 分钟</span><span>09-29</span></div>
+          <div class="m"><span class="badge acc">教程/课程/示例</span><span class="badge">munificent/craftinginterpreters</span></div>
+          <ul class="looks"><li>两次实现交替的课程结构</li><li>示例代码的生产边界声明</li></ul>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ══════════════ 屏二：报告精读 ══════════════ -->
+<div class="shell" style="border-top:1px solid var(--sd-border)">
+  <nav class="nav" aria-label="主导航">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="3" y="3" width="42" height="42" rx="10" fill="#1d6feb"/><path d="M24 10l4 9 10 1-7.5 6.6L33 36l-9-5-9 5 2.5-9.4L10 20l10-1z" fill="#fff"/></svg>
+      <div><b>Star Insight</b><small>星剖</small></div>
+    </div>
+    <a class="item active" href="#"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z M4 9h16"/></svg>阅读中心</a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z M4 14h16v6H4z"/></svg>仓库库</a>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><path d="M12 3v18 M3 12h18"/></svg>分析管理</a>
+    <div class="group">系统</div>
+    <a class="item" href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3 M12 18v3 M3 12h3 M18 12h3"/></svg>系统设置</a>
+  </nav>
+
+  <main class="main">
+    <section class="screen">
+      <div class="paper">
+        <div class="crumb">阅读中心 / ripgrep / 报告 v2</div>
+        <div class="info">
+          <span class="badge acc">CLI / 开发工具</span>
+          <span class="badge"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18"/></svg>BurntSushi/ripgrep</span>
+          <span class="badge"><svg viewBox="0 0 24 24"><path d="M12 3v12 M8 11l4 4 4-4"/><path d="M5 21h14"/></svg>commit 14.1.0</span>
+          <span class="badge"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>18 分钟</span>
+        </div>
+        <h1 class="title">ripgrep：面向开发者的并行文本搜索设计</h1>
+        <p class="subtitle">一个问题驱动的设计解剖：为什么"快"来自边界划分而不是线程数。</p>
+
+        <div class="layout">
+          <article class="prose">
+            <h2 id="look">学习看点</h2>
+            <p>并行边界为什么划在"目录遍历"而不是"文件读取"；字面量优化器如何把正则搜索降级为字节扫描；CLI 体验被当作架构需求对待的具体做法。</p>
+
+            <h2 id="s1">01 · 需求与约束</h2>
+            <p>ripgrep 的目标是替代 <code>grep</code> 的日常使用而非全部场景：默认递归、尊重 ignore 规则、输出面向人。工具被成千上万次调用，单次启动延迟比吞吐更显性——这一约束决定了后面的每个取舍。</p>
+
+            <h2 id="s2">02 · 核心决策：并行边界的位置</h2>
+            <p>遍历目录产生的"待搜文件"被送入有界队列，固定数量的工作线程消费并执行搜索。<strong>并行单位是文件，不是行。</strong>文件边界天然独立，且与 ignore 规则的判定主体一致。</p>
+
+            <div class="ev source">
+              <div class="head src"><svg viewBox="0 0 24 24"><path d="M8 6 3 12l5 6 M16 6l5 6-5 6"/></svg>源码事实</div>
+              <div class="body">目录遍历器与工作线程之间通过有界通道衔接；遍历线程生产路径，worker 池消费并搜索。生产者不做搜索，消费者不做遍历。</div>
+              <span class="ref">crates/ignore/src/walk.rs · DirWalk 相关符号 · commit 14.1.0 ↗</span>
+            </div>
+
+            <div class="ev infer">
+              <div class="head inf"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4 M12 15.5v.5"/></svg>分析推断</div>
+              <div class="body">分析推断：选择文件级并行的另一半原因是有界队列天然提供背压，避免目录爆炸时内存失控。作者未在文档中明确说明此动机。</div>
+            </div>
+
+            <figure>
+              <div class="fig-body">
+                <svg width="440" height="140" viewBox="0 0 480 150" role="img" aria-label="遍历与搜索的并行边界示意">
+                  <defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8z" fill="#1d6feb"/></marker></defs>
+                  <g font-family="ui-monospace,monospace" font-size="12">
+                    <rect x="16" y="50" width="108" height="44" rx="8" class="bx" fill="var(--sd-elevated)" stroke="var(--sd-border)"/><text x="70" y="76" text-anchor="middle" fill="var(--sd-text)">目录遍历</text>
+                    <rect x="186" y="42" width="108" height="60" rx="8" fill="var(--sd-accent-soft)" stroke="#1d6feb"/><text x="240" y="66" text-anchor="middle" fill="var(--sd-accent)">有界队列</text><text x="240" y="84" text-anchor="middle" fill="var(--sd-text-3)">背压</text>
+                    <rect x="356" y="50" width="108" height="44" rx="8" fill="var(--sd-elevated)" stroke="var(--sd-border)"/><text x="410" y="70" text-anchor="middle" fill="var(--sd-text)">worker × N</text><text x="410" y="88" text-anchor="middle" fill="var(--sd-text-3)">搜索</text>
+                    <line x1="124" y1="72" x2="180" y2="72" stroke="#1d6feb" marker-end="url(#ar2)"/>
+                    <line x1="294" y1="72" x2="350" y2="72" stroke="#1d6feb" marker-end="url(#ar2)"/>
+                  </g>
+                </svg>
+              </div>
+              <figcaption><span>图 1 · 并行边界示意：遍历、队列、搜索三段职责</span><a class="zoom" href="#">放大</a></figcaption>
+            </figure>
+
+            <h2 id="s3">03 · 字面量优化：正则的降级路径</h2>
+            <p>当模式可判定为"只匹配字面量"时，引擎退化为 memchr 式查找。最常见用例从"有限自动机"降为"字节扫描"，启动延迟与吞吐同时受益。</p>
+
+            <div class="tw">
+              <table class="decision">
+                <thead><tr><th>路径</th><th>动机</th><th>代价</th></tr></thead>
+                <tbody>
+                  <tr><td>字面量快速查找</td><td>最常见的"搜词"场景零自动机开销</td><td>判定与回退逻辑增加复杂度</td></tr>
+                  <tr><td>有界并行</td><td>多核利用且内存可控</td><td>跨平台线程语义差异</td></tr>
+                  <tr><td>尊重 ignore 规则</td><td>开发者目录的默认语义</td><td>需要内建 gitignore 解析器</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2 id="s4">04 · 证据与未知</h2>
+            <div class="ev author">
+              <div class="head auth"><svg viewBox="0 0 24 24"><path d="M10 11a5 5 0 0 1 7.5-6.7 5 5 0 0 1 0 7.4L15 14"/><path d="M14 13a5 5 0 0 1-7.5 6.7 5 5 0 0 1 0-7.4L9 10"/></svg>作者说明</div>
+              <div class="body">作者在博客中说明性能目标的来源：用户抱怨的是"感觉慢"，因此把冷启动纳入一等目标。</div>
+              <span class="ref">作者博客 · 2016 · 外链 ↗</span>
+            </div>
+            <div class="ev unknown">
+              <div class="head unk"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.1 1-1.1 1.8v.5 M12 17v.5"/></svg>证据不足</div>
+              <div class="body">队列容量取值的演进历史未在 Issue 与提交信息中找到，无法确认是否经过压测调参。</div>
+            </div>
+
+            <details class="codefold">
+              <summary>src/搜索入口.rs : 88-104 · 搜索路径选择（折叠）</summary>
+              <pre>// 演示内容：仅示意代码折叠块的呈现形态
+match pattern.kind() {
+    Literal(bytes) =&gt; searcher.search_slice(bytes),
+    Regex(re)      =&gt; searcher.search_regex(re),
+}</pre>
+            </details>
+
+            <div class="endnote">覆盖范围与说明：覆盖并行与字面量优化两条主线；编码检测、输出着色未纳入本次分析。分析推断均已标注；表 1 中"备选方案"为比较用途，不代表作者评估过的选项。本文为<strong>演示数据</strong>。</div>
+          </article>
+
+          <nav class="toc" aria-label="目录">
+            <div class="cap">目录</div>
+            <a href="#look" class="on">学习看点</a>
+            <a href="#s1">01 · 需求与约束</a>
+            <a href="#s2">02 · 并行边界</a>
+            <a href="#s3">03 · 字面量优化</a>
+            <a href="#s4">04 · 证据与未知</a>
+          </nav>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // 演示：浅/深主题切换，tokens 成对定义
+  const btn=document.getElementById('themeBtn');
+  btn.addEventListener('click',()=>{
+    const root=document.documentElement;
+    const dark=root.getAttribute('data-theme')==='dark';
+    root.setAttribute('data-theme',dark?'':'dark');
+    btn.textContent=dark?'切换深色':'切换浅色';
+  });
+</script>
+</body>
+</html>
