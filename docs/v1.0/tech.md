@@ -46,6 +46,7 @@ tags(id PK, repo_id FK, name, created_at, UNIQUE(repo_id,name))  -- 仅人工写
 tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
       status,                                      -- 排队/进行/完成/失败/中断
       priority, turn_limit, time_limit_sec,        -- 入队时快照(REQ-CFG-002)
+      auto_retries,                                -- 网络类失败自动重排计数(上限 TASK_AUTO_RETRY_MAX)
       started_at, finished_at, fail_reason)
 
 report_versions(id PK, repo_id FK, version_no, task_id FK,
@@ -80,6 +81,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 - 干预(REQ-TASK-002):暂停/恢复=循环开关;优先级/取消/排除=tasks/repos 字段更新;「分析中」终止=触发 asyncio 取消→归「失败」(可重试)。
 - 限额(REQ-TASK-003,DEC-09):request_limit 与墙钟超时双约束;达到上限即终止归「失败」并记录原因,可重试,不保留部分产出。
 - 重试/重分析(REQ-TASK-004/005):新增 tasks 行,不覆盖历史;同仓库「排队/进行」存在则拒绝。
+- 网络类失败自愈(工程补强):失败原因命中 clone/模型网关类标记且 auto_retries 未达上限时,自动重排同任务(优先级排新 star 之后);人工重试不受此限。
 - 启动恢复(REQ-TASK-006):扫描「进行」→置「中断」;产出的半成品由事务原子性保证不存在。
 
 ## 4. 分析 agent 规格(ADR-0005)

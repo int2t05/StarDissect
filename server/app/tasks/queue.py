@@ -5,6 +5,8 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
+from app import config
+
 logger = logging.getLogger("stardissect.queue")
 
 
@@ -37,7 +39,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def enqueue(conn: sqlite3.Connection, repo_id: int, kind: str, priority: int, turn_limit: int, time_limit_sec: int) -> dict:
+def enqueue(conn: sqlite3.Connection, repo_id: int, kind: str, priority: int, turn_limit: int, time_limit_sec: int, auto_retries: int = 0) -> dict:
     repo = conn.execute("SELECT excluded FROM repos WHERE id=?", (repo_id,)).fetchone()
     if repo is None:
         raise LookupError(f"仓库不存在: {repo_id}")
@@ -49,9 +51,9 @@ def enqueue(conn: sqlite3.Connection, repo_id: int, kind: str, priority: int, tu
     if busy:
         raise DuplicateTask(f"仓库 {repo_id} 已有排队/进行任务")
     cur = conn.execute(
-        "INSERT INTO tasks(repo_id, kind, status, priority, turn_limit, time_limit_sec)"
-        " VALUES (?,?, '排队', ?,?,?)",
-        (repo_id, kind, priority, turn_limit, time_limit_sec),
+        "INSERT INTO tasks(repo_id, kind, status, priority, turn_limit, time_limit_sec, auto_retries)"
+        " VALUES (?,?, '排队', ?,?,?,?)",
+        (repo_id, kind, priority, turn_limit, time_limit_sec, auto_retries),
     )
     conn.commit()
     return dict(conn.execute("SELECT * FROM tasks WHERE id=?", (cur.lastrowid,)).fetchone())
@@ -142,5 +144,18 @@ def step(conn: sqlite3.Connection, executor) -> bool:
         "UPDATE tasks SET status=?, fail_reason=?, finished_at=? WHERE id=?",
         (status, reason, _now(), task["id"]),
     )
+    # 网络类失败自愈:自动重排(上限内),排在新星之后(REQ-TASK-004 工程补强)
+    if (
+        status == "失败"
+        and task["auto_retries"] < config.TASK_AUTO_RETRY_MAX
+        and reason
+        and any(marker in reason for marker in ("git clone 失败", "ModelHTTPError", "ModelAPIError"))
+    ):
+        conn.execute(
+            "INSERT INTO tasks(repo_id, kind, status, priority, turn_limit, time_limit_sec, auto_retries)"
+            " VALUES (?,?, '排队', ?,?,?,?)",
+            (task["repo_id"], task["kind"], config.TASK_RETRY_PRIORITY, task["turn_limit"], task["time_limit_sec"], task["auto_retries"] + 1),
+        )
+        logger.info("网络类失败自动重排 repo=%s 第 %s/%s 次", task["repo_id"], task["auto_retries"] + 1, config.TASK_AUTO_RETRY_MAX)
     conn.commit()
     return True

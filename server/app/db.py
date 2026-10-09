@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority INTEGER NOT NULL DEFAULT 100,
     turn_limit INTEGER NOT NULL,
     time_limit_sec INTEGER NOT NULL,
+    auto_retries INTEGER NOT NULL DEFAULT 0,
     started_at TEXT,
     finished_at TEXT,
     fail_reason TEXT
@@ -143,6 +144,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS repo_fts USING fts5(
 );
 """
 
+# 版本 → 该版本的增量语句(列变更等 SCHEMA 重放覆盖不到的)
+MIGRATIONS = {
+    3: ["ALTER TABLE tasks ADD COLUMN auto_retries INTEGER NOT NULL DEFAULT 0"],
+}
+
 ALL_TABLES = {
     "repos", "classifications", "classification_history", "auto_tags", "tags", "tasks",
     "report_versions", "knowledge_points", "reading_progress", "sync_runs",
@@ -150,7 +156,8 @@ ALL_TABLES = {
 }
 
 
-SCHEMA_VERSION = 2  # 结构变更:更新 SCHEMA(全 IF NOT EXISTS,可幂等重放)并递增版本;旧库自动补齐
+SCHEMA_VERSION = 3  # 结构变更:更新 SCHEMA 并递增版本;SCHEMA 全 IF NOT EXISTS 幂等重放建新表,
+                    # 列变更走 MIGRATIONS 显式语句(按版本顺序执行)
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -170,6 +177,12 @@ def init_db(db_path: Path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         if version < SCHEMA_VERSION:
             conn.executescript(SCHEMA)  # 全 IF NOT EXISTS:新库建全量,旧库幂等补齐
+            for v in range(version, SCHEMA_VERSION):
+                for stmt in MIGRATIONS.get(v + 1, []):
+                    try:
+                        conn.execute(stmt)
+                    except sqlite3.OperationalError:
+                        pass  # 幂等:列已存在等场景
             conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         conn.commit()
     finally:
