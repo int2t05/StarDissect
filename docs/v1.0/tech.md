@@ -46,12 +46,13 @@ tags(id PK, repo_id FK, name, created_at)          -- 仅人工写入(REQ-CLS-00
 
 tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
       status,                                      -- 排队/进行/完成/受限完成/失败/中断
-      priority, turn_limit, time_limit_sec,        -- 启动时快照(REQ-CFG-002)
-      turns_used, started_at, finished_at, fail_reason)
+      priority, turn_limit, time_limit_sec,        -- 入队时快照(REQ-CFG-002)
+      started_at, finished_at, fail_reason)
 
 report_versions(id PK, repo_id FK, version_no, task_id FK,
       commit_anchor, markdown, html, sections_json,   -- markdown=导出原文(REQ-OUT-001)
-      meta_json, created_at, UNIQUE(repo_id, version_no))
+      meta_json, read, favorited,                     -- 条目级已读/收藏(REQ-READ-006)
+      created_at, UNIQUE(repo_id, version_no))
 
 knowledge_points(id PK, repo_id FK, report_version_id FK,
       statement, evidence_json,                    -- 结论+证据引用(KP-001)
@@ -92,6 +93,8 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | search_code     | 正则/文本搜索克隆区                    | 源码事实             |
 | list_dir        | 目录树                                 | —                    |
 | fetch_github    | README/Issue/PR 只读                   | 作者说明/外部背景     |
+| web_search      | 网络搜索,降级链 Tavily→Exa→DuckDuckGo(参考 Cognik SearchChain);片段是线索非证据 | 外部背景(引用前须 web_fetch 核实) |
+| deep_research   | 深度调研:搜索+前 N 页正文蒸馏,单次调用完成多源收集(参考 gpt-researcher 模式) | 外部背景 |
 | web_fetch       | 作者文档/外部资料                      | 外部背景(带查阅时间) |
 
 **classifier**:一次调用(README+树)→ `{type, reason, confidence}`;锁定仓库跳过。
@@ -121,6 +124,10 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/repos/{id}                 | GET/PATCH      | CLS-001…005、TASK-002 排除 |
 | /api/repos/{id}/analyze         | POST           | TASK-005                |
 | /api/tasks                      | GET/PATCH/POST | TASK-001…004            |
+| /api/tasks/{id}                 | DELETE         | TASK-002(按 id 取消排队)|
+| /api/tasks/{id}/terminate       | POST           | TASK-002(终止分析中)    |
+| /api/reports/{vid}/state        | PATCH          | READ-006(已读/收藏)    |
+| /api/knowledge_points/{id}      | PATCH/DELETE   | KP-002(人工修订/软删除) |
 | /api/repos/{id}/reports         | GET(版本列表)  | RPT-004、TASK-005       |
 | /api/reports/{version_id}       | GET(html/sections) | READ-001…005        |
 | /api/reports/{version_id}/progress | PUT/GET     | READ-003                |

@@ -38,11 +38,30 @@ async def test_settings_secret_masked(client):
 
 
 async def test_sync_requires_token_and_reports_status(client):
-    c, _ = client
+    c, conn = client
+    # 无凭据→400(REQ-SYNC-001 异常);删除种子 token 模拟未配置环境
+    conn.execute("DELETE FROM settings WHERE key='github_token'")
+    conn.commit()
     r = await c.post("/api/sync")
-    assert r.status_code == 400  # 未配置凭据(REQ-SYNC-001 异常)
+    assert r.status_code == 400
     r = await c.get("/api/sync")
     assert r.json() == {"never": True}
+
+
+async def test_settings_masked_value_not_overwritten(client):
+    # 审查 T-02:掩码「…尾号」原样提交不得覆盖服务端真值;内部键不外吐
+    c, conn = client
+    real = "sk-real-secret-9999"
+    conn.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('ai_api_key', ?)", (real,))
+    conn.commit()
+    r = await c.get("/api/settings")
+    assert r.json()["ai_api_key"] == "…9999"
+    assert "syncing" not in r.json() and "queue_paused" not in r.json()
+    r = await c.patch("/api/settings", json={"ai_api_key": "…9999", "turn_limit": "20"})
+    assert r.status_code == 200
+    assert conn.execute("SELECT value FROM settings WHERE key='ai_api_key'").fetchone()["value"] == real
+    r = await c.patch("/api/settings", json={"turn_limit": "0"})
+    assert r.status_code == 422  # 限额非法值拒存(CFG-002)
 
 
 async def test_repo_lock_tags_and_detail(client):

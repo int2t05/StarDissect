@@ -106,6 +106,29 @@ def format_results(results: list[WebSearchResult]) -> str:
     if not results:
         return "无搜索结果"
     return "\n".join(
-        f"[{i}] {r.title}\n    {r.url}" + (f"\n    {r.snippet[:200]}" if r.snippet else "")
+        f"[{i}] {r.title}\n    {r.url}" + (f"\n    {r.snippet}" if r.snippet else "")
         for i, r in enumerate(results, 1)
     )
+
+
+_TAG = re.compile(r"<[^>]+>")
+_WS = re.compile(r"\s+")
+
+
+async def deep_research(chain: SearchChain, query: str, max_pages: int = 3, page_chars: int = 2000) -> str:
+    """深度调研:搜索→抓取前 N 页→蒸馏正文(参考 gpt-researcher 的 search+fetch 合一模式)。
+    单次工具调用内完成多页核实,消耗计入任务轮次预算(DEC-03)。"""
+    results = await chain.search(query, max(5, max_pages))
+    if not results:
+        return "无搜索结果"
+    parts: list[str] = []
+    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+        for r in results[:max_pages]:
+            try:
+                resp = await client.get(r.url)
+                resp.raise_for_status()
+                text = _WS.sub(" ", _TAG.sub(" ", resp.text))[:page_chars]
+                parts.append(f"### {r.title}\nURL: {r.url}\n{text}")
+            except Exception:  # noqa: BLE001 —— 单页失败跳过,不影响其余
+                continue
+    return "\n\n".join(parts) if parts else format_results(results)

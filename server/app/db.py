@@ -58,7 +58,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     priority INTEGER NOT NULL DEFAULT 100,
     turn_limit INTEGER NOT NULL,
     time_limit_sec INTEGER NOT NULL,
-    turns_used INTEGER NOT NULL DEFAULT 0,
     started_at TEXT,
     finished_at TEXT,
     fail_reason TEXT
@@ -74,6 +73,8 @@ CREATE TABLE IF NOT EXISTS report_versions (
     html TEXT NOT NULL,
     sections_json TEXT NOT NULL,
     meta_json TEXT NOT NULL DEFAULT '{}',
+    read INTEGER NOT NULL DEFAULT 0,
+    favorited INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (repo_id, version_no)
 );

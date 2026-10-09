@@ -34,7 +34,6 @@ onMounted(load)
       <label>AI API Key(仅存服务端)<input v-model="form.ai_api_key" type="password" :placeholder="form.ai_api_key || 'sk-…'" /></label>
       <label>单任务轮次上限<input v-model="form.turn_limit" type="number" min="1" /></label>
       <label>单任务时限(秒)<input v-model="form.time_limit_sec" type="number" min="60" /></label>
-      <label>同步并发<input v-model="form.concurrency" type="number" min="1" max="4" /></label>
       <div class="row">
         <button type="submit">{{ saved ? '已保存 ✓' : '保存' }}</button>
         <button type="button" @click="syncNow">立即同步 star</button>

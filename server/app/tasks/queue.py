@@ -1,5 +1,6 @@
 # 任务队列(ADR-0004):状态机=docs/PRD.md FIG-02;tasks 表即持久层,重启天然恢复
-# step() 处理一个任务,服务端以循环驱动;执行器契约见 run_step 内注释(REQ-TASK-003 归档语义)
+# step() 处理一个任务,服务端以循环驱动;执行器契约见 step 内注释(REQ-TASK-003 归档语义)
+import asyncio
 import sqlite3
 from datetime import datetime, timezone
 
@@ -66,15 +67,30 @@ def _paused(conn: sqlite3.Connection) -> bool:
     return bool(row and row["value"] == "1")
 
 
-def cancel_pending(conn: sqlite3.Connection, repo_id: int | None = None) -> int:
-    # 取消排队任务:未执行无历史,直接删行(REQ-TASK-002)
+def cancel_pending(conn: sqlite3.Connection, repo_id: int | None = None, task_id: int | None = None) -> int:
+    # 取消排队任务:未执行无历史,直接删行(REQ-TASK-002);按仓库或按任务 id
     sql, args = "DELETE FROM tasks WHERE status='排队'", []
     if repo_id is not None:
         sql += " AND repo_id=?"
         args.append(repo_id)
+    if task_id is not None:
+        sql += " AND id=?"
+        args.append(task_id)
     cur = conn.execute(sql, args)
     conn.commit()
     return cur.rowcount
+
+
+# 分析中终止(REQ-TASK-002):API 侧登记,执行器内的 watcher 轮询并取消;进程重启自然清空
+TERMINATE_REQUESTS: set[int] = set()
+
+
+def request_terminate(conn: sqlite3.Connection, task_id: int) -> bool:
+    row = conn.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+    if row is None or row["status"] != "进行":
+        return False
+    TERMINATE_REQUESTS.add(task_id)
+    return True
 
 
 def exclude_repo(conn: sqlite3.Connection, repo_id: int) -> None:
@@ -91,8 +107,8 @@ def recover(conn: sqlite3.Connection) -> int:
 
 
 def step(conn: sqlite3.Connection, executor) -> bool:
-    """消费一个任务。executor(conn, task, repo) -> ('ok', payload);
-    触达限额时 raise TaskLimited(partial, reason);其他异常归「失败」。暂停时返回 False。"""
+    """消费一个任务。executor(task_id) 在独立线程/连接执行重活;归档仍由本连接负责。
+    触达限额时 executor raise TaskLimited(partial, reason);取消→「失败·人工终止」;其他异常归「失败」。"""
     if _paused(conn):
         return False
     task = conn.execute(
@@ -101,16 +117,17 @@ def step(conn: sqlite3.Connection, executor) -> bool:
     if task is None:
         return False
     conn.execute(
-        "UPDATE tasks SET status='进行', started_at=?, turns_used=0 WHERE id=?",
+        "UPDATE tasks SET status='进行', started_at=? WHERE id=?",
         (_now(), task["id"]),
     )
     conn.commit()
-    repo = conn.execute("SELECT * FROM repos WHERE id=?", (task["repo_id"],)).fetchone()
     try:
-        executor(conn, task, repo)
+        executor(task["id"])
         status, reason = "完成", None
     except TaskLimited as e:
         status, reason = ("受限完成", e.reason) if e.partial else ("失败", e.reason)
+    except asyncio.CancelledError:
+        status, reason = "失败", "人工终止"
     except Exception as e:  # noqa: BLE001 —— 归档为失败,原因入 fail_reason
         status, reason = "失败", f"{type(e).__name__}: {e}"
     conn.execute(

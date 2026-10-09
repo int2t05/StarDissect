@@ -44,3 +44,28 @@ def test_plain_text_skips_code():
     _, _, text = _sections(md)
     assert "段落甲" in text and "段落乙" in text
     assert "inline_code" not in text and "block_code" not in text
+
+
+def test_heading_anchors_injected():
+    # 审查 T-03:h2/h3 必须带 id/data-seq,供目录/scrollspy/进度消费(ADR-0007)
+    md = "## 系统设计\n\n内容\n\n### 数据流\n\n内容乙"
+    html, sections, _ = _sections(md)
+    assert 'data-seq="0"' in html and 'id="sec-0"' in html and 'data-seq="1"' in html
+
+
+def test_mermaid_block_marked():
+    # RPT-005:mermaid 块带 .mermaid 标记,前端渲染+文字后备
+    md = "## 图\n\n```mermaid\ngraph TD; A-->B;\n```"
+    html, _, _ = _sections(md)
+    assert "mermaid" in html
+
+
+def test_typography_validator_rules():
+    from app.render import validator
+
+    v = validator.validate("这是GitHub直连的内容,测试。\n中文english混排\n第3章起点\n")
+    rules = {x["rule"] for x in v}
+    assert "UX-16 中英文间距" in rules  # 第 2 行「中文english」
+    assert "UX-17 数字中文间距" in rules  # 第 3 行「第3章」
+    # 白名单行豁免:含 GitHub 的行不报中英间距
+    assert not [x for x in v if x["line"] == 1 and x["rule"].startswith("UX-16")]

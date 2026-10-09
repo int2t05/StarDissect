@@ -16,7 +16,7 @@ def conn(tmp_path):
     return c
 
 
-def _ok(conn, task, repo):
+def _ok(task_id):
     return ("ok", 1)
 
 
@@ -37,7 +37,7 @@ def test_step_runs_to_completion(conn):
 def test_limited_with_output_archives_restricted(conn):
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
 
-    def partial(conn, task, repo):
+    def partial(task_id):
         raise queue.TaskLimited(partial=True, reason="轮次上限")
 
     queue.step(conn, partial)
@@ -48,7 +48,7 @@ def test_limited_with_output_archives_restricted(conn):
 def test_limited_without_output_archives_failed(conn):
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
 
-    def empty(conn, task, repo):
+    def empty(task_id):
         raise queue.TaskLimited(partial=False, reason="任务超时")
 
     queue.step(conn, empty)
@@ -59,7 +59,7 @@ def test_limited_without_output_archives_failed(conn):
 def test_error_archives_failed_with_reason(conn):
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
 
-    def boom(conn, task, repo):
+    def boom(task_id):
         raise RuntimeError("git clone 失败")
 
     queue.step(conn, boom)
@@ -67,10 +67,12 @@ def test_error_archives_failed_with_reason(conn):
     assert row["status"] == "失败" and "git clone" in row["fail_reason"]
 
 
-def test_cancel_pending_removes_row(conn):
+def test_cancel_pending_only_target(conn):
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
-    queue.cancel_pending(conn, repo_id=1)
-    assert conn.execute("SELECT COUNT(*) c FROM tasks").fetchone()["c"] == 0
+    queue.enqueue(conn, 2, "analyze", priority=100, turn_limit=30, time_limit_sec=1800)
+    target = conn.execute("SELECT id FROM tasks WHERE repo_id=1").fetchone()["id"]
+    assert queue.cancel_pending(conn, task_id=target) == 1  # 只删目标(审查 T-01)
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE status='排队'").fetchone()["c"] == 1
 
 
 def test_priority_ordering(conn):

@@ -115,6 +115,14 @@ async def web_search(ctx: RunContext[AgentDeps], query: str, max_results: int = 
     return websearch.format_results(results)
 
 
+async def deep_research(ctx: RunContext[AgentDeps], topic: str, max_pages: int = 3) -> str:
+    """深度调研:搜索并抓取前 N 页正文蒸馏,多源合并;引用其中 URL 前仍须按证据规则标注。
+    适合为「外部背景/方案取舍」收集多源材料;调用消耗计入轮次预算。"""
+    if ctx.deps.search_chain is None:
+        return "未配置搜索后端"
+    return await websearch.deep_research(ctx.deps.search_chain, topic, max(min(max_pages, 5), 1))
+
+
 async def web_fetch(ctx: RunContext[AgentDeps], url: str) -> str:
     """抓取外部网页/文档文本;证据归「外部背景」,须记录查阅来源。"""
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:

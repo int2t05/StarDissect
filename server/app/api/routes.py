@@ -13,7 +13,8 @@ router = APIRouter(prefix="/api")
 public = APIRouter()
 
 SECRET_KEYS = {"github_token", "ai_api_key", "tavily_api_key", "exa_api_key"}
-PUBLIC_KEYS = ["github_user", "ai_model", "ai_base_url", "turn_limit", "time_limit_sec", "concurrency"]
+PUBLIC_KEYS = ["github_user", "ai_model", "ai_base_url", "turn_limit", "time_limit_sec"]
+LIMIT_KEYS = {"turn_limit", "time_limit_sec"}  # 限额类:正整数校验(REQ-CFG-002)
 
 
 # ---------- 同步(REQ-SYNC) ----------
@@ -121,9 +122,50 @@ async def patch_repo(request: Request, repo_id: int, body: dict):
         else:
             conn.execute("UPDATE repos SET excluded=0, updated_at=datetime('now') WHERE id=?", (repo_id,))
             conn.commit()
-    if "unstarred" in body:
-        conn.execute("UPDATE repos SET unstarred=?, updated_at=datetime('now') WHERE id=?", (1 if body["unstarred"] else 0, repo_id))
-        conn.commit()
+    return {"ok": True}
+
+
+@router.patch("/reports/{version_id}/state")
+async def patch_report_state(request: Request, version_id: int, body: dict):
+    # 条目级已读/收藏(REQ-READ-006,键盘 m/f)
+    conn = request.app.state.conn
+    fields = []
+    args = []
+    for key in ("read", "favorited"):
+        if key in body:
+            fields.append(f"{key}=?")
+            args.append(1 if body[key] else 0)
+    if not fields:
+        raise HTTPException(422, "无可更新字段")
+    conn.execute(f"UPDATE report_versions SET {','.join(fields)} WHERE id=?", (*args, version_id))
+    conn.commit()
+    return {"ok": True}
+
+
+# ---------- 知识点编辑(KP-002:人工修订须标注,不冒充分析结论) ----------
+
+@router.patch("/knowledge_points/{kp_id}")
+async def edit_knowledge_point(request: Request, kp_id: int, body: dict):
+    conn = request.app.state.conn
+    statement = (body.get("statement") or "").strip()
+    if not statement:
+        raise HTTPException(422, "内容不能为空")
+    conn.execute(
+        "UPDATE knowledge_points SET statement=?, human_edited=1, revision_note=? WHERE id=?",
+        (statement, body.get("note", "人工修订"), kp_id),
+    )
+    conn.commit()
+    indexer.index_knowledge(conn, kp_id)
+    conn.commit()
+    return {"ok": True}
+
+
+@router.delete("/knowledge_points/{kp_id}")
+async def delete_knowledge_point(request: Request, kp_id: int):
+    # 软删除可恢复,不破坏版本完整性(KP-002)
+    conn = request.app.state.conn
+    conn.execute("UPDATE knowledge_points SET deleted=1 WHERE id=?", (kp_id,))
+    conn.commit()
     return {"ok": True}
 
 
@@ -149,20 +191,37 @@ async def add_tag(request: Request, repo_id: int, body: dict):
         raise HTTPException(400, "标签名不能为空")
     conn.execute("INSERT OR IGNORE INTO tags(repo_id, name) VALUES (?,?)", (repo_id, name))
     conn.commit()
+    indexer.index_repo(conn, repo_id)  # 人工标签入检索域(REQ-SRCH-001)
+    conn.commit()
     return {"ok": True}
 
 
 @router.delete("/repos/{repo_id}/tags/{name}")
 async def delete_tag(request: Request, repo_id: int, name: str):
-    request.app.state.conn.execute("DELETE FROM tags WHERE repo_id=? AND name=?", (repo_id, name))
-    request.app.state.conn.commit()
+    conn = request.app.state.conn
+    conn.execute("DELETE FROM tags WHERE repo_id=? AND name=?", (repo_id, name))
+    conn.commit()
+    indexer.index_repo(conn, repo_id)
+    conn.commit()
     return {"ok": True}
 
 
 @router.post("/repos/{repo_id}/classify")
 async def manual_scope(request: Request, repo_id: int, body: dict):
-    # 人工选择范围(待处理→已分类,REQ-CLS-002)
-    runner.upsert_classification(request.app.state.conn, repo_id, body["type"], body.get("reason", "人工选择范围"), body.get("confidence", "高"), "manual_scope")
+    # 人工选择范围:待处理→已分类并入队(REQ-CLS-002 闭环)
+    conn = request.app.state.conn
+    if not body.get("type"):
+        raise HTTPException(422, "缺少 type")
+    if conn.execute("SELECT 1 FROM repos WHERE id=?", (repo_id,)).fetchone() is None:
+        raise HTTPException(404, "仓库不存在")
+    runner.upsert_classification(conn, repo_id, body["type"], body.get("reason", "人工选择范围"), body.get("confidence", "高"), "manual_scope")
+    conn.execute("UPDATE repos SET status='已分类', updated_at=datetime('now') WHERE id=?", (repo_id,))
+    conn.commit()
+    limits = syncer._task_limits(conn)
+    try:
+        queue.enqueue(conn, repo_id, "analyze", priority=100, turn_limit=limits["turn_limit"], time_limit_sec=limits["time_limit_sec"])
+    except queue.DuplicateTask:
+        pass
     return {"ok": True}
 
 
@@ -207,8 +266,20 @@ async def patch_task(request: Request, task_id: int, body: dict):
 
 @router.delete("/tasks/{task_id}")
 async def cancel_task(request: Request, task_id: int):
-    n = queue.cancel_pending(request.app.state.conn)
+    # 只取消指定排队任务(审查 T-01:此前误删全队列)
+    conn = request.app.state.conn
+    n = queue.cancel_pending(conn, task_id=task_id)
+    if n == 0:
+        raise HTTPException(404, "排队任务不存在")
     return {"ok": True, "cancelled": n}
+
+
+@router.post("/tasks/{task_id}/terminate")
+async def terminate_task(request: Request, task_id: int):
+    # 终止分析中任务(REQ-TASK-002):登记请求,执行器 watcher 负责取消
+    if not queue.request_terminate(request.app.state.conn, task_id):
+        raise HTTPException(400, "任务不在进行中")
+    return {"ok": True}
 
 
 @router.post("/tasks/{task_id}/retry")
@@ -262,7 +333,11 @@ async def get_progress(request: Request, version_id: int):
     row = request.app.state.conn.execute(
         "SELECT * FROM reading_progress WHERE report_version_id=?", (version_id,)
     ).fetchone()
-    return dict(row) if row else {"anchor_seq": 0, "top_percent": 0, "bottom_percent": 0}
+    if row is None:
+        return {"anchor_seq": 0, "top_percent": 0, "bottom_percent": 0}
+    seq, top = _parse_anchor(row["anchor"])
+    return {"anchor_seq": seq, "top_percent": top, "bottom_percent": row["bottom_percent"],
+            "highest_anchor": row["highest_anchor"]}
 
 
 @router.put("/reports/{version_id}/progress")
@@ -369,9 +444,13 @@ async def rss(request: Request):
 
 @router.get("/settings")
 async def get_settings(request: Request):
+    # 白名单输出;密钥仅尾号(REQ-CFG-001);内部键(syncing/queue_paused)不外吐
     conn = request.app.state.conn
+    allowed = PUBLIC_KEYS + list(SECRET_KEYS)
     out = {}
     for r in conn.execute("SELECT key, value FROM settings"):
+        if r["key"] not in allowed:
+            continue
         out[r["key"]] = ("…" + r["value"][-4:]) if r["key"] in SECRET_KEYS and r["value"] else r["value"]
     return out
 
@@ -383,9 +462,18 @@ async def patch_settings(request: Request, body: dict):
     for k, v in body.items():
         if k not in allowed:
             raise HTTPException(400, f"未知配置项: {k}")
+        text = str(v)
+        if k in SECRET_KEYS and text.startswith("…"):
+            continue  # 掩码回显原样提交:保留服务端真值(审查 T-02)
+        if k in LIMIT_KEYS:
+            try:
+                if int(text) <= 0:
+                    raise ValueError
+            except ValueError:
+                raise HTTPException(422, f"{k} 必须为正整数") from None
         conn.execute(
             "INSERT INTO settings(key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-            (k, str(v)),
+            (k, text),
         )
     conn.commit()
     return {"ok": True}

@@ -15,16 +15,43 @@ from app.db import connect, init_db
 from app.tasks import queue
 
 
-async def _queue_loop(conn):
-    # 服务循环:逐个消费任务;无任务时间歇,暂停时同样休眠(REQ-TASK-002)
+async def _queue_loop():
+    # 服务循环:独立连接(写者隔离,审查 T-05);无任务时间歇;异常兜底防停摆
+    conn = connect(config.db_path())
     while True:
-        stepped = await asyncio.to_thread(queue.step, conn, _execute)
-        await asyncio.sleep(0.2 if stepped else 2.0)
+        try:
+            stepped = await asyncio.to_thread(queue.step, conn, _execute)
+            await asyncio.sleep(0.2 if stepped else 2.0)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 —— 单次失败不杀死循环
+            await asyncio.sleep(5.0)
 
 
-def _execute(conn, task, repo):
-    # 同步桥:队列工作线程中运行 async runner(独立事件循环)
-    return asyncio.run(runner.run_task(conn, task, repo))
+def _execute(task_id: int):
+    # 同步桥:工作线程独立连接;watcher 轮询终止请求(REQ-TASK-002)
+    conn = connect(config.db_path())
+    task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
+    repo = conn.execute("SELECT * FROM repos WHERE id=?", (task["repo_id"],)).fetchone()
+
+    async def _run():
+        run = asyncio.ensure_future(runner.run_task(conn, task, repo))
+        term = asyncio.ensure_future(_watch_terminate(run, task_id))
+        try:
+            return await run
+        finally:
+            term.cancel()
+
+    return asyncio.run(_run())
+
+
+async def _watch_terminate(run, task_id: int):
+    while True:
+        if task_id in queue.TERMINATE_REQUESTS:
+            queue.TERMINATE_REQUESTS.discard(task_id)
+            run.cancel()
+            return
+        await asyncio.sleep(0.5)
 
 
 def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
@@ -43,18 +70,18 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
         scheduler = None
         loop_task = None
         if workers:
-            loop_task = asyncio.create_task(_queue_loop(conn))
+            loop_task = asyncio.create_task(_queue_loop())
             scheduler = AsyncIOScheduler()
             async def _daily_sync():
-                token = None
+                # 定时同步(REQ-SYNC-001);进行中则跳过本轮(REQ-SYNC-002 合并语义)
                 row = conn.execute("SELECT value FROM settings WHERE key='github_token'").fetchone()
-                if row and conn.execute("SELECT value FROM settings WHERE key='syncing'").fetchone() is None:
-                    token = row["value"]
+                flag = conn.execute("SELECT value FROM settings WHERE key='syncing'").fetchone()
+                if row and (flag is None or flag["value"] != "1"):
                     from app.sync import syncer
 
                     with contextlib.suppress(Exception):
-                        await syncer.sync_star(conn, token)
-            scheduler.add_job(_daily_sync, "cron", hour=3, minute=17)  # 每日定时(REQ-SYNC-001)
+                        await syncer.sync_star(conn, row["value"])
+            scheduler.add_job(_daily_sync, "cron", hour=3, minute=17)
             scheduler.start()
         yield
         if loop_task:
@@ -72,7 +99,6 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
     return app
 
 
-# uvicorn 入口:uvicorn app.main:app(仓库根运行)
 def _seed_settings(conn) -> None:
     # .env → settings 表:仅补缺,界面设置始终优先(REQ-CFG-001)
     for env_key, setting_key in config.ENV_SEED_MAP.items():
@@ -85,4 +111,5 @@ def _seed_settings(conn) -> None:
     conn.commit()
 
 
+# uvicorn 入口:uvicorn app.main:app(仓库根运行)
 app = create_app()

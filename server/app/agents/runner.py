@@ -4,17 +4,24 @@ import json
 import subprocess
 from pathlib import Path
 
+import nh3
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.usage import UsageLimits
 
+from app import config
 from app.agents import prompts, tools, websearch
-from app.render import pipeline
+from app.render import pipeline, validator
 from app.search import indexer
 from app.tasks.queue import TaskLimited
 
-CLONES_DIR = Path("data/clones")
+# 消毒白名单:报告 HTML 存库前执行(审查 T-07;对齐 UX-41 的服务端消毒纪律)
+# rel 由 nh3 link_rel 自动管理,不入白名单
+CLEAN_TAGS = {"div", "span", "code", "pre", "a", "p", "h1", "h2", "h3", "h4", "ul", "ol", "li",
+              "table", "thead", "tbody", "tr", "th", "td", "blockquote", "br", "hr", "em", "strong", "figure", "figcaption", "mark"}
+CLEAN_ATTRS = {tag: {"class", "data-ref", "data-url", "id", "data-seq"} for tag in CLEAN_TAGS}
+CLEAN_ATTRS["a"] |= {"href"}
 
 
 # ---------- 结构化产出 ----------
@@ -48,8 +55,9 @@ class ReportDraft(BaseModel):
 
 # ---------- 克隆与凭据 ----------
 
-def prepare_clone(repo_full_name: str, clone_url: str, clones_dir: Path = CLONES_DIR) -> tuple[Path, str]:
+def prepare_clone(repo_full_name: str, clone_url: str, clones_dir: Path | None = None) -> tuple[Path, str]:
     """浅克隆默认分支,返回 (克隆目录, head_commit);已存在则复用。commit_anchor=分析时快照(REQ-RPT-002)。"""
+    clones_dir = clones_dir or config.data_dir() / "clones"  # 落点随数据目录(审查 T-06)
     dest = clones_dir / repo_full_name.replace("/", "__")
     if not (dest / ".git").exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -111,8 +119,9 @@ def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: 
         conn.execute("SELECT COALESCE(MAX(version_no),0)+1 AS n FROM report_versions WHERE repo_id=?", (repo_id,)).fetchone()["n"]
     )
     md = "\n\n".join(f"## {s.title}\n\n{s.body}" for s in draft.sections)
-    html, sections, _plain = pipeline.render(md)
-    meta = {"commit_anchor": commit_anchor}
+    html, sections, plain = pipeline.render(md)
+    html = nh3.clean(html, tags=CLEAN_TAGS, attributes=CLEAN_ATTRS, url_schemes={"http", "https", "mailto"})  # T-07
+    meta = {"commit_anchor": commit_anchor, "typography_check": _typography_check(plain)}
     cur = conn.execute(
         "INSERT INTO report_versions(repo_id, version_no, task_id, commit_anchor, markdown, html, sections_json, meta_json)"
         " VALUES (?,?,?,?,?,?,?,?)",
@@ -149,7 +158,16 @@ def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: 
 
 # ---------- 任务执行(队列 executor) ----------
 
-async def run_task(conn, task, repo, clones_dir: Path = CLONES_DIR) -> tuple[str, int]:
+def _typography_check(plain: str) -> dict:
+    # 中文排版校验(REQ-RPT-003):违规标记不阻断;校验器异常→标注未校验
+    try:
+        violations = validator.validate(plain)
+        return {"status": "checked", "violations": violations[:50]}
+    except Exception as e:  # noqa: BLE001 —— REQ-RPT-003 异常分支
+        return {"status": "unchecked", "error": f"{type(e).__name__}"}
+
+
+async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[str, int]:
     """队列 executor 契约:成功返回 ('ok', version_id);触达限额 raise TaskLimited(REQ-TASK-003)。"""
     settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
     model = _build_model(settings)
@@ -169,7 +187,9 @@ async def run_task(conn, task, repo, clones_dir: Path = CLONES_DIR) -> tuple[str
         readme_path = clone_root / "README.md"
         readme = f"README 摘要: {readme_path.read_text(encoding='utf-8', errors='replace')[:4000]}" if readme_path.exists() else "README 摘要: (无)"
         tree = "\n".join(f"{'d ' if p.is_dir() else 'f '}{p.name}" for p in sorted(clone_root.iterdir(), key=lambda x: (x.is_file(), x.name)))
-        c = await classifier.run(f"{readme}\n\n文件树:\n{tree}")
+        # classifier 同受约束(NFR-01):一次调用,墙钟 120s
+        async with asyncio.timeout(120):
+            c = await classifier.run(f"{readme}\n\n文件树:\n{tree}", usage_limits=UsageLimits(request_limit=3))
         upsert_classification(conn, repo["id"], c.output.type, c.output.reason, c.output.confidence, "auto")
         cls_row = current_classification(conn, repo["id"])
     conn.execute("UPDATE repos SET status='已分类', updated_at=datetime('now') WHERE id=?", (repo["id"],))
@@ -177,7 +197,7 @@ async def run_task(conn, task, repo, clones_dir: Path = CLONES_DIR) -> tuple[str
 
     analyzer = Agent(
         model, output_type=ReportDraft, instructions=prompts.ANALYZER_INSTRUCTIONS,
-        tools=[tools.read_file, tools.search_code, tools.list_dir, tools.fetch_github, tools.web_search, tools.web_fetch],
+        tools=[tools.read_file, tools.search_code, tools.list_dir, tools.fetch_github, tools.web_search, tools.deep_research, tools.web_fetch],
         deps_type=tools.AgentDeps,
     )
     focus = prompts.TYPE_FOCUS.get(cls_row["type"], prompts.TYPE_FOCUS["混合/未识别"])

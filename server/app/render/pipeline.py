@@ -83,11 +83,15 @@ def _split_evidence(tokens: list[Token]) -> list[Token]:
 
 def _sections_and_text(tokens: list[Token]) -> tuple[list[dict], str]:
     # 章节:h2 开新章(链=章序),h3 为子节(链=父链/子序);line 取 token.map 首行
+    # 同时向 heading_open 注入 id/data-seq 锚点——目录/scrollspy/进度恢复的消费契约(ADR-0007)
     sections: list[dict] = []
     text_parts: list[str] = []
     h2_idx = h3_idx = -1
     for t in tokens:
         if t.type in ("code_block", "fence"):
+            if t.info and t.info.strip() == "mermaid":
+                t.tag = "div"  # mermaid 块标记为图表容器,前端渲染+文字后备(RPT-005)
+                t.attrs = {"class": "mermaid"}
             continue
         if t.type == "heading_open" and t.tag in ("h2", "h3"):
             title_t = tokens[tokens.index(t) + 1]
@@ -98,8 +102,10 @@ def _sections_and_text(tokens: list[Token]) -> tuple[list[dict], str]:
             else:
                 h3_idx += 1
                 chain = f"{h2_idx}/{h3_idx}" if h2_idx >= 0 else str(h3_idx)
+            seq = len(sections)
+            t.attrs = {"id": f"sec-{seq}", "data-seq": str(seq)}
             sections.append({
-                "seq": len(sections),
+                "seq": seq,
                 "level": int(t.tag[1]),
                 "title": title_t.content.strip(),
                 "line": t.map[0],
