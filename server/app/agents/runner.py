@@ -2,7 +2,9 @@
 import asyncio
 import json
 import logging
+import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import nh3
@@ -60,20 +62,27 @@ class ReportDraft(BaseModel):
 # ---------- 克隆与凭据 ----------
 
 def prepare_clone(repo_full_name: str, clone_url: str, clones_dir: Path | None = None) -> tuple[Path, str]:
-    """浅克隆默认分支,返回 (克隆目录, head_commit);已存在则复用。commit_anchor=分析时快照(REQ-RPT-002)。"""
+    """浅克隆默认分支,返回 (克隆目录, head_commit);已存在则复用。commit_anchor=分析时快照(REQ-RPT-002)。
+    网络抖动重试(退避),重试耗尽携带 git stderr 上抛。"""
     clones_dir = clones_dir or config.data_dir() / "clones"  # 落点随数据目录
     dest = clones_dir / repo_full_name.replace("/", "__")
     if not (dest / ".git").exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            subprocess.run(
-                ["git", "clone", "--depth", "1", clone_url, str(dest)],
-                check=True, capture_output=True, text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            # 携带 git stderr,鉴权/网络/仓库不存在等真因进 fail_reason
-            detail = (e.stderr or "").strip().splitlines()[-1:] or ["未知错误"]
-            raise RuntimeError(f"git clone 失败: {detail[0][:200]}") from e
+        for attempt in range(1, config.CLONE_ATTEMPTS + 1):
+            try:
+                subprocess.run(
+                    ["git", "clone", "--depth", "1", clone_url, str(dest)],
+                    check=True, capture_output=True, text=True,
+                )
+                break
+            except subprocess.CalledProcessError as e:
+                detail = (e.stderr or "").strip().splitlines()[-1:] or ["未知错误"]
+                # 失败残留目录清理,避免重试撞上「已存在非空目录」
+                shutil.rmtree(dest, ignore_errors=True)
+                if attempt == config.CLONE_ATTEMPTS:
+                    raise RuntimeError(f"git clone 失败(已重试 {attempt - 1} 次): {detail[0][:200]}") from e
+                logger.warning("clone 失败(第 %s 次,%ss 后重试): %s", attempt, config.CLONE_BACKOFF_SEC, detail[0][:120])
+                time.sleep(config.CLONE_BACKOFF_SEC)
     sha = subprocess.run(
         ["git", "-C", str(dest), "rev-parse", "HEAD"],
         check=True, capture_output=True, text=True,
