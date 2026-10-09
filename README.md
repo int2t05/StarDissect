@@ -65,6 +65,34 @@ cd web && npm run build                  # 前端构建校验
 | [docs/uiux/UIUX.md](docs/uiux/UIUX.md) | 界面设计定稿(tokens/排版/交互) |
 | [docs/audit/](docs/audit/) | 纯净性与一致性审计报告 |
 
+## Linux 服务部署
+
+```bash
+# 服务器上(示例为 systemd 用户服务)
+git clone https://github.com/int2t05/StarDissect.git ~/apps/StarDissect
+cd ~/apps/StarDissect && cp .env.example .env   # 填入密钥
+(cd server && uv sync) && (cd web && npm install && npm run build)
+
+mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/stardissect.service <<'UNIT'
+[Unit]
+Description=StarDissect
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/StarDissect
+ExecStart=%h/apps/StarDissect/server/.venv/bin/python -m uvicorn app.main:app --app-dir server --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+UNIT
+
+systemctl --user daemon-reload && systemctl --user enable --now stardissect
+loginctl enable-linger $USER   # 重启/注销后自启
+```
+
 ## 运行要点
 
 - 数据:SQLite 单文件(`data/app.db`,WAL);日志:`data/logs/app.log`(轮转)
