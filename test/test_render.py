@@ -1,4 +1,4 @@
-# S2 渲染管线测试:证据块→结构化 HTML、token map→章节链、纯文本抽取(ADR-0007/0008)
+# 渲染管线测试:证据块→结构化 HTML、token map→章节链、纯文本抽取(ADR-0007/0008)
 from app.render import pipeline
 
 

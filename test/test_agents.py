@@ -1,5 +1,5 @@
-# S5 分析 agent 测试:工具集(真实文件系统)、克隆(真实 git)、落库(真实 DB)
-# LLM 端到端按 CLAUDE.md 为真实调用:仅当显式设 STARDISSECT_IT_LLM=1 且有密钥时运行,否则跳过
+# 分析 agent 测试:工具集(真实文件系统)、克隆(真实 git)、落库(真实 DB)
+# LLM 端到端为真实调用:仅当显式设 STARDISSECT_IT_LLM=1 且有密钥时运行,否则跳过
 import os
 import subprocess
 
@@ -148,7 +148,7 @@ async def test_run_task_end_to_end_with_real_llm(tmp_path):
 
 
 def test_prepare_clone_failure_carries_git_stderr(tmp_path):
-    # 成熟度 M3:克隆失败时 fail_reason 携带 git stderr 真因,而非裸退出码
+    # 克隆失败时 fail_reason 携带 git stderr 真因,而非裸退出码
     import pytest as _pytest
     from app.agents import runner as _runner
 

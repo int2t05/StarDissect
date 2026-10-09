@@ -1,4 +1,4 @@
-// 统一 API 访问:非 2xx 抛错并全局 toast,消灭静默白屏(系统工程审计 F9)
+// 统一 API 访问:非 2xx 抛错并全局 toast,消灭静默白屏
 export function toast(message) {
   let host = document.getElementById('sd-toast')
   if (!host) {

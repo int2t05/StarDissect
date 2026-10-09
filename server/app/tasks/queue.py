@@ -10,8 +10,11 @@ logger = logging.getLogger("stardissect.queue")
 
 def task_limits(conn: sqlite3.Connection) -> dict:
     """从设置读取任务限额默认值(公共入口,同步器与 API 共用)。"""
+    from app import config
+
     s = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
-    return {"turn_limit": int(s.get("turn_limit", "30")), "time_limit_sec": int(s.get("time_limit_sec", "1800"))}
+    return {"turn_limit": int(s.get("turn_limit", str(config.TASK_DEFAULT_TURN_LIMIT))),
+            "time_limit_sec": int(s.get("time_limit_sec", str(config.TASK_DEFAULT_TIME_LIMIT_SEC)))}
 
 
 class DuplicateTask(Exception):
@@ -133,6 +136,7 @@ def step(conn: sqlite3.Connection, executor) -> bool:
     except Exception as e:  # noqa: BLE001 —— 归档为失败,原因入 fail_reason 与日志
         logger.exception("任务执行异常 id=%s", task["id"])
         status, reason = "失败", f"{type(e).__name__}: {e}"
+    TERMINATE_REQUESTS.discard(task["id"])  # 清尾:任务已终态,未消费的终止请求不留残
     logger.info("任务归档 id=%s repo=%s status=%s reason=%s", task["id"], task["repo_id"], status, reason)
     conn.execute(
         "UPDATE tasks SET status=?, fail_reason=?, finished_at=? WHERE id=?",

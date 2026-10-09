@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS repos (
     description TEXT,
     language TEXT,
     default_branch TEXT,
-    status TEXT NOT NULL DEFAULT '已收录',
+    status TEXT NOT NULL DEFAULT '已收录',   -- 仓库态:已收录/已分类/待处理/可阅读(任务态见 tasks 表)
     excluded INTEGER NOT NULL DEFAULT 0,
     unstarred INTEGER NOT NULL DEFAULT 0,
     starred_at TEXT,

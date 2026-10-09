@@ -1,4 +1,4 @@
-# S6 API 测试:真实 app + 真实 SQLite(tmp 数据目录),httpx ASGI 直连,无 mock
+# API 测试:真实 app + 真实 SQLite(tmp 数据目录),httpx ASGI 直连,无 mock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -12,7 +12,7 @@ async def client(tmp_path):
     app = create_app(data_dir=str(tmp_path / "data"), workers=False)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://t") as c, app.router.lifespan_context(app):
-        # M2:连接随每请求独立;测试自持连接做断言与种子
+        # 连接随每请求独立;测试自持连接做断言与种子
         conn = connect(tmp_path / "data" / "app.db")
         yield c, conn
         conn.close()
@@ -162,7 +162,7 @@ async def test_search_endpoint_groups_and_hits(client):
 
 
 async def test_healthz(client):
-    # 成熟度 M3:探活端点,库可读即健康
+    # 探活端点:库可读即健康
     c, _ = client
     r = await c.get("/healthz")
     assert r.status_code == 200 and r.json() == {"ok": True}

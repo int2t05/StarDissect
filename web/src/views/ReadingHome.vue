@@ -41,7 +41,7 @@ function onListKey(e) {
   const list = entries.value
   if (e.key === 'j') { active.value = Math.min(active.value + 1, list.length - 1); scrollActiveEntry() }
   else if (e.key === 'k') { active.value = Math.max(active.value - 1, 0); scrollActiveEntry() }
-  else if ((e.key === 'o' || e.key === 'Enter') && list[active.value]) router.push(`/repos/${list[active.value].repo.id}/report/${list[active.value].id}`)
+  else if ((e.key === 'o' || e.key === 'Enter') && list[active.value]) router.push(`/repos/${list[active.value].repo_id}/report/${list[active.value].id}`)
   else if ((e.key === 'm' || e.key === 'f') && list[active.value]) toggleEntryState(list[active.value], e.key === 'm' ? 'read' : 'favorited')
 }
 function scrollActiveEntry() {
@@ -145,8 +145,8 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 
     <ul class="entries">
       <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
-        <RouterLink :to="`/repos/${e.repo.id}/report/${e.id}`">
-          <span class="name">{{ e.repo.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
+        <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
+          <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
           <span class="meta">v{{ e.version_no }} · {{ e.created_at }}</span>
         </RouterLink>
       </li>

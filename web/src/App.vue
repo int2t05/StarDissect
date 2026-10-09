@@ -1,4 +1,4 @@
-// 应用壳:四区导航(UX-21)+ 键盘注册 + 路由出口;桌面左导航 208px(UX-22)
+<!-- 应用壳:四区导航(UX-21)+ 键盘注册 + 路由出口;桌面左导航 208px(UX-22) -->
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 import { useKeyboard } from './composables/useKeyboard'

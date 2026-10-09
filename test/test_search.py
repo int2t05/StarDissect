@@ -1,4 +1,4 @@
-# S3 检索测试:jieba 分词、三域索引、snippet 命中(ADR-0006、REQ-SRCH-001)
+# 检索测试:jieba 分词、三域索引、snippet 命中(ADR-0006、REQ-SRCH-001)
 from app.db import connect, init_db
 from app.search import indexer
 

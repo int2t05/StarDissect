@@ -73,7 +73,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 
 ## 3. 任务与队列语义(ADR-0004;状态机=PRD FIG-02)
 
-- 工作循环:取最高优先级「排队」任务 → 置「进行」(写 turn/time 快照)→ 执行 ADR-0005 agent → 按结果落「完成/受限完成/失败」;每步单事务提交。
+- 工作循环:取最高优先级「排队」任务(限额快照已于入队时写入)→ 置「进行」→ 执行 ADR-0005 agent → 按结果落「完成/失败」;每步单事务提交。
 - 干预(REQ-TASK-002):暂停/恢复=循环开关;优先级/取消/排除=tasks/repos 字段更新;「分析中」终止=触发 asyncio 取消→归「失败」(可重试)。
 - 限额(REQ-TASK-003,DEC-09):request_limit 与墙钟超时双约束;达到上限即终止归「失败」并记录原因,可重试,不保留部分产出。
 - 重试/重分析(REQ-TASK-004/005):新增 tasks 行,不覆盖历史;同仓库「进行」存在则拒绝。
@@ -91,7 +91,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | search_code     | 正则/文本搜索克隆区                    | 源码事实             |
 | list_dir        | 目录树                                 | —                    |
 | fetch_github    | README/Issue/PR 只读                   | 作者说明/外部背景     |
-| web_search      | 网络搜索,降级链 Tavily→Exa→DuckDuckGo(参考 Cognik SearchChain);片段是线索非证据 | 外部背景(引用前须 web_fetch 核实) |
+| web_search      | 网络搜索,降级链 Tavily→Exa→DuckDuckGo;片段是线索非证据 | 外部背景(引用前须 web_fetch 核实) |
 | deep_research   | 深度调研:搜索+前 N 页正文蒸馏,单次调用完成多源收集(参考 gpt-researcher 模式) | 外部背景 |
 | web_fetch       | 作者文档/外部资料                      | 外部背景(带查阅时间) |
 
@@ -121,9 +121,14 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/repos                      | GET(筛选/标签) | CLS-005、TASK-001       |
 | /api/repos/{id}                 | GET/PATCH      | CLS-001…005、TASK-002 排除 |
 | /api/repos/{id}/analyze         | POST           | TASK-005                |
-| /api/tasks                      | GET/PATCH/POST | TASK-001…004            |
+| /api/tasks                      | GET/PATCH      | TASK-001…004            |
 | /api/tasks/{id}                 | DELETE         | TASK-002(按 id 取消排队)|
 | /api/tasks/{id}/terminate       | POST           | TASK-002(终止分析中)    |
+| /api/tasks/{id}/retry           | POST           | TASK-004(重试)          |
+| /api/queue                      | POST           | TASK-002(暂停/恢复)     |
+| /api/repos/{id}/lock            | POST           | CLS-003(分类锁定)       |
+| /api/repos/{id}/tags            | POST / DELETE  | CLS-005(人工标签)       |
+| /api/repos/{id}/classify        | POST           | CLS-002(人工选择范围)   |
 | /api/reports/{vid}/state        | PATCH          | READ-006(已读/收藏)    |
 | /api/knowledge_points/{id}      | PATCH/DELETE   | KP-002(人工修订/软删除) |
 | /api/repos/{id}/reports         | GET(版本列表)  | RPT-004、TASK-005       |

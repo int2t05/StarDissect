@@ -1,4 +1,4 @@
-# S1 数据层测试:真实建库,验证表结构、WAL 与外键;无 mock
+# 数据层测试:真实建库,验证表结构、WAL 与外键;无 mock
 import sqlite3
 
 import pytest

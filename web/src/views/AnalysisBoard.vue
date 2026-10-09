@@ -63,7 +63,7 @@ onUnmounted(() => clearInterval(timer))
           <td class="why">{{ t.fail_reason }}</td>
           <td>
             <button v-if="t.status === '排队'" @click="cancel(t.id)">取消</button>
-            <button v-if="['失败', '受限完成', '中断'].includes(t.status)" @click="retry(t.id)">重试</button>
+            <button v-if="['失败', '中断'].includes(t.status)" @click="retry(t.id)">重试</button>
           </td>
         </tr>
       </tbody>

@@ -3,6 +3,8 @@
 # 白名单例外:含官方产品名的行豁免中英/数字间距规则(UX-20,如 GitHub 紧贴中文)
 import re
 
+from app import config
+
 # (规则名, 正则, 说明)
 RULES = [
     ("UX-16 中英文间距", re.compile(r"[一-龥][A-Za-z]|[A-Za-z][一-龥]"), "中文与英文之间应加空格"),
@@ -12,13 +14,10 @@ RULES = [
     ("UX-20 专有名词拼写", re.compile(r"\bGithub\b|\bh5\b|\bFED\b|\bIos\b"), "专有名词拼写不规范"),
 ]
 
-WHITELIST = {"GitHub", "GitLab", "TypeScript"}
-
-
 def validate(text: str) -> list[dict]:
     violations: list[dict] = []
     for line_no, line in enumerate(text.splitlines(), 1):
-        has_product = any(w in line for w in WHITELIST)
+        has_product = any(w in line for w in config.TYPOGRAPHY_WHITELIST)
         for name, rx, hint in RULES:
             if has_product and name in ("UX-16 中英文间距", "UX-17 数字中文间距"):
                 continue

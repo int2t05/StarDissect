@@ -81,6 +81,8 @@ function onKey(e) {
   else if (e.key === 'f') toggleState('favorited')
   else if (e.key === 'j') jump(Math.min(activeSeq.value + 1, sections.value.length - 1))
   else if (e.key === 'k') jump(Math.max(activeSeq.value - 1, 0))
+  else if (e.key === '[') settings.fontSize = Math.max(12, settings.fontSize - 1)   // 字号调节键(UX-30)
+  else if (e.key === ']') settings.fontSize = Math.min(22, settings.fontSize + 1)
 }
 
 onUnmounted(() => {
@@ -93,7 +95,8 @@ onUnmounted(() => {
 function computeCurrent() {
   const doc = document.documentElement
   const top = Math.round((doc.scrollTop / Math.max(1, doc.scrollHeight - doc.clientHeight)) * 100)
-  return { anchor_seq: Math.max(spy.activeSeq.value, 0), top }
+  const bottom = Math.round(((doc.scrollTop + doc.clientHeight) / Math.max(1, doc.scrollHeight)) * 100)
+  return { anchor_seq: Math.max(spy.activeSeq.value, 0), top, bottom }
 }
 
 const progress = useReadingProgress(vid, computeCurrent)

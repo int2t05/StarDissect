@@ -1,4 +1,6 @@
 # REST API 路由(docs/v1.0/tech.md §6;覆盖 REQ-SYNC/CLS/TASK/READ/SRCH/OUT/CFG 的 HTTP 面)
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from feedgen.feed import FeedGenerator
@@ -17,7 +19,7 @@ public = APIRouter()
 
 
 async def get_conn():
-    # 每请求独立连接:消除共享连接的事务交错(系统工程审计 F8);WAL 下多连接安全
+    # 每请求独立连接:消除共享连接的事务交错;WAL 下多连接安全
     # async 依赖:与 handler 同处事件循环线程,满足 sqlite 同线程约束
     conn = connect(config.db_path())
     try:
@@ -300,7 +302,7 @@ async def retry_task(request: Request, task_id: int, conn=Depends(get_conn)):
     task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
     if task is None:
         raise HTTPException(404, "任务不存在")
-    if task["status"] not in ("失败", "受限完成", "中断"):
+    if task["status"] not in ("失败", "中断"):
         raise HTTPException(400, f"状态 {task['status']} 不可重试")
     limits = queue.task_limits(conn)
     try:
@@ -435,7 +437,7 @@ async def entries(request: Request, state: str = "all", conn=Depends(get_conn)):
 async def search(request: Request, q: str, limit: int = 20, conn=Depends(get_conn)):
     if not q.strip():
         return []
-    return indexer.search(conn, q, limit=min(limit, 50))
+    return indexer.search(conn, q, limit=min(limit, config.SEARCH_MAX_LIMIT))
 
 
 # ---------- RSS(REQ-OUT-002) ----------

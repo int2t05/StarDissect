@@ -1,6 +1,6 @@
 # Agent 工具集:作用域限仓库克隆区与只读外部访问(契约=docs/v1.0/tech.md §4)
 # 证据锚定:read_file/search_code 输出带真实行号,供 [source] 证据引用(REQ-RPT-002)
-# 网络搜索纪律(线索≠证据)的唯一陈述在 tech.md §4,此处工具 docstring 仅简述并回指
+# 「线索≠证据」纪律的契约见 docs/v1.0/tech.md §4,此处仅简述
 import os
 import re
 from dataclasses import dataclass

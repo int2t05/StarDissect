@@ -39,7 +39,7 @@ async def test_tavily_real_search():
 
 
 async def test_chain_all_fail_returns_error_summary():
-    # 成熟度 M3:全部后端失败时空结果 + 错误摘要透出,agent 不误判为「无结果」
+    # 全部后端失败时空结果 + 错误摘要透出,agent 不误判为「无结果」
     from app.agents import websearch as ws
 
     class Boom:

@@ -21,16 +21,22 @@ logger = logging.getLogger("stardissect")
 
 
 def setup_logging() -> None:
-    # 可观测性基座:stdout + 轮转文件,双路输出
+    # 可观测性基座:stdout + 轮转文件双路输出;uvicorn 日志并入同管道;幂等(测试多次装配)
     config.logs_dir().mkdir(parents=True, exist_ok=True)
+    root = logging.getLogger()
+    if any(isinstance(h, logging.handlers.RotatingFileHandler) for h in root.handlers):
+        return
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
     handlers = [logging.StreamHandler(), logging.handlers.RotatingFileHandler(
         config.logs_dir() / "app.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8")]
-    root = logging.getLogger()
     root.setLevel(logging.INFO)
     for h in handlers:
         h.setFormatter(fmt)
         root.addHandler(h)
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        lg = logging.getLogger(name)
+        lg.handlers.clear()
+        lg.propagate = True
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 
@@ -104,6 +110,9 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
         recovered = queue.recover(conn)
         if recovered:
             logger.info("启动恢复:%d 个中断任务等待人工重试", recovered)
+        conn.execute("INSERT INTO settings(key, value) VALUES ('syncing','0')"
+                     " ON CONFLICT(key) DO UPDATE SET value='0'")  # 崩溃残留复位,手动/定时同步不再卡死
+        conn.commit()
         # 启动自检:关键配置缺失时给出可行动提示
         keys = {r["key"] for r in conn.execute("SELECT key FROM settings")}
         for key, hint in (("github_token", "star 同步不可用"), ("ai_model", "分析任务不可用")):
@@ -115,7 +124,7 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
             loop_task = asyncio.create_task(_queue_loop())
             scheduler = AsyncIOScheduler()
             async def _daily_sync():
-                # 定时同步(REQ-SYNC-001);进行中跳过本轮(REQ-SYNC-002 合并语义);失败不再静默
+                # 定时同步(REQ-SYNC-001);进行中跳过本轮(REQ-SYNC-002);失败记日志,下轮重试
                 row = conn.execute("SELECT value FROM settings WHERE key='github_token'").fetchone()
                 flag = conn.execute("SELECT value FROM settings WHERE key='syncing'").fetchone()
                 if not row:
@@ -137,6 +146,8 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
         yield
         if loop_task:
             loop_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await loop_task  # 等待循环退出,消除与调度器的关闭竞态
             logger.warning("停机:进行中任务将标记中断,重启后由 recover 兜底等待人工重试")
         if scheduler:
             scheduler.shutdown(wait=False)

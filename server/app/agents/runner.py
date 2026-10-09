@@ -1,4 +1,4 @@
-# Agent 运行器:克隆准备、classifier/analyzer 构建与执行、产物落库(ADR-0005;队列 executor 契约=S4)
+# Agent 运行器:克隆准备、classifier/analyzer 构建与执行、产物落库(ADR-0005;队列 executor 契约见 tasks/queue.py)
 import asyncio
 import json
 import logging
@@ -198,7 +198,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
         # classifier 同受约束(NFR-01):一次调用,墙钟限时;触限转中文 reason(F5)
         try:
             async with asyncio.timeout(config.CLASSIFIER_TIMEOUT_SEC):
-                c = await classifier.run(f"{readme}\n\n文件树:\n{tree}", usage_limits=UsageLimits(request_limit=3))
+                c = await classifier.run(f"{readme}\n\n文件树:\n{tree}", usage_limits=UsageLimits(request_limit=config.CLASSIFIER_REQUEST_LIMIT))
         except (UsageLimitExceeded, TimeoutError) as e:
             raise TaskLimited("分类触达轮次上限" if isinstance(e, UsageLimitExceeded) else "分类超时") from e
         upsert_classification(conn, repo["id"], c.output.type, c.output.reason, c.output.confidence, "auto")

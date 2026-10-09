@@ -1,4 +1,4 @@
-# S4 任务队列测试:状态机全路径(执行器注入,无 LLM;REQ-TASK-001..006、PRD FIG-02)
+# 任务队列测试:状态机全路径(执行器注入,无 LLM;REQ-TASK-001..006、PRD FIG-02)
 import pytest
 
 from app.db import connect, init_db
@@ -35,7 +35,7 @@ def test_step_runs_to_completion(conn):
 
 
 def test_limited_archives_failed_with_reason(conn):
-    # DEC-09 轻量语义:触达上限统一归「失败」,原因留档,可重试
+    # 触达上限统一归「失败」,原因留档,可重试(DEC-09)
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
 
     def limited(task_id):

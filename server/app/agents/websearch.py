@@ -1,4 +1,4 @@
-# 网络搜索工具链(参考 Cognik:server/internal/infra/adapter/search_client.go 降级链模式)
+# 网络搜索工具链(降级链模式参照外部项目 Cognik 的 SearchChain 设计)
 # 顺序降级 Tavily→Exa→DuckDuckGo,首个成功即返回;「线索≠证据」纪律的唯一陈述见 docs/v1.0/tech.md §4
 import re
 
@@ -120,7 +120,7 @@ _WS = re.compile(r"\s+")
 async def deep_research(chain: SearchChain, query: str, max_pages: int = 3, page_chars: int = 2000) -> str:
     """深度调研:搜索→抓取前 N 页→蒸馏正文(参考 gpt-researcher 的 search+fetch 合一模式)。
     单次工具调用内完成多页核实,消耗计入任务轮次预算(DEC-03)。"""
-    results = await chain.search(query, max(config.MAX_DEEP_PAGES, max_pages))
+    results = await chain.search(query, min(max_pages, config.MAX_DEEP_PAGES))
     if not results:
         return "无搜索结果"
     parts: list[str] = []
