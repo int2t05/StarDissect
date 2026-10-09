@@ -15,6 +15,20 @@ EVIDENCE_LABELS = {"source": "源码事实", "author": "作者说明", "infer": 
 TAIL_RE = re.compile(r"^(.*?)\s*\(([^)]+),\s*([^)]+)\)\s*$", re.S)
 
 _md = MarkdownIt("commonmark").enable(["table", "strikethrough"])
+_default_fence = _md.renderer.rules["fence"]
+
+
+def _fence_rule(self, tokens, idx, options, env):
+    # mermaid 块输出专用容器(前端渲染+文字后备,RPT-005);其余 fence 走默认 <pre><code>
+    # add_render_rule 会把函数绑定到 renderer(首参 self);捕获的默认规则已是绑定方法,调用不传 self
+    t = tokens[idx]
+    if t.info and t.info.strip() == "mermaid":
+        body = html.escape(t.content)
+        return f'<div class="mermaid">\n{body}</div>\n'
+    return _default_fence(tokens, idx, options, env)
+
+
+_md.add_render_rule("fence", _fence_rule)
 
 
 def _evidence_html(kind: str, body: str) -> str:
@@ -89,10 +103,7 @@ def _sections_and_text(tokens: list[Token]) -> tuple[list[dict], str]:
     h2_idx = h3_idx = -1
     for t in tokens:
         if t.type in ("code_block", "fence"):
-            if t.info and t.info.strip() == "mermaid":
-                t.tag = "div"  # mermaid 块标记为图表容器,前端渲染+文字后备(REQ-RPT-005)
-                t.attrs = {"class": "mermaid"}
-            continue
+            continue  # 图/代码不进纯文本流;mermaid 容器由专用 fence 规则输出
         if t.type == "heading_open" and t.tag in ("h2", "h3"):
             title_t = tokens[tokens.index(t) + 1]
             if t.tag == "h2":

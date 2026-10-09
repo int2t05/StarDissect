@@ -54,10 +54,11 @@ def test_heading_anchors_injected():
 
 
 def test_mermaid_block_marked():
-    # RPT-005:mermaid 块带 .mermaid 标记,前端渲染+文字后备
+    # RPT-005:mermaid fence 输出专用容器(前端渲染+文字后备);严格断言防宽松误报
     md = "## 图\n\n```mermaid\ngraph TD; A-->B;\n```"
     html, _, _ = _sections(md)
-    assert "mermaid" in html
+    assert '<div class="mermaid">' in html
+    assert '<pre><code class="mermaid' not in html
 
 
 def test_typography_validator_rules():

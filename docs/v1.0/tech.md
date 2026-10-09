@@ -112,7 +112,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
    - `> [infer] 文本` → 分析推断(UX-45)
    - `> [external] 文本 (url, 日期)` → 外部背景(UX-46)
    - `> [unknown] 文本` → 未知/冲突提示条(UX-47)
-2. markdown-it-py 解析 → token 流:渲染器把上述引用块转为 UIUX §8 结构。
+2. markdown-it-py 解析 → token 流:渲染器把上述引用块转为 UIUX §8 结构;```mermaid fence 由专用渲染规则输出 `<div class="mermaid">` 容器(前端渲染+文字后备)。
 3. 同一 token 流派生:h2/h3 章节+`map` 行号链+锚点 id/data-seq(ADR-0007)→ sections_json;跳过代码区段的纯文本 → report_sections.text_content(校验输入与 FTS 索引共用)。
 4. 排版校验(REQ-RPT-003):UIUX-16…20 规则作用于纯文本流,违规记录入 meta_json(标记不阻断,→OPN-04)。
 
