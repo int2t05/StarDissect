@@ -143,6 +143,7 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
 
             scheduler.add_job(_daily_sync, "cron", **config.DAILY_SYNC_CRON)
             scheduler.start()
+            logger.info("定时同步已注册:每日 %02d:%02d 自动轮询 star 列表", config.DAILY_SYNC_CRON["hour"], config.DAILY_SYNC_CRON["minute"])
         yield
         if loop_task:
             loop_task.cancel()
