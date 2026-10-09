@@ -13,6 +13,8 @@
 | UX-03 | 证据可见                           | 事实/作者说明/推断/未知的区分用「图标+文字标签+结构差异」表达，不依赖颜色（PRD REQ-RPT-002）                                                             |
 | UX-04 | 双轴正交                           | 明暗轴（浅/深/跟随系统）×字体轴（无衬线/衬线）互相独立，同 miniflux 的 6 bundle 模型（`internal/ui/static/static.go`）；夜航以深色为第一公民，浅色轴同 tokens 成对补齐 |
 | UX-05 | 键盘可达                           | miniflux 式键盘模型（§7）                                                                                                                         |
+| UX-60 | 组件库 Naive UI                    | 主题经 n-config-provider themeOverrides 完全映射本规范 tokens（web/src/theme.js），深浅两轴成对；组件零硬编码色值原则不变                                        |
+| UX-61 | 布局范式：顶栏 + 居中内容          | 弃左侧栏，改 VitePress/Linear 式吸顶顶栏（品牌/导航/快捷键提示）；内容列居中且占主体；文章页目录右浮（≥1366px 显示）；页面容器统一 .page（居中 + 8 基数纵向间距） |
 
 ## 2. 设计 tokens
 
@@ -40,7 +42,7 @@
 | ID    | 项     | 值                                                                                      | 依据                                                                        |
 | ----- | ------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | UX-09 | 正文   | 15.5px / 行高 1.8 / `overflow-wrap:break-word`                                          | 中文长文比 miniflux（1.2em/1.4）更疏朗；break-word 同 miniflux `common.css` |
-| UX-10 | 行宽   | 标准 72ch（窄 62 / 宽 88 三档）                                                         | PRD REQ-READ-001 宽度可调；档位为本规范定稿                                           |
+| UX-10 | 行宽   | 标准 80ch（窄 68 / 宽 96 三档；UX-61 重构修订，文章居中占主体）                          | PRD REQ-READ-001 宽度可调；档位经部署阅读体验校准                                     |
 | UX-11 | 标题   | h2 19px / h3 16px，上方 20px 分隔线                                                     | mockup                                                                      |
 | UX-12 | 引用块 | 左侧 3px 强调线，**字族复用正文字体变量** `--sd-font-body`                              | miniflux `--entry-content-quote-font-family` 模式（`common.css:1179-1187`） |
 | UX-13 | 代码块 | 深底 `#0c0c10`、独立等宽族、可横向滚动、颜色走变量                                      | miniflux pre 三变量模式（`common.css:1203-1216`）                           |
@@ -65,10 +67,10 @@
 
 | ID    | 项       | 规定                                                                        |
 | ----- | -------- | --------------------------------------------------------------------------- |
-| UX-21 | 导航四区 | 阅读中心（默认）/ 仓库库 / 分析管理 / 系统设置                              |
-| UX-22 | 桌面     | ≥1024px 左导航 208px + 正文 + 右目录 210px                                  |
-| UX-23 | 平板     | 768–1023px 目录折叠为浮动按钮                                               |
-| UX-24 | 移动     | <768px 抽屉导航 + 章节下拉                                                  |
+| UX-21 | 导航四区 | 阅读中心（默认）/ 仓库库 / 分析管理 / 系统设置（顶栏横向导航，UX-61）        |
+| UX-22 | 桌面     | ≥1366px 顶栏 + 居中正文（--sd-width）+ 右目录 230px                         |
+| UX-23 | 平板     | <1366px 目录收起                                                            |
+| UX-24 | 移动     | <768px 顶栏收紧（快捷键提示隐藏）                                           |
 | UX-25 | 断点手测 | 390/768/1024/1440（390/1440 为 PRD NFR-05 验收口径）                           |
 
 ## 5. 阅读进度（跨设备恢复）
@@ -151,7 +153,7 @@
 | ID    | 项           | 落地                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ----- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | UX-55 | tokens       | `web/src/styles/tokens.css`：明暗轴 × 字体轴成对变量块，组件零硬编码色值（miniflux 6 bundle 的等价物：运行时切换变量而非编译期拼 bundle）                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| UX-56 | 组件树       | `AppShell` → `ReadingHome` / `ReportView`（`Toc`、`EvidenceBlock`、`FigureFrame`、`CodeFold`、`ProgressBar`）→ `RepoLibrary` / `AnalysisBoard` / `SettingsView`                                                                                                                                                                                                                                                                                                                                                                                                    |
+| UX-56 | 组件树       | 顶栏 AppShell（Naive UI provider + 主题映射）→ `ReadingHome` / `ReportView`（`useScrollSpy`、`useReadingProgress`、`EvidenceBlock`、`FigureFrame`）→ `RepoLibrary`（N 抽屉）/ `AnalysisBoard` / `SettingsView`；composables 见 UX-58 |
 | UX-57 | 渲染分工     | Markdown 服务端渲染（ADR-0008），token 流的 `map` 行号用于目录树与命中片段回源（见 ADR-0007/0008 依据）                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | UX-58 | composables  | 键盘处理器、进度回传、格式调节为独立 composable：`useKeyboard` / `useReadingProgress` / `useReaderSettings`                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | UX-59 | 目录 scrollspy | 直接改写 VitePress `useActiveAnchor`（`reference/vitepress/src/client/theme-default/composables/outline.ts:79-205`）：scroll 监听 + `throttleAndDebounce(100)`（首调立即、尾部防抖）；判定 = 「最后一个越过视口顶（+`scroll-margin-top`+4px 容差）的标题」，页顶置空、页底取最后一个标题；坐标用 `offsetParent` 链累加（`getAbsoluteTop`，过滤 `display:none`）；点击目录置 `ignoreScrollOnce` 防高亮闪跳；左侧滑动指示条按 `offsetTop` 定位并 `scrollIntoView(block:'nearest')`。若 ReportView 用独立滚动容器，监听该容器并换算容器内偏移（VitePress 监听 window、Docusaurus 监听 document，二者差异在此） |
