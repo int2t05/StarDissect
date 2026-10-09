@@ -37,9 +37,12 @@ def _resolve(deps: AgentDeps, rel: str) -> Path:
 
 
 async def read_file(ctx: RunContext[AgentDeps], path: str, start: int = 1, end: int = MAX_FILE_LINES) -> str:
-    """读克隆区文件,返回带行号文本;行区间限长防刷屏。"""
-    p = _resolve(ctx.deps, path)
-    lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+    """读克隆区文件,返回带行号文本;行区间限长防刷屏;系统路径异常如实报错不崩溃。"""
+    try:
+        p = _resolve(ctx.deps, path)
+        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as e:
+        return f"读取失败: {e}"
     start = max(1, start)
     end = min(len(lines), end, start + MAX_FILE_LINES - 1)
     body = "\n".join(f"{i}: {lines[i - 1]}" for i in range(start, end + 1))
@@ -56,7 +59,8 @@ async def search_code(ctx: RunContext[AgentDeps], pattern: str, suffix: str = ""
         return f"正则无效: {e}"
     hits: list[str] = []
     root = ctx.deps.clone_root
-    for dirpath, dirnames, filenames in os.walk(root):
+    # 仓库内容不可控(Windows 非法路径/断链):遍历与读取逐项容错跳过
+    for dirpath, dirnames, filenames in os.walk(root, onerror=lambda e: None):
         dirnames[:] = [d for d in dirnames if d not in (".git", "node_modules", "dist", "build")]
         for name in filenames:
             if suffix and not name.endswith(suffix):
@@ -78,31 +82,38 @@ async def search_code(ctx: RunContext[AgentDeps], pattern: str, suffix: str = ""
 
 async def list_dir(ctx: RunContext[AgentDeps], path: str = ".") -> str:
     """列出克隆区目录(单层),便于定位结构。"""
-    p = _resolve(ctx.deps, path)
-    entries = sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name))
+    try:
+        p = _resolve(ctx.deps, path)
+        entries = sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name))
+    except OSError as e:
+        return f"读取失败: {e}"
     return "\n".join(("d " if e.is_dir() else "f ") + e.name for e in entries) or "(空目录)"
 
 
 async def fetch_github(ctx: RunContext[AgentDeps], kind: str, number: int = 0) -> str:
-    """GitHub 只读:kind=readme|issue|issues_list;证据归「作者说明/外部背景」。"""
+    """GitHub 只读:kind=readme|issue|issues_list;证据归「作者说明/外部背景」。
+    请求失败返回错误文本而非抛出——agent 可降级为 [unknown] 证据,循环不中断。"""
     headers = {"Accept": "application/vnd.github+json"}
     if ctx.deps.github_token:
         headers["Authorization"] = f"Bearer {ctx.deps.github_token}"
     base = f"https://api.github.com/repos/{ctx.deps.repo_name}"
-    async with httpx.AsyncClient(headers=headers, timeout=30, follow_redirects=True) as client:
-        if kind == "readme":
-            r = await client.get(f"{base}/readme", headers={**headers, "Accept": "application/vnd.github.raw"})
-            r.raise_for_status()
-            return r.text[:MAX_WEB_CHARS]
-        if kind == "issue":
-            r = await client.get(f"{base}/issues/{number}")
-            r.raise_for_status()
-            d = r.json()
-            return f"#{d['number']} {d['title']}\n{d.get('body') or ''}"[:MAX_WEB_CHARS]
-        if kind == "issues_list":
-            r = await client.get(f"{base}/issues", params={"per_page": 10, "state": "all"})
-            r.raise_for_status()
-            return "\n".join(f"#{d['number']} [{d['state']}] {d['title']}" for d in r.json())
+    try:
+        async with httpx.AsyncClient(headers=headers, timeout=30, follow_redirects=True) as client:
+            if kind == "readme":
+                r = await client.get(f"{base}/readme", headers={**headers, "Accept": "application/vnd.github.raw"})
+                r.raise_for_status()
+                return r.text[:MAX_WEB_CHARS]
+            if kind == "issue":
+                r = await client.get(f"{base}/issues/{number}")
+                r.raise_for_status()
+                d = r.json()
+                return f"#{d['number']} {d['title']}\n{d.get('body') or ''}"[:MAX_WEB_CHARS]
+            if kind == "issues_list":
+                r = await client.get(f"{base}/issues", params={"per_page": 10, "state": "all"})
+                r.raise_for_status()
+                return "\n".join(f"#{d['number']} [{d['state']}] {d['title']}" for d in r.json())
+    except httpx.HTTPError as e:
+        return f"获取失败: {e}"
     return f"未知 kind: {kind}"
 
 
@@ -124,8 +135,11 @@ async def deep_research(ctx: RunContext[AgentDeps], topic: str, max_pages: int =
 
 
 async def web_fetch(ctx: RunContext[AgentDeps], url: str) -> str:
-    """抓取外部网页/文档文本;证据归「外部背景」,须记录查阅来源。"""
-    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-        r = await client.get(url)
-        r.raise_for_status()
-        return r.text[:MAX_WEB_CHARS]
+    """抓取外部网页/文档文本;证据归「外部背景」,须记录查阅来源;失败返回错误文本。"""
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            return r.text[:MAX_WEB_CHARS]
+    except httpx.HTTPError as e:
+        return f"获取失败: {e}"

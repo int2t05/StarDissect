@@ -69,7 +69,7 @@ async def list_repos(request: Request, filter: str = "all", q: str = ""):
     if filter == "unstarred":
         where += " AND unstarred=1"
     if q:
-        where += " AND (full_name LIKE ? OR description LIKE ? OR id IN (SELECT repo_id FROM tags WHERE name LIKE ?))"
+        where += " AND (r.full_name LIKE ? OR r.description LIKE ? OR r.id IN (SELECT repo_id FROM tags WHERE name LIKE ?))"
         args += [f"%{q}%", f"%{q}%", f"%{q}%"]
     rows = conn.execute(
         f"""SELECT r.*, c.type, c.confidence, c.locked,
