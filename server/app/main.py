@@ -88,11 +88,11 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
     config.load_env()
     setup_logging()
     init_db(config.db_path())
-    conn = connect(config.db_path())
-    _seed_settings(conn)
+    _seed_settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        conn = connect(config.db_path())  # 生命周期内自建自管(事件循环线程)
         recovered = queue.recover(conn)
         if recovered:
             logger.info("启动恢复:%d 个中断任务等待人工重试", recovered)
@@ -132,6 +132,7 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
             logger.warning("停机:进行中任务将标记中断,重启后由 recover 兜底等待人工重试")
         if scheduler:
             scheduler.shutdown(wait=False)
+        conn.close()
 
     app = FastAPI(title="StarDissect", lifespan=lifespan)
     app.include_router(routes.router)
@@ -146,7 +147,8 @@ def db_path() -> Path:
     return config.db_path()
 
 
-def _seed_settings(conn) -> None:
+def _seed_settings() -> None:
+    conn = connect(config.db_path())
     # .env → settings 表:仅补缺,界面设置始终优先(REQ-CFG-001)
     for env_key, setting_key in config.ENV_SEED_MAP.items():
         value = os.environ.get(env_key)
@@ -156,6 +158,7 @@ def _seed_settings(conn) -> None:
         if not exists:
             conn.execute("INSERT INTO settings(key, value) VALUES (?,?)", (setting_key, value))
     conn.commit()
+    conn.close()
 
 
 # uvicorn 入口:uvicorn app.main:app(仓库根运行)
