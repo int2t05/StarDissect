@@ -9,3 +9,6 @@ __pycache__/
 
 # 外部参考仓库(自带 .git,仅本地研读)
 reference/
+
+# 报告导出产物
+exports/
