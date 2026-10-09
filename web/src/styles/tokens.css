@@ -54,15 +54,15 @@
 
 /* 排版(UX-09/UX-10 修订):三档行宽 68/80/96,默认标准 80ch;间距 8 基数(UX-07) */
 :root {
-  --sd-width: 80ch;
+  --sd-width: 84ch;
   --sd-font-size: 15.5px;
   --sd-line-height: 1.8;
   --sd-gap: 20px;
   --sd-code-bg: #0c0c10;   /* 代码块底(UIUX-13) */
   --sd-overlay: #0009;     /* 抽屉/弹层遮罩 */
 }
-:root[data-width="narrow"] { --sd-width: 68ch; }
-:root[data-width="wide"] { --sd-width: 96ch; }
+:root[data-width="narrow"] { --sd-width: 72ch; }
+:root[data-width="wide"] { --sd-width: 100ch; }
 :root[data-lh="1.6"] { --sd-line-height: 1.6; }
 :root[data-lh="2.0"] { --sd-line-height: 2.0; }
 :root[data-contrast="1"] { /* 强对比文本(UX-34) */

@@ -165,10 +165,10 @@ function jump(seq) {
 </template>
 
 <style scoped>
-.reader { padding: 20px 24px 72px; }
+.reader { padding: 24px 32px 80px; }
 .bar {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;
-  max-width: calc(var(--sd-width) + 560px); margin: 0 auto 28px;
+  width: min(var(--sd-width), 100%); margin: 0 auto 36px;
   padding-bottom: 16px; border-bottom: 1px solid var(--sd-border);
 }
 .bar h1 { font-size: 19px; margin: 0 0 4px; }
@@ -176,11 +176,16 @@ function jump(seq) {
 .meta.warn { color: var(--sd-ev-infer); }
 .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .tools kbd { font-size: 9px; margin-left: 2px; }
-.body { display: flex; justify-content: center; gap: 64px; }
-.article { width: min(var(--sd-width), 100%); flex: none; }
+.body {
+  /* 三列网格:左右留白对称,正文真居中,目录钉在右侧视口边缘(UX-61) */
+  display: grid; grid-template-columns: 1fr min(var(--sd-width), 100%) minmax(220px, 1fr);
+  gap: 80px;
+}
+.article { grid-column: 2; }
 .toc {
-  width: 230px; flex: none; position: sticky; top: 76px; align-self: flex-start;
-  max-height: calc(100vh - 110px); overflow-y: auto;
+  grid-column: 3; width: 240px; justify-self: end; margin-right: 8px;
+  position: sticky; top: 84px; align-self: start;
+  max-height: calc(100vh - 120px); overflow-y: auto;
   display: flex; flex-direction: column; border-left: 2px solid var(--sd-border);
 }
 .toc button { text-align: left; border: 0; background: none; color: var(--sd-text-2); padding: 4px 12px; font-size: 0.85em; cursor: pointer; }
@@ -194,7 +199,7 @@ function jump(seq) {
 <style>
 /* 服务端渲染正文内证据块(UX-43..47):虚线只属于分析推断 */
 .article { overflow-wrap: break-word; font-size: var(--sd-font-size); line-height: var(--sd-line-height); }
-.article h2, .article h3 { border-top: 1px solid var(--sd-border); padding-top: 24px; margin-top: 36px; }
+.article h2, .article h3 { border-top: 1px solid var(--sd-border); padding-top: 28px; margin-top: 44px; }
 .article h2 { font-size: 1.25em; } .article h3 { font-size: 1.08em; }
 .article p { margin: 0.9em 0; }
 .article pre { background: var(--sd-code-bg); color: var(--sd-text); font-family: var(--sd-font-mono); padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.88em; }
