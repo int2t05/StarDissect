@@ -150,15 +150,17 @@ function jump(seq) {
     <div class="body">
       <article class="article" v-html="report.html" @click="(e) => e.target.closest('.ev-source') && openSource({ currentTarget: e.target.closest('.ev-source') })"></article>
       <aside v-if="toc.length" class="toc">
-        <button
-          v-for="s in toc"
-          :key="s.seq"
-          :class="{ active: activeSeq === s.seq, sub: s.level === 3 }"
-          :data-seq="s.seq"
-          @click="spy.ignoreScrollOnce = true; jump(s.seq)"
-        >
-          {{ s.title }}
-        </button>
+        <div class="toc-title">本页大纲</div>
+        <ul class="toc-list">
+          <li v-for="s in toc" :key="s.seq">
+            <a
+              :href="`#sec-${s.seq}`"
+              :class="{ active: activeSeq === s.seq, sub: s.level === 3 }"
+              :data-seq="s.seq"
+              @click.prevent="spy.ignoreScrollOnce = true; jump(s.seq)"
+            >{{ s.title }}</a>
+          </li>
+        </ul>
       </aside>
     </div>
   </div>
@@ -183,15 +185,27 @@ function jump(seq) {
 }
 .article { grid-column: 2; }
 .toc {
-  grid-column: 3; width: 240px; justify-self: end; margin-right: 8px;
-  position: sticky; top: 84px; align-self: start;
-  max-height: calc(100vh - 120px); overflow-y: auto;
-  display: flex; flex-direction: column; border-left: 2px solid var(--sd-border);
+  grid-column: 3; width: 200px; justify-self: end;
+  position: sticky; top: 56px; align-self: start;
+  height: calc(100vh - 56px); overflow-y: auto;
+  padding: 32px 0 0;
 }
-.toc button { text-align: left; border: 0; background: none; color: var(--sd-text-2); padding: 4px 12px; font-size: 0.85em; cursor: pointer; }
-.toc button:hover { color: var(--sd-text); }
-.toc button.sub { padding-left: 26px; }
-.toc button.active { color: var(--sd-accent); border-left: 2px solid var(--sd-accent); margin-left: -2px; } /* 指示条跟随(UX-59) */
+.toc::-webkit-scrollbar { width: 4px; }
+.toc::-webkit-scrollbar-thumb { background: var(--sd-border); border-radius: 2px; }
+.toc-title {
+  font-size: 12px; font-weight: 600; color: var(--sd-text-3);
+  text-transform: uppercase; letter-spacing: 0.08em; padding-bottom: 12px;
+}
+.toc-list { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--sd-border); }
+.toc-list a {
+  display: block; padding: 5px 0 5px 16px;
+  font-size: 13px; color: var(--sd-text-2); letter-spacing: -0.12px;
+  border-left: 2px solid transparent; margin-left: -1px;
+  transition: all 0.12s; cursor: pointer;
+}
+.toc-list a:hover { color: var(--sd-text); }
+.toc-list a.sub { padding-left: 28px; font-size: 12px; }
+.toc-list a.active { color: var(--sd-accent); border-left-color: var(--sd-accent); font-weight: 500; } /* 指示条跟随(UX-59) */
 @media (max-width: 1365px) { .toc { display: none; } } /* 窄屏收起目录 */
 @media (max-width: 767px) { .reader { padding: 12px 12px 48px; } }
 </style>
