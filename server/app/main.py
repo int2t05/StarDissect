@@ -34,12 +34,20 @@ def setup_logging() -> None:
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 
-async def _queue_loop():
-    # 服务循环:独立连接(与 API 连接写者隔离);异常记日志后重试,不静默假活
+def _step_once() -> bool:
+    # 工作线程内自建自管连接(sqlite 严格同线程);步骤与归档在同一连接完成
     conn = connect(config.db_path())
+    try:
+        return queue.step(conn, _execute)
+    finally:
+        conn.close()
+
+
+async def _queue_loop():
+    # 服务循环:无任务时间歇;异常记日志后重试,不静默假活
     while True:
         try:
-            stepped = await asyncio.to_thread(queue.step, conn, _execute)
+            stepped = await asyncio.to_thread(_step_once)
             await asyncio.sleep(config.QUEUE_INTERVAL_ACTIVE if stepped else config.QUEUE_INTERVAL_IDLE)
         except asyncio.CancelledError:
             raise
