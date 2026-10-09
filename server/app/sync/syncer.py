@@ -41,11 +41,11 @@ def apply_stars(conn: sqlite3.Connection, items: list[dict]) -> dict:
             )
             indexer.index_repo(conn, cur.lastrowid)  # 仓库元信息入检索域(REQ-SRCH-001)
             counts["added"] += 1
-            _enqueue_analysis(conn, repo["id"], priority=0, limits=limits)
+            _enqueue_analysis(conn, cur.lastrowid, priority=0, limits=limits)  # 本地 id,非 github_id
         elif row["unstarred"]:
             conn.execute("UPDATE repos SET unstarred=0, updated_at=? WHERE id=?", (_now(), row["id"]))
             counts["added"] += 1
-            _enqueue_analysis(conn, repo["id"], priority=0, limits=limits)
+            _enqueue_analysis(conn, row["id"], priority=0, limits=limits)
     for row in conn.execute("SELECT id, full_name FROM repos WHERE unstarred=0").fetchall():
         if row["full_name"] not in seen:
             conn.execute("UPDATE repos SET unstarred=1, updated_at=? WHERE id=?", (_now(), row["id"]))

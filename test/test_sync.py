@@ -20,12 +20,14 @@ def _star(full_name, github_id, fork=False, archived=False, starred_at="2026-10-
 
 
 def test_apply_stars_inserts_and_enqueues(conn):
-    counts = syncer.apply_stars(conn, [_star("o/good", 1)])
+    # github_id 故意远大于本地自增 id:防止入队误用 github_id(部署实测 bug 回归)
+    counts = syncer.apply_stars(conn, [_star("o/good", 1179450044)])
     assert counts == {"added": 1, "removed": 0, "skipped": 0}
     repo = conn.execute("SELECT * FROM repos").fetchone()
     assert repo["status"] == "已收录"
     task = conn.execute("SELECT * FROM tasks").fetchone()
     assert task["priority"] == 0  # 新 star 优先(REQ-TASK-001)
+    assert task["repo_id"] == repo["id"]
 
 
 def test_apply_stars_skips_fork_and_archived(conn):
