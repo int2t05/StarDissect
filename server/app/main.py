@@ -33,10 +33,13 @@ def setup_logging() -> None:
     for h in handlers:
         h.setFormatter(fmt)
         root.addHandler(h)
-    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+    for name in ("uvicorn", "uvicorn.error"):
         lg = logging.getLogger(name)
         lg.handlers.clear()
         lg.propagate = True
+    access = logging.getLogger("uvicorn.access")  # 访问日志量大,降噪保护轮转文件
+    access.handlers.clear()
+    access.setLevel(logging.WARNING)
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 

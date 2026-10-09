@@ -1,5 +1,5 @@
 # 网络搜索工具链(降级链模式参照外部项目 Cognik 的 SearchChain 设计)
-# 顺序降级 Tavily→Exa→DuckDuckGo,首个成功即返回;「线索≠证据」纪律的唯一陈述见 docs/v1.0/tech.md §4
+# 顺序降级 Tavily→Exa→DuckDuckGo,首个成功即返回;「线索≠证据」纪律的契约见 docs/v1.0/tech.md §4
 import re
 
 from app import config

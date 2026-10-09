@@ -41,7 +41,7 @@ classifications(id PK, repo_id FK, type, reason, confidence,   -- 高/中/低
 classification_history(id PK, repo_id FK, old_type, new_type, reason, created_at)
 auto_tags(id PK, repo_id FK, name, created_at, UNIQUE(repo_id,name))  -- AI 分类自动标签,独立于人工 tags
 
-tags(id PK, repo_id FK, name, created_at)          -- 仅人工写入(REQ-CLS-005)
+tags(id PK, repo_id FK, name, created_at, UNIQUE(repo_id,name))  -- 仅人工写入(REQ-CLS-005)
 
 tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
       status,                                      -- 排队/进行/完成/失败/中断
@@ -64,6 +64,8 @@ sync_runs(id PK, started_at, finished_at, added, removed, skipped, failed)
 
 settings(key PK, value)                            -- token/密钥/限额;API 永不回显明文
 
+# 迁移机制:PRAGMA user_version + SCHEMA 幂等重放(IF NOT EXISTS);不支持既有表的列变更,结构性变更需重建路径
+
 report_sections(id PK, report_version_id FK, seq, title, path_chain, text_content)
 report_fts(fts5, 自持分词副本)                      -- snippet 取自索引副本(ADR-0006)
 knowledge_fts(fts5, 自持分词副本)                    -- 知识点检索域(REQ-SRCH-001)
@@ -77,7 +79,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 - 工作循环:取最高优先级「排队」任务(限额快照已于入队时写入)→ 置「进行」→ 执行 ADR-0005 agent → 按结果落「完成/失败」;每步单事务提交。
 - 干预(REQ-TASK-002):暂停/恢复=循环开关;优先级/取消/排除=tasks/repos 字段更新;「分析中」终止=触发 asyncio 取消→归「失败」(可重试)。
 - 限额(REQ-TASK-003,DEC-09):request_limit 与墙钟超时双约束;达到上限即终止归「失败」并记录原因,可重试,不保留部分产出。
-- 重试/重分析(REQ-TASK-004/005):新增 tasks 行,不覆盖历史;同仓库「进行」存在则拒绝。
+- 重试/重分析(REQ-TASK-004/005):新增 tasks 行,不覆盖历史;同仓库「排队/进行」存在则拒绝。
 - 启动恢复(REQ-TASK-006):扫描「进行」→置「中断」;产出的半成品由事务原子性保证不存在。
 
 ## 4. 分析 agent 规格(ADR-0005)
@@ -96,7 +98,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | deep_research   | 深度调研:搜索+前 N 页正文蒸馏,单次调用完成多源收集(参考 gpt-researcher 模式) | 外部背景 |
 | web_fetch       | 作者文档/外部资料                      | 外部背景(带查阅时间) |
 
-**classifier**:一次调用(README+树)→ `{type, reason, confidence}`;锁定仓库跳过。
+**classifier**:一次调用(README+树)→ `{type, reason, confidence, tags[2-4]}`;tags 写 auto_tags 并入检索域;锁定仓库跳过分类。
 
 **analyzer**:多步循环 → `ReportDraft{sections[](含证据标注语法), knowledge_points[], classification_correction?}`。修正仅在非锁定时落库并写 classification_history(REQ-CLS-004)。提示词包含:七类模板(项目 PRD 表)、证据五类定义、报告正文中文要求、未知须明示(REQ-RPT-002/003)。
 
@@ -132,6 +134,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/repos/{id}/classify        | POST           | CLS-002(人工选择范围)   |
 | /api/reports/{vid}/state        | PATCH          | READ-006(已读/收藏)    |
 | /api/knowledge_points/{id}      | PATCH/DELETE   | KP-002(人工修订/软删除) |
+| /api/knowledge_points/{id}/restore | POST        | KP-002(软删除恢复)      |
 | /api/repos/{id}/reports         | GET(版本列表)  | RPT-004、TASK-005       |
 | /api/reports/{version_id}       | GET(html/sections) | READ-001…005        |
 | /api/reports/{version_id}/progress | PUT/GET     | READ-003                |
@@ -150,4 +153,4 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 
 - 单元:分词、渲染管线(证据块→结构、map 行号)、限额归档逻辑、高水位进度写入。
 - 集成:SQLite 全链路(同步模拟数据→分类→任务→渲染→检索→导出);GitHub/LLM 走真实接口,依赖 settings 密钥,无密钥环境的用例显式跳过并标注。
-- 验收:AC-001…028 逐条映射用例;UIUX 断点(NFR-05)手测记录归 AUD-10。
+- 验收:AC 验收映射由审计台账(docs/audit/)追踪;UIUX 断点(NFR-05)手测记录归审计。

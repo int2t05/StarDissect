@@ -13,8 +13,6 @@
 | UX-03 | 证据可见                           | 事实/作者说明/推断/未知的区分用「图标+文字标签+结构差异」表达，不依赖颜色（PRD REQ-RPT-002）                                                             |
 | UX-04 | 双轴正交                           | 明暗轴（浅/深/跟随系统）×字体轴（无衬线/衬线）互相独立，同 miniflux 的 6 bundle 模型（`internal/ui/static/static.go`）；夜航以深色为第一公民，浅色轴同 tokens 成对补齐 |
 | UX-05 | 键盘可达                           | miniflux 式键盘模型（§7）                                                                                                                         |
-| UX-60 | 组件库 Naive UI                    | 主题经 n-config-provider themeOverrides 完全映射本规范 tokens（web/src/theme.js），深浅两轴成对；组件零硬编码色值原则不变                                        |
-| UX-61 | 布局范式：顶栏 + 居中内容          | 弃左侧栏，改 VitePress/Linear 式吸顶顶栏（品牌/导航/快捷键提示）；内容列居中且占主体；文章页目录右浮（≥1366px 显示）；页面容器统一 .page（居中 + 8 基数纵向间距） |
 
 ## 2. 设计 tokens
 
@@ -42,7 +40,7 @@
 | ID    | 项     | 值                                                                                      | 依据                                                                        |
 | ----- | ------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | UX-09 | 正文   | 15.5px / 行高 1.8 / `overflow-wrap:break-word`                                          | 中文长文比 miniflux（1.2em/1.4）更疏朗；break-word 同 miniflux `common.css` |
-| UX-10 | 行宽   | 标准 84ch（窄 72 / 宽 100 三档；UX-61 重构修订，文章居中占主体）                          | PRD REQ-READ-001 宽度可调；档位经部署阅读体验校准                                     |
+| UX-10 | 行宽   | 标准 84ch（窄 72 / 宽 100 三档；文章居中占主体）                          | PRD REQ-READ-001 宽度可调；档位为 UX-61 定稿                                     |
 | UX-11 | 标题   | h2 19px / h3 16px，上方 20px 分隔线                                                     | mockup                                                                      |
 | UX-12 | 引用块 | 左侧 3px 强调线，**字族复用正文字体变量** `--sd-font-body`                              | miniflux `--entry-content-quote-font-family` 模式（`common.css:1179-1187`） |
 | UX-13 | 代码块 | 深底 `#0c0c10`、独立等宽族、可横向滚动、颜色走变量                                      | miniflux pre 三变量模式（`common.css:1203-1216`）                           |
@@ -68,7 +66,7 @@
 | ID    | 项       | 规定                                                                        |
 | ----- | -------- | --------------------------------------------------------------------------- |
 | UX-21 | 导航四区 | 阅读中心（默认）/ 仓库库 / 分析管理 / 系统设置（顶栏横向导航，UX-61）        |
-| UX-22 | 桌面     | ≥1366px 顶栏 + 居中正文（--sd-width）+ 右目录 240px（钉右侧视口边缘）        |
+| UX-22 | 桌面     | ≥1366px 顶栏 + 居中正文（--sd-width）+ 右目录 200px（钉右侧视口边缘）        |
 | UX-23 | 平板     | <1366px 目录收起                                                            |
 | UX-24 | 移动     | <768px 顶栏收紧（快捷键提示隐藏）                                           |
 | UX-25 | 断点手测 | 390/768/1024/1440（390/1440 为 PRD NFR-05 验收口径）                           |
@@ -80,7 +78,7 @@
 | ID    | 项         | 规定                                                                                                                 |
 | ----- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
 | UX-26 | 进度存储   | 每个报告版本存：`anchor`（当前章节/段落索引）、`top_percent`/`bottom_percent`（视口两端百分比）、`highest_read_anchor`（高水位） |
-| UX-27 | 写入防回退 | 仅当新位置 > 已存位置才更新（高水位 CASE-update 语义）；「显式重置到开头」用 0 值特判；**进入文章默认开头**，恢复经「继续上次」显式触发（UX-61 修订） |
+| UX-27 | 写入防回退 | 仅当新位置 > 已存位置才更新（高水位 CASE-update 语义）；「显式重置到开头」用 0 值特判；**进入文章默认开头**，恢复经「继续上次」显式触发 |
 | UX-28 | 上报节流   | 客户端写本地，空闲批量合并上报（omnivore 用 Redis 缓存 + 60s 扫描合并，我们对应 localStorage + 定时回传，单用户无需队列） |
 | UX-29 | 版本更新   | 跨版本自动迁移为可延后项（PRD REQ-RPT-004、SCP-03）；若启用，优先按同名章节恢复，锚点匹配失败回开头，旧进度不套用                       |
 
@@ -157,6 +155,9 @@
 | UX-57 | 渲染分工     | Markdown 服务端渲染（ADR-0008），token 流的 `map` 行号用于目录树与命中片段回源（见 ADR-0007/0008 依据）                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | UX-58 | composables  | 键盘处理器、进度回传、格式调节为独立 composable：`useKeyboard` / `useReadingProgress` / `useReaderSettings`                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | UX-59 | 目录 scrollspy | 直接改写 VitePress `useActiveAnchor`（`reference/vitepress/src/client/theme-default/composables/outline.ts:79-205`）：scroll 监听 + `throttleAndDebounce(100)`（首调立即、尾部防抖）；判定 = 「最后一个越过视口顶（+`scroll-margin-top`+4px 容差）的标题」，页顶置空、页底取最后一个标题；坐标用 `offsetParent` 链累加（`getAbsoluteTop`，过滤 `display:none`）；点击目录置 `ignoreScrollOnce` 防高亮闪跳；左侧滑动指示条按 `offsetTop` 定位并 `scrollIntoView(block:'nearest')`。若 ReportView 用独立滚动容器，监听该容器并换算容器内偏移（VitePress 监听 window、Docusaurus 监听 document，二者差异在此） |
+| UX-60 | 组件库 Naive UI | 主题经 n-config-provider themeOverrides 完全映射本规范 tokens（web/src/theme.js），深浅两轴成对；组件零硬编码色值原则不变                                                          |
+| UX-61 | 布局范式：顶栏 + 居中内容 | VitePress/Linear 式吸顶顶栏；内容列居中占主体；文章页大纲右浮（≥1366px，auto-trend 风格：本页大纲标题/hairline/主色指示）；页面容器统一 .page（8 基数纵向间距） |
+| UX-62 | 标签双轨展示 | 仓库抽屉「标签」区:自动标签 info 芯片（AI 分类生成,auto_tags）与人工标签分区显示;自动标签入检索域 |
 
 ## 12. 依据索引
 

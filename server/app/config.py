@@ -17,6 +17,8 @@ ENV_SEED_MAP = {
 # 运行参数(集中管理,消除魔法数)
 CLASSIFIER_TIMEOUT_SEC = 120
 CLASSIFIER_REQUEST_LIMIT = 3
+AUTO_TAG_MAX = 4               # AI 分类自动标签上限
+CLONE_TIMEOUT_SEC = 600        # 单次 git clone 超时
 TASK_DEFAULT_TURN_LIMIT = 60   # 部署实测校准:深读 30 轮不够(OPN-02)
 TASK_DEFAULT_TIME_LIMIT_SEC = 1800
 MODEL_MAX_TOKENS = 32768       # 网关默认输出上限会导致 IncompleteToolCall,显式放宽

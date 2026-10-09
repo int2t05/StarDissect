@@ -47,7 +47,7 @@ def index_repo(conn, repo_id: int) -> None:
     tags = " ".join(
         r["name"]
         for r in conn.execute(
-            "SELECT name FROM tags WHERE repo_id=? UNION ALL SELECT name FROM auto_tags WHERE repo_id=?", (repo_id, repo_id)
+            "SELECT name FROM tags WHERE repo_id=? UNION SELECT name FROM auto_tags WHERE repo_id=?", (repo_id, repo_id)
         )
     )
     conn.execute(

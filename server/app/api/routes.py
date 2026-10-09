@@ -86,8 +86,8 @@ async def list_repos(request: Request, filter: str = "all", q: str = "", conn=De
     if filter == "unstarred":
         where += " AND unstarred=1"
     if q:
-        where += " AND (r.full_name LIKE ? OR r.description LIKE ? OR r.id IN (SELECT repo_id FROM tags WHERE name LIKE ?))"
-        args += [f"%{q}%", f"%{q}%", f"%{q}%"]
+        where += " AND (r.full_name LIKE ? OR r.description LIKE ? OR r.id IN (SELECT repo_id FROM tags WHERE name LIKE ? UNION SELECT repo_id FROM auto_tags WHERE name LIKE ?))"
+        args += [f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"]
     rows = conn.execute(
         f"""SELECT r.*, c.type, c.confidence, c.locked,
                    (SELECT COUNT(*) FROM report_versions v WHERE v.repo_id=r.id) AS versions
@@ -233,7 +233,10 @@ async def manual_scope(request: Request, repo_id: int, body: dict, conn=Depends(
         raise HTTPException(422, "缺少 type")
     if conn.execute("SELECT 1 FROM repos WHERE id=?", (repo_id,)).fetchone() is None:
         raise HTTPException(404, "仓库不存在")
-    runner.upsert_classification(conn, repo_id, body["type"], body.get("reason", "人工选择范围"), body.get("confidence", "高"), "manual_scope")
+    try:
+        runner.upsert_classification(conn, repo_id, body["type"], body.get("reason", "人工选择范围"), body.get("confidence", "高"), "manual_scope")
+    except RuntimeError as e:
+        raise HTTPException(409, str(e)) from None
     conn.execute("UPDATE repos SET status='已分类', updated_at=datetime('now') WHERE id=?", (repo_id,))
     conn.commit()
     limits = queue.task_limits(conn)

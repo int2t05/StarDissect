@@ -72,7 +72,7 @@ def prepare_clone(repo_full_name: str, clone_url: str, clones_dir: Path | None =
             try:
                 subprocess.run(
                     ["git", "clone", "--depth", "1", clone_url, str(dest)],
-                    check=True, capture_output=True, text=True,
+                    check=True, capture_output=True, text=True, timeout=config.CLONE_TIMEOUT_SEC,
                 )
                 break
             except subprocess.CalledProcessError as e:
@@ -85,7 +85,7 @@ def prepare_clone(repo_full_name: str, clone_url: str, clones_dir: Path | None =
                 time.sleep(config.CLONE_BACKOFF_SEC)
     sha = subprocess.run(
         ["git", "-C", str(dest), "rev-parse", "HEAD"],
-        check=True, capture_output=True, text=True,
+        check=True, capture_output=True, text=True, timeout=30,
     ).stdout.strip()
     return dest, sha
 
@@ -116,6 +116,11 @@ def _build_model(settings: dict):
 # ---------- 分类与报告落库 ----------
 
 def upsert_classification(conn, repo_id: int, type_: str, reason: str, confidence: str, source: str) -> None:
+    locked = conn.execute(
+        "SELECT 1 FROM classifications WHERE repo_id=? AND locked=1", (repo_id,)
+    ).fetchone()
+    if locked and source != "manual_lock":
+        raise RuntimeError("分类已人工锁定,拒绝覆盖")  # 堵 manual_scope/深读对锁定分类的影子覆盖(REQ-CLS-003)
     conn.execute("DELETE FROM classifications WHERE repo_id=? AND locked=0", (repo_id,))
     conn.execute(
         "INSERT INTO classifications(repo_id, type, reason, confidence, source) VALUES (?,?,?,?,?)",
@@ -125,12 +130,11 @@ def upsert_classification(conn, repo_id: int, type_: str, reason: str, confidenc
 
 
 def set_auto_tags(conn, repo_id: int, tags: list[str]) -> None:
-    """AI 分类附带的自动标签:独立 auto_tags 表,不触碰人工 tags(REQ-CLS-005);每次分析整表替换。"""
-    names = [t.strip() for t in tags if t.strip()][:4]
+    """AI 分类附带的自动标签:独立 auto_tags 表,不触碰人工 tags(REQ-CLS-005);每次分析整表替换。不提交,与分类同事务。"""
+    names = [t.strip() for t in tags if t.strip()][:config.AUTO_TAG_MAX]
     conn.execute("DELETE FROM auto_tags WHERE repo_id=?", (repo_id,))
     for name in names:
         conn.execute("INSERT OR IGNORE INTO auto_tags(repo_id, name) VALUES (?,?)", (repo_id, name))
-    conn.commit()
 
 
 def current_classification(conn, repo_id: int) -> dict | None:
@@ -198,7 +202,10 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
     """队列 executor 契约:成功生成新报告版本;触达限额/流程性终止 raise TaskLimited(REQ-TASK-003、DEC-09)。"""
     settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
     model = _build_model(settings)
-    clone_root, sha = prepare_clone(repo["full_name"], f"https://github.com/{repo['full_name']}.git", clones_dir)
+    # 克隆(含重试退避)在工作线程执行,不阻塞本协程循环的终止 watcher
+    clone_root, sha = await asyncio.to_thread(
+        prepare_clone, repo["full_name"], f"https://github.com/{repo['full_name']}.git", clones_dir
+    )
     deps = tools.AgentDeps(
         clone_root=clone_root,
         repo_name=repo["full_name"],
@@ -223,6 +230,9 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
             raise TaskLimited("分类触达轮次上限" if isinstance(e, UsageLimitExceeded) else "分类超时") from e
         upsert_classification(conn, repo["id"], c.output.type, c.output.reason, c.output.confidence, "auto")
         set_auto_tags(conn, repo["id"], c.output.tags)
+        conn.commit()  # 分类+自动标签同事务,防半态
+        indexer.index_repo(conn, repo["id"])  # 自动标签入检索域(REQ-SRCH-001)
+        conn.commit()
         cls_row = current_classification(conn, repo["id"])
         logger.info("分类完成 repo=%s type=%s confidence=%s", repo["full_name"], cls_row["type"], cls_row["confidence"])
         if cls_row["type"] == "混合/未识别":

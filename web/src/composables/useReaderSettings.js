@@ -19,7 +19,7 @@ export function useReaderSettings() {
     root.dataset.width = settings.width
     root.dataset.lh = settings.lineHeight
     root.style.setProperty('--sd-font-size', settings.fontSize + 'px')
-    root.style.setProperty('--sd-contrast', settings.contrast ? '1' : '0')
+    root.dataset.contrast = settings.contrast ? '1' : '0'  // 匹配 tokens 的 [data-contrast] 选择器
     localStorage.setItem(KEY, JSON.stringify({ ...settings }))
   })
   instance = { settings }
