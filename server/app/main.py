@@ -4,6 +4,7 @@ import contextlib
 import logging
 import logging.handlers
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -95,6 +96,11 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
         recovered = queue.recover(conn)
         if recovered:
             logger.info("启动恢复:%d 个中断任务等待人工重试", recovered)
+        # 启动自检:关键配置缺失时给出可行动提示
+        keys = {r["key"] for r in conn.execute("SELECT key FROM settings")}
+        for key, hint in (("github_token", "star 同步不可用"), ("ai_model", "分析任务不可用")):
+            if key not in keys:
+                logger.warning("启动自检:未配置 %s,%s", key, hint)
         scheduler = None
         loop_task = None
         if workers:
@@ -128,13 +134,16 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
             scheduler.shutdown(wait=False)
 
     app = FastAPI(title="StarDissect", lifespan=lifespan)
-    app.state.conn = conn
     app.include_router(routes.router)
     app.include_router(routes.public)
     dist = config.web_dist()
     if dist.exists():
         app.mount("/", StaticFiles(directory=dist, html=True), name="spa")
     return app
+
+
+def db_path() -> Path:
+    return config.db_path()
 
 
 def _seed_settings(conn) -> None:

@@ -1,7 +1,10 @@
 # REST API 路由(docs/v1.0/tech.md §6;覆盖 REQ-SYNC/CLS/TASK/READ/SRCH/OUT/CFG 的 HTTP 面)
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from feedgen.feed import FeedGenerator
+
+from app import config
+from app.db import connect
 
 from app.agents import runner
 from app.search import indexer
@@ -12,6 +15,17 @@ router = APIRouter(prefix="/api")
 # RSS 面向外部阅读器,挂顶层路径(REQ-OUT-002)
 public = APIRouter()
 
+
+async def get_conn():
+    # 每请求独立连接:消除共享连接的事务交错(系统工程审计 F8);WAL 下多连接安全
+    # async 依赖:与 handler 同处事件循环线程,满足 sqlite 同线程约束
+    conn = connect(config.db_path())
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
 SECRET_KEYS = {"github_token", "ai_api_key", "tavily_api_key", "exa_api_key"}
 PUBLIC_KEYS = ["github_user", "ai_model", "ai_base_url", "turn_limit", "time_limit_sec"]
 LIMIT_KEYS = {"turn_limit", "time_limit_sec"}  # 限额类:正整数校验(REQ-CFG-002)
@@ -19,19 +33,21 @@ LIMIT_KEYS = {"turn_limit", "time_limit_sec"}  # 限额类:正整数校验(REQ-C
 
 # ---------- 同步(REQ-SYNC) ----------
 
-async def _run_sync(app, token: str):
+async def _run_sync(token: str):
+    from app.main import db_path  # 与应用同一数据目录
+
+    conn = connect(db_path())
     try:
-        await syncer.sync_star(app.state.conn, token)
+        await syncer.sync_star(conn, token)
     finally:
-        conn = app.state.conn
         conn.execute("INSERT INTO settings(key, value) VALUES ('syncing','0')"
                      " ON CONFLICT(key) DO UPDATE SET value='0'")
         conn.commit()
+        conn.close()
 
 
 @router.post("/sync")
-async def start_sync(request: Request, bg: BackgroundTasks):
-    conn = request.app.state.conn
+async def start_sync(request: Request, bg: BackgroundTasks, conn=Depends(get_conn)):
     flag = conn.execute("SELECT value FROM settings WHERE key='syncing'").fetchone()
     if flag and flag["value"] == "1":
         return {"started": True, "merged": True}  # 进行中重复触发合并(REQ-SYNC-002)
@@ -41,13 +57,13 @@ async def start_sync(request: Request, bg: BackgroundTasks):
     conn.execute("INSERT INTO settings(key, value) VALUES ('syncing','1')"
                  " ON CONFLICT(key) DO UPDATE SET value='1'")
     conn.commit()
-    bg.add_task(_run_sync, request.app, token)
+    bg.add_task(_run_sync, token)
     return {"started": True, "merged": False}
 
 
 @router.get("/sync")
-async def sync_status(request: Request):
-    row = request.app.state.conn.execute(
+async def sync_status(request: Request, conn=Depends(get_conn)):
+    row = conn.execute(
         "SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1"
     ).fetchone()
     return dict(row) if row else {"never": True}
@@ -61,8 +77,7 @@ def _setting(conn, key: str) -> str | None:
 # ---------- 仓库与分类(REQ-CLS) ----------
 
 @router.get("/repos")
-async def list_repos(request: Request, filter: str = "all", q: str = ""):
-    conn = request.app.state.conn
+async def list_repos(request: Request, filter: str = "all", q: str = "", conn=Depends(get_conn)):
     where, args = "WHERE 1=1", []
     if filter == "active":
         where += " AND unstarred=0 AND excluded=0"
@@ -83,8 +98,7 @@ async def list_repos(request: Request, filter: str = "all", q: str = ""):
 
 
 @router.get("/repos/{repo_id}")
-async def repo_detail(request: Request, repo_id: int):
-    conn = request.app.state.conn
+async def repo_detail(request: Request, repo_id: int, conn=Depends(get_conn)):
     repo = conn.execute("SELECT * FROM repos WHERE id=?", (repo_id,)).fetchone()
     if repo is None:
         raise HTTPException(404, "仓库不存在")
@@ -114,8 +128,7 @@ async def repo_detail(request: Request, repo_id: int):
 
 
 @router.patch("/repos/{repo_id}")
-async def patch_repo(request: Request, repo_id: int, body: dict):
-    conn = request.app.state.conn
+async def patch_repo(request: Request, repo_id: int, body: dict, conn=Depends(get_conn)):
     if "excluded" in body:
         if body["excluded"]:
             queue.exclude_repo(conn, repo_id)
@@ -126,9 +139,8 @@ async def patch_repo(request: Request, repo_id: int, body: dict):
 
 
 @router.patch("/reports/{version_id}/state")
-async def patch_report_state(request: Request, version_id: int, body: dict):
+async def patch_report_state(request: Request, version_id: int, body: dict, conn=Depends(get_conn)):
     # 条目级已读/收藏(REQ-READ-006,键盘 m/f)
-    conn = request.app.state.conn
     fields = []
     args = []
     for key in ("read", "favorited"):
@@ -145,8 +157,7 @@ async def patch_report_state(request: Request, version_id: int, body: dict):
 # ---------- 知识点编辑(KP-002:人工修订须标注,不冒充分析结论) ----------
 
 @router.patch("/knowledge_points/{kp_id}")
-async def edit_knowledge_point(request: Request, kp_id: int, body: dict):
-    conn = request.app.state.conn
+async def edit_knowledge_point(request: Request, kp_id: int, body: dict, conn=Depends(get_conn)):
     statement = (body.get("statement") or "").strip()
     if not statement:
         raise HTTPException(422, "内容不能为空")
@@ -161,18 +172,16 @@ async def edit_knowledge_point(request: Request, kp_id: int, body: dict):
 
 
 @router.delete("/knowledge_points/{kp_id}")
-async def delete_knowledge_point(request: Request, kp_id: int):
+async def delete_knowledge_point(request: Request, kp_id: int, conn=Depends(get_conn)):
     # 软删除可恢复,不破坏版本完整性(KP-002)
-    conn = request.app.state.conn
     conn.execute("UPDATE knowledge_points SET deleted=1 WHERE id=?", (kp_id,))
     conn.commit()
     return {"ok": True}
 
 
 @router.post("/knowledge_points/{kp_id}/restore")
-async def restore_knowledge_point(request: Request, kp_id: int):
+async def restore_knowledge_point(request: Request, kp_id: int, conn=Depends(get_conn)):
     # 软删除的恢复动作(AC-020 闭环)
-    conn = request.app.state.conn
     conn.execute("UPDATE knowledge_points SET deleted=0 WHERE id=?", (kp_id,))
     conn.commit()
     indexer.index_knowledge(conn, kp_id)
@@ -181,8 +190,7 @@ async def restore_knowledge_point(request: Request, kp_id: int):
 
 
 @router.post("/repos/{repo_id}/lock")
-async def lock_classification(request: Request, repo_id: int, body: dict):
-    conn = request.app.state.conn
+async def lock_classification(request: Request, repo_id: int, body: dict, conn=Depends(get_conn)):
     locked = 1 if body.get("locked") else 0
     row = conn.execute("SELECT id FROM classifications WHERE repo_id=? ORDER BY id DESC LIMIT 1", (repo_id,)).fetchone()
     if row is None:
@@ -195,8 +203,7 @@ async def lock_classification(request: Request, repo_id: int, body: dict):
 
 
 @router.post("/repos/{repo_id}/tags")
-async def add_tag(request: Request, repo_id: int, body: dict):
-    conn = request.app.state.conn
+async def add_tag(request: Request, repo_id: int, body: dict, conn=Depends(get_conn)):
     name = (body.get("name") or "").strip()
     if not name:
         raise HTTPException(400, "标签名不能为空")
@@ -208,8 +215,7 @@ async def add_tag(request: Request, repo_id: int, body: dict):
 
 
 @router.delete("/repos/{repo_id}/tags/{name}")
-async def delete_tag(request: Request, repo_id: int, name: str):
-    conn = request.app.state.conn
+async def delete_tag(request: Request, repo_id: int, name: str, conn=Depends(get_conn)):
     conn.execute("DELETE FROM tags WHERE repo_id=? AND name=?", (repo_id, name))
     conn.commit()
     indexer.index_repo(conn, repo_id)
@@ -218,9 +224,8 @@ async def delete_tag(request: Request, repo_id: int, name: str):
 
 
 @router.post("/repos/{repo_id}/classify")
-async def manual_scope(request: Request, repo_id: int, body: dict):
+async def manual_scope(request: Request, repo_id: int, body: dict, conn=Depends(get_conn)):
     # 人工选择范围:待处理→已分类并入队(REQ-CLS-002 闭环)
-    conn = request.app.state.conn
     if not body.get("type"):
         raise HTTPException(422, "缺少 type")
     if conn.execute("SELECT 1 FROM repos WHERE id=?", (repo_id,)).fetchone() is None:
@@ -237,8 +242,7 @@ async def manual_scope(request: Request, repo_id: int, body: dict):
 
 
 @router.post("/repos/{repo_id}/analyze")
-async def analyze(request: Request, repo_id: int, body: dict = None):
-    conn = request.app.state.conn
+async def analyze(request: Request, repo_id: int, body: dict = None, conn=Depends(get_conn)):
     limits = queue.task_limits(conn)
     priority = 0 if (body or {}).get("priority") == "front" else 100
     kind = "reanalyze" if conn.execute(
@@ -257,18 +261,17 @@ async def analyze(request: Request, repo_id: int, body: dict = None):
 # ---------- 任务与队列(REQ-TASK) ----------
 
 @router.get("/tasks")
-async def list_tasks(request: Request):
-    rows = request.app.state.conn.execute(
+async def list_tasks(request: Request, conn=Depends(get_conn)):
+    rows = conn.execute(
         """SELECT t.*, r.full_name FROM tasks t JOIN repos r ON r.id=t.repo_id
            ORDER BY CASE t.status WHEN '进行' THEN 0 WHEN '排队' THEN 1 ELSE 2 END, t.id DESC LIMIT 200"""
     ).fetchall()
-    paused = _setting(request.app.state.conn, "queue_paused") == "1"
+    paused = _setting(conn, "queue_paused") == "1"
     return {"paused": paused, "tasks": [dict(x) for x in rows]}
 
 
 @router.patch("/tasks/{task_id}")
-async def patch_task(request: Request, task_id: int, body: dict):
-    conn = request.app.state.conn
+async def patch_task(request: Request, task_id: int, body: dict, conn=Depends(get_conn)):
     if "priority" in body:
         conn.execute("UPDATE tasks SET priority=? WHERE id=? AND status='排队'", (int(body["priority"]), task_id))
         conn.commit()
@@ -276,9 +279,8 @@ async def patch_task(request: Request, task_id: int, body: dict):
 
 
 @router.delete("/tasks/{task_id}")
-async def cancel_task(request: Request, task_id: int):
+async def cancel_task(request: Request, task_id: int, conn=Depends(get_conn)):
     # 只取消指定排队任务,不影响队列其余任务(REQ-TASK-002)
-    conn = request.app.state.conn
     n = queue.cancel_pending(conn, task_id=task_id)
     if n == 0:
         raise HTTPException(404, "排队任务不存在")
@@ -286,16 +288,15 @@ async def cancel_task(request: Request, task_id: int):
 
 
 @router.post("/tasks/{task_id}/terminate")
-async def terminate_task(request: Request, task_id: int):
+async def terminate_task(request: Request, task_id: int, conn=Depends(get_conn)):
     # 终止分析中任务(REQ-TASK-002):登记请求,执行器 watcher 负责取消
-    if not queue.request_terminate(request.app.state.conn, task_id):
+    if not queue.request_terminate(conn, task_id):
         raise HTTPException(400, "任务不在进行中")
     return {"ok": True}
 
 
 @router.post("/tasks/{task_id}/retry")
-async def retry_task(request: Request, task_id: int):
-    conn = request.app.state.conn
+async def retry_task(request: Request, task_id: int, conn=Depends(get_conn)):
     task = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
     if task is None:
         raise HTTPException(404, "任务不存在")
@@ -311,16 +312,16 @@ async def retry_task(request: Request, task_id: int):
 
 
 @router.post("/queue")
-async def set_queue(request: Request, body: dict):
-    queue.set_paused(request.app.state.conn, bool(body.get("paused")))
+async def set_queue(request: Request, body: dict, conn=Depends(get_conn)):
+    queue.set_paused(conn, bool(body.get("paused")))
     return {"ok": True}
 
 
 # ---------- 报告/进度/导出(REQ-RPT/READ/OUT) ----------
 
 @router.get("/repos/{repo_id}/reports")
-async def list_versions(request: Request, repo_id: int):
-    rows = request.app.state.conn.execute(
+async def list_versions(request: Request, repo_id: int, conn=Depends(get_conn)):
+    rows = conn.execute(
         "SELECT id, version_no, commit_anchor, created_at FROM report_versions WHERE repo_id=? ORDER BY version_no DESC",
         (repo_id,),
     ).fetchall()
@@ -328,8 +329,8 @@ async def list_versions(request: Request, repo_id: int):
 
 
 @router.get("/reports/{version_id}")
-async def get_report(request: Request, version_id: int):
-    row = request.app.state.conn.execute("SELECT * FROM report_versions WHERE id=?", (version_id,)).fetchone()
+async def get_report(request: Request, version_id: int, conn=Depends(get_conn)):
+    row = conn.execute("SELECT * FROM report_versions WHERE id=?", (version_id,)).fetchone()
     if row is None:
         raise HTTPException(404, "报告版本不存在")
     return {
@@ -340,8 +341,8 @@ async def get_report(request: Request, version_id: int):
 
 
 @router.get("/reports/{version_id}/progress")
-async def get_progress(request: Request, version_id: int):
-    row = request.app.state.conn.execute(
+async def get_progress(request: Request, version_id: int, conn=Depends(get_conn)):
+    row = conn.execute(
         "SELECT * FROM reading_progress WHERE report_version_id=?", (version_id,)
     ).fetchone()
     if row is None:
@@ -352,9 +353,8 @@ async def get_progress(request: Request, version_id: int):
 
 
 @router.put("/reports/{version_id}/progress")
-async def put_progress(request: Request, version_id: int, body: dict):
+async def put_progress(request: Request, version_id: int, body: dict, conn=Depends(get_conn)):
     # 高水位防回退(REQ-READ-003/UX-27);显式重置用零值特判
-    conn = request.app.state.conn
     seq, top, bottom = int(body["anchor_seq"]), float(body["top_percent"]), float(body["bottom_percent"])
     if body.get("reset"):
         conn.execute(
@@ -398,8 +398,8 @@ def _parse_anchor(text: str) -> tuple[int, float]:
 
 
 @router.get("/reports/{version_id}/export")
-async def export_report(request: Request, version_id: int):
-    row = request.app.state.conn.execute(
+async def export_report(request: Request, version_id: int, conn=Depends(get_conn)):
+    row = conn.execute(
         """SELECT v.markdown, v.version_no, v.commit_anchor, v.created_at, r.full_name
            FROM report_versions v JOIN repos r ON r.id=v.repo_id WHERE v.id=?""", (version_id,)
     ).fetchone()
@@ -419,17 +419,23 @@ async def export_report(request: Request, version_id: int):
 # ---------- 检索(REQ-SRCH) ----------
 
 @router.get("/search")
-async def search(request: Request, q: str, limit: int = 20):
+async def search(request: Request, q: str, limit: int = 20, conn=Depends(get_conn)):
     if not q.strip():
         return []
-    return indexer.search(request.app.state.conn, q, limit=min(limit, 50))
+    return indexer.search(conn, q, limit=min(limit, 50))
 
 
 # ---------- RSS(REQ-OUT-002) ----------
 
+@public.get("/healthz")
+async def healthz(conn=Depends(get_conn)):
+    # 探活:库可读即健康(供反代/监控使用)
+    conn.execute("SELECT 1").fetchone()
+    return {"ok": True}
+
+
 @public.get("/rss.xml")
-async def rss(request: Request):
-    conn = request.app.state.conn
+async def rss(request: Request, conn=Depends(get_conn)):
     fg = FeedGenerator()
     fg.id("stardissect")
     fg.title("StarDissect 报告")
@@ -454,9 +460,8 @@ async def rss(request: Request):
 # ---------- 设置(REQ-CFG) ----------
 
 @router.get("/settings")
-async def get_settings(request: Request):
+async def get_settings(request: Request, conn=Depends(get_conn)):
     # 白名单输出;密钥仅尾号(REQ-CFG-001);内部键(syncing/queue_paused)不外吐
-    conn = request.app.state.conn
     allowed = PUBLIC_KEYS + list(SECRET_KEYS)
     out = {}
     for r in conn.execute("SELECT key, value FROM settings"):
@@ -467,8 +472,7 @@ async def get_settings(request: Request):
 
 
 @router.patch("/settings")
-async def patch_settings(request: Request, body: dict):
-    conn = request.app.state.conn
+async def patch_settings(request: Request, body: dict, conn=Depends(get_conn)):
     allowed = PUBLIC_KEYS + list(SECRET_KEYS)
     github_token_change = None
     for k, v in body.items():

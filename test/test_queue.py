@@ -34,22 +34,23 @@ def test_step_runs_to_completion(conn):
     assert row["status"] == "完成"
 
 
-def test_limited_with_output_archives_restricted(conn):
+def test_limited_archives_failed_with_reason(conn):
+    # DEC-09 轻量语义:触达上限统一归「失败」,原因留档,可重试
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
 
-    def partial(task_id):
-        raise queue.TaskLimited(partial=True, reason="轮次上限")
+    def limited(task_id):
+        raise queue.TaskLimited("轮次上限")
 
-    queue.step(conn, partial)
+    queue.step(conn, limited)
     row = conn.execute("SELECT status, fail_reason FROM tasks WHERE repo_id=1").fetchone()
-    assert (row["status"], row["fail_reason"]) == ("受限完成", "轮次上限")
+    assert (row["status"], row["fail_reason"]) == ("失败", "轮次上限")
 
 
 def test_limited_without_output_archives_failed(conn):
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
 
     def empty(task_id):
-        raise queue.TaskLimited(partial=False, reason="任务超时")
+        raise queue.TaskLimited("任务超时")
 
     queue.step(conn, empty)
     row = conn.execute("SELECT status, fail_reason FROM tasks WHERE repo_id=1").fetchone()

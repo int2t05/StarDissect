@@ -23,3 +23,7 @@ const router = createRouter({
 })
 
 createApp({ render: () => h(App) }).use(router).mount('#app')
+
+window.addEventListener('unhandledrejection', (e) => {
+  import('./api').then(({ toast }) => toast(`出错了:${e.reason?.message ?? '未知错误'}`))
+})

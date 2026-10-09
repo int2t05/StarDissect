@@ -36,3 +36,20 @@ async def test_tavily_real_search():
     chain = websearch.SearchChain([websearch.TavilyClient(os.environ["TAVILY_API_KEY"])])
     results = await chain.search("pydantic-ai python agent framework", 3)
     assert results and results[0].url.startswith("http")
+
+
+async def test_chain_all_fail_returns_error_summary():
+    # 成熟度 M3:全部后端失败时空结果 + 错误摘要透出,agent 不误判为「无结果」
+    from app.agents import websearch as ws
+
+    class Boom:
+        name = "boom"
+
+        async def search(self, client, query, max_results):
+            raise RuntimeError("网络不可达")
+
+    chain = ws.SearchChain([Boom()])
+    results = await chain.search("q")
+    assert results == [] and chain.last_errors and "网络不可达" in chain.last_errors[0]
+    out = ws.format_results(results) if results else "搜索后端均失败:" + "; ".join(chain.last_errors)
+    assert "搜索后端均失败" in out

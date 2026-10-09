@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY,
     repo_id INTEGER NOT NULL REFERENCES repos(id),
     kind TEXT NOT NULL CHECK (kind IN ('analyze','reanalyze')),
-    status TEXT NOT NULL CHECK (status IN ('排队','进行','完成','受限完成','失败','中断')),
+    status TEXT NOT NULL CHECK (status IN ('排队','进行','完成','失败','中断')),
     priority INTEGER NOT NULL DEFAULT 100,
     turn_limit INTEGER NOT NULL,
     time_limit_sec INTEGER NOT NULL,
@@ -142,11 +142,15 @@ ALL_TABLES = {
 }
 
 
+SCHEMA_VERSION = 1  # 结构变更时:SCHEMA 追加迁移步骤并递增版本(执行顺序迁移)
+
+
 def connect(db_path: Path) -> sqlite3.Connection:
-    # WAL + 外键强制;check_same_thread 关闭:连接由调用方保证单线程使用
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    # WAL + 外键强制 + 忙等待;多连接(每请求/工作线程各一)靠 WAL 串行写
+    conn = sqlite3.connect(db_path, timeout=10)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -155,7 +159,11 @@ def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = connect(db_path)
     try:
-        conn.executescript(SCHEMA)
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        if version == 0:
+            conn.executescript(SCHEMA)
+            conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+        # version < SCHEMA_VERSION 时在此追加顺序迁移步骤
         conn.commit()
     finally:
         conn.close()

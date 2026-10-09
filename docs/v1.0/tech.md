@@ -43,7 +43,7 @@ classification_history(id PK, repo_id FK, old_type, new_type, reason, created_at
 tags(id PK, repo_id FK, name, created_at)          -- 仅人工写入(REQ-CLS-005)
 
 tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
-      status,                                      -- 排队/进行/完成/受限完成/失败/中断
+      status,                                      -- 排队/进行/完成/失败/中断
       priority, turn_limit, time_limit_sec,        -- 入队时快照(REQ-CFG-002)
       started_at, finished_at, fail_reason)
 
@@ -75,7 +75,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 
 - 工作循环:取最高优先级「排队」任务 → 置「进行」(写 turn/time 快照)→ 执行 ADR-0005 agent → 按结果落「完成/受限完成/失败」;每步单事务提交。
 - 干预(REQ-TASK-002):暂停/恢复=循环开关;优先级/取消/排除=tasks/repos 字段更新;「分析中」终止=触发 asyncio 取消→归「失败」(可重试)。
-- 限额(REQ-TASK-003):request_limit 与墙钟超时双约束;超限后若 report_versions 已有完整新版本→「受限完成」保留产出,否则「失败」。
+- 限额(REQ-TASK-003,DEC-09):request_limit 与墙钟超时双约束;达到上限即终止归「失败」并记录原因,可重试,不保留部分产出。
 - 重试/重分析(REQ-TASK-004/005):新增 tasks 行,不覆盖历史;同仓库「进行」存在则拒绝。
 - 启动恢复(REQ-TASK-006):扫描「进行」→置「中断」;产出的半成品由事务原子性保证不存在。
 

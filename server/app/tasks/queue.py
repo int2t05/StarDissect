@@ -23,11 +23,10 @@ class ExcludedRepo(Exception):
 
 
 class TaskLimited(Exception):
-    """执行器触达轮次/时限上限;partial 标记是否有可发布产出(REQ-TASK-003)"""
+    """执行器触达轮次/时限上限或流程性终止(待人工等);统一归「失败」(DEC-09 轻量语义)"""
 
-    def __init__(self, partial: bool, reason: str):
+    def __init__(self, reason: str):
         super().__init__(reason)
-        self.partial = partial
         self.reason = reason
 
 
@@ -134,10 +133,11 @@ def step(conn: sqlite3.Connection, executor) -> bool:
         executor(task["id"])
         status, reason = "完成", None
     except TaskLimited as e:
-        status, reason = ("受限完成", e.reason) if e.partial else ("失败", e.reason)
+        status, reason = "失败", e.reason
     except asyncio.CancelledError:
         status, reason = "失败", "人工终止"
     except Exception as e:  # noqa: BLE001 —— 归档为失败,原因入 fail_reason 与日志
+        logger.exception("任务执行异常 id=%s", task["id"])
         status, reason = "失败", f"{type(e).__name__}: {e}"
     logger.info("任务归档 id=%s repo=%s status=%s reason=%s", task["id"], task["repo_id"], status, reason)
     conn.execute(

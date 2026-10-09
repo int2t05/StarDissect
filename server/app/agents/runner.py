@@ -176,7 +176,7 @@ def _typography_check(plain: str) -> dict:
 
 
 async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[str, int]:
-    """队列 executor 契约:成功返回 ('ok', version_id);触达限额 raise TaskLimited(REQ-TASK-003)。"""
+    """队列 executor 契约:成功生成新报告版本;触达限额/流程性终止 raise TaskLimited(REQ-TASK-003、DEC-09)。"""
     settings = {r["key"]: r["value"] for r in conn.execute("SELECT key, value FROM settings")}
     model = _build_model(settings)
     clone_root, sha = prepare_clone(repo["full_name"], f"https://github.com/{repo['full_name']}.git", clones_dir)
@@ -200,7 +200,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
             async with asyncio.timeout(config.CLASSIFIER_TIMEOUT_SEC):
                 c = await classifier.run(f"{readme}\n\n文件树:\n{tree}", usage_limits=UsageLimits(request_limit=3))
         except (UsageLimitExceeded, TimeoutError) as e:
-            raise TaskLimited(partial=False, reason="分类触达轮次上限" if isinstance(e, UsageLimitExceeded) else "分类超时") from e
+            raise TaskLimited("分类触达轮次上限" if isinstance(e, UsageLimitExceeded) else "分类超时") from e
         upsert_classification(conn, repo["id"], c.output.type, c.output.reason, c.output.confidence, "auto")
         cls_row = current_classification(conn, repo["id"])
         logger.info("分类完成 repo=%s type=%s confidence=%s", repo["full_name"], cls_row["type"], cls_row["confidence"])
@@ -208,7 +208,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
             # 无法形成可信范围 → 待处理,等待人工选择范围(REQ-CLS-002/FIG-02)
             conn.execute("UPDATE repos SET status='待处理', updated_at=datetime('now') WHERE id=?", (repo["id"],))
             conn.commit()
-            raise TaskLimited(partial=False, reason="待人工选择范围(混合/未识别)")
+            raise TaskLimited("待人工选择范围(混合/未识别)")
     conn.execute("UPDATE repos SET status='已分类', updated_at=datetime('now') WHERE id=?", (repo["id"],))
     conn.commit()
 
@@ -229,7 +229,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
                 prompt, deps=deps, usage_limits=UsageLimits(request_limit=task["turn_limit"]),
             )
     except (UsageLimitExceeded, TimeoutError) as e:
-        raise TaskLimited(partial=False, reason=f"{'轮次上限' if isinstance(e, UsageLimitExceeded) else '任务超时'}") from e
+        raise TaskLimited("轮次上限" if isinstance(e, UsageLimitExceeded) else "任务超时") from e
     version_id = persist_report(conn, repo["id"], task["id"], sha, result.output)
     conn.execute("UPDATE repos SET status='可阅读', updated_at=datetime('now') WHERE id=?", (repo["id"],))
     conn.commit()

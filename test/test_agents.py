@@ -145,3 +145,12 @@ async def test_run_task_end_to_end_with_real_llm(tmp_path):
     status, version_id = await runner.run_task(conn, task, repo, clones_dir=tmp_path / "clones")
     assert status == "ok" and version_id == 1
     assert conn.execute("SELECT COUNT(*) c FROM report_sections").fetchone()["c"] > 0
+
+
+def test_prepare_clone_failure_carries_git_stderr(tmp_path):
+    # 成熟度 M3:克隆失败时 fail_reason 携带 git stderr 真因,而非裸退出码
+    import pytest as _pytest
+    from app.agents import runner as _runner
+
+    with _pytest.raises(RuntimeError, match="git clone 失败"):
+        _runner.prepare_clone("o/none", "file:///nonexistent-repo-path", clones_dir=tmp_path / "clones")
