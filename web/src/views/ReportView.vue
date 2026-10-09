@@ -67,27 +67,78 @@ function openSource(ev) {
   window.open(`https://github.com/${report.value.repo_name}/blob/${report.value.commit_anchor}/${path}${anchor}`, '_blank', 'noopener')
 }
 
-// mermaid 渲染 + 文字后备(RPT-005/UX-48):渲染失败展开源码,不空块
+// mermaid 渲染 + 图题 + 放大层 + 文字后备(UX-48/RPT-005):渲染失败展开源码,不空块
+let figIndex = 0
 async function renderMermaid() {
   const blocks = [...document.querySelectorAll('.article .mermaid')]
   if (!blocks.length) return
+  const theme = document.documentElement.dataset.theme === 'light' ? 'neutral' : 'dark'
   for (const b of blocks) {
     const src = b.textContent
     const fig = document.createElement('figure')
     const holder = document.createElement('div')
+    const cap = document.createElement('figcaption')
+    cap.textContent = `图 ${++figIndex} · 点击放大`
     const fallback = document.createElement('details')
     fallback.innerHTML = `<summary>图表源码</summary><pre>${src.replace(/</g, '&lt;')}</pre>`
     b.replaceWith(fig)
-    fig.append(holder, fallback)
+    fig.append(holder, cap, fallback)
     try {
       const mermaid = (await import('mermaid')).default  // 本地依赖随构建打包(E16:内网自托管不依赖外部 CDN)
-      mermaid.initialize({ startOnLoad: false, theme: 'dark' })
+      mermaid.initialize({ startOnLoad: false, theme })
       const { svg } = await mermaid.render(`m${Math.random().toString(36).slice(2)}`, src)
       holder.innerHTML = svg
+      fig.classList.add('fig-ok')
+      fig.addEventListener('click', (e) => {
+        if (e.target.closest('details')) return  // 源码折叠区不触发放大
+        openZoom(holder.querySelector('svg'), cap.textContent)
+      })
     } catch {
       fallback.open = true
     }
   }
+}
+
+// 放大层(UX-48):滚轮缩放、拖拽平移、Esc/点背景退出、焦点圈闭
+function openZoom(svg, title) {
+  if (!svg || document.getElementById('sd-zoom')) return
+  const ov = document.createElement('div')
+  ov.id = 'sd-zoom'
+  ov.tabIndex = -1
+  ov.innerHTML = `
+    <div class="zoom-head">${title.replace(/</g, '&lt;')}<button type="button" class="zoom-close">关闭 (Esc)</button></div>
+    <div class="zoom-stage"><div class="zoom-canvas"></div></div>
+    <div class="zoom-hint">滚轮缩放 · 拖拽平移 · Esc 关闭</div>`
+  const canvas = ov.querySelector('.zoom-canvas')
+  canvas.appendChild(svg.cloneNode(true))
+  document.body.appendChild(ov)
+  ov.focus()
+  let scale = 1, tx = 0, ty = 0
+  const applyT = () => { canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})` }
+  const onWheel = (e) => {
+    e.preventDefault()
+    scale = Math.min(6, Math.max(0.4, scale * (e.deltaY < 0 ? 1.15 : 0.87)))
+    applyT()
+  }
+  let drag = null
+  const onDown = (e) => { drag = { x: e.clientX - tx, y: e.clientY - ty }; ov.setPointerCapture(e.pointerId) }
+  const onMove = (e) => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; applyT() } }
+  const onUp = () => { drag = null }
+  const close = () => {
+    ov.removeEventListener('wheel', onWheel)
+    ov.removeEventListener('pointerdown', onDown)
+    window.removeEventListener('keydown', onKey, true)
+    ov.remove()
+    document.querySelector('.article .fig-ok')?.focus?.()
+  }
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
+  ov.addEventListener('wheel', onWheel, { passive: false })
+  ov.addEventListener('pointerdown', onDown)
+  ov.addEventListener('pointermove', onMove)
+  ov.addEventListener('pointerup', onUp)
+  ov.querySelector('.zoom-close').addEventListener('click', close)
+  ov.addEventListener('click', (e) => { if (e.target === ov.querySelector('.zoom-stage')) close() })
+  window.addEventListener('keydown', onKey, true)
 }
 
 async function toggleState(field) {
@@ -240,4 +291,14 @@ function jump(seq) {
 .article .ev a { word-break: break-all; }
 .article .ev .ev-date { color: var(--sd-text-3); font-size: 0.8em; margin-left: 8px; }
 .article .mermaid { text-align: center; }
+.article figcaption { font-size: 0.75em; color: var(--sd-text-3); text-align: center; padding-top: 6px; letter-spacing: 0.04em; }
+.article .fig-ok { cursor: zoom-in; }
+.article .fig-ok:hover { background: color-mix(in srgb, var(--sd-accent) 4%, var(--sd-surface)); }
+#sd-zoom { position: fixed; inset: 0; z-index: 60; background: #000d; display: flex; flex-direction: column; outline: none; }
+#sd-zoom .zoom-head { color: var(--sd-text); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; background: var(--sd-surface); }
+#sd-zoom .zoom-close { background: var(--sd-elevated); }
+#sd-zoom .zoom-stage { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; }
+#sd-zoom .zoom-canvas { width: min(92vw, 1100px); transition: transform 0.06s; }
+#sd-zoom .zoom-canvas svg { width: 100%; height: auto; }
+#sd-zoom .zoom-hint { color: var(--sd-text-3); text-align: center; padding: 10px; font-size: 0.82em; }
 </style>
