@@ -41,6 +41,14 @@ CREATE TABLE IF NOT EXISTS classification_history (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS auto_tags (
+    id INTEGER PRIMARY KEY,
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (repo_id, name)
+);
+
 CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY,
     repo_id INTEGER NOT NULL REFERENCES repos(id),
@@ -136,13 +144,13 @@ CREATE VIRTUAL TABLE IF NOT EXISTS repo_fts USING fts5(
 """
 
 ALL_TABLES = {
-    "repos", "classifications", "classification_history", "tags", "tasks",
+    "repos", "classifications", "classification_history", "auto_tags", "tags", "tasks",
     "report_versions", "knowledge_points", "reading_progress", "sync_runs",
     "settings", "report_sections", "report_fts", "knowledge_fts", "repo_fts",
 }
 
 
-SCHEMA_VERSION = 1  # 结构变更时:SCHEMA 追加迁移步骤并递增版本(执行顺序迁移)
+SCHEMA_VERSION = 2  # 结构变更:更新 SCHEMA(全 IF NOT EXISTS,可幂等重放)并递增版本;旧库自动补齐
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -160,10 +168,9 @@ def init_db(db_path: Path) -> None:
     conn = connect(db_path)
     try:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
-        if version == 0:
-            conn.executescript(SCHEMA)
+        if version < SCHEMA_VERSION:
+            conn.executescript(SCHEMA)  # 全 IF NOT EXISTS:新库建全量,旧库幂等补齐
             conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
-        # version < SCHEMA_VERSION 时在此追加顺序迁移步骤
         conn.commit()
     finally:
         conn.close()

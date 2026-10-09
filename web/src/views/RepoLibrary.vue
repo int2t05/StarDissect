@@ -2,7 +2,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { NButton, NCard, NDrawer, NDrawerContent, NEmpty, NInput, NTag } from 'naive-ui'
-import { api } from '../api'
+import { api, fmtTime } from '../api'
 
 const repos = ref([])
 const q = ref('')
@@ -100,7 +100,12 @@ onMounted(load)
             <p v-for="h in detail.history" :key="h.created_at" class="desc">{{ h.old_type }} → {{ h.new_type }}:{{ h.reason }}</p>
           </div>
           <div class="sec">
-            <h3>人工标签</h3>
+            <h3>标签</h3>
+            <div class="tags">
+              <n-tag v-for="t in detail.auto_tags" :key="'a' + t" size="small" type="info" :bordered="false">{{ t }}</n-tag>
+              <span v-if="!detail.auto_tags.length" class="desc">尚无自动标签(分析时由 AI 生成)</span>
+            </div>
+            <h3 class="sub">人工标签</h3>
             <div class="tags">
               <n-tag v-for="t in detail.tags" :key="t" size="small" closable @close="delTag(t)">{{ t }}</n-tag>
             </div>
@@ -113,7 +118,7 @@ onMounted(load)
           <div v-if="detail.versions.length" class="sec">
             <h3>报告版本</h3>
             <p v-for="v in detail.versions" :key="v.id" class="ver">
-              <RouterLink :to="`/repos/${detail.repo.id}/report/${v.id}`" @click="showDetail = false">v{{ v.version_no }} · {{ v.created_at }}</RouterLink>
+              <RouterLink :to="`/repos/${detail.repo.id}/report/${v.id}`" @click="showDetail = false">v{{ v.version_no }} · {{ fmtTime(v.created_at) }}</RouterLink>
               <a :href="`/api/reports/${v.id}/export`">导出</a>
             </p>
           </div>
@@ -138,6 +143,7 @@ onMounted(load)
 .detail { display: flex; flex-direction: column; gap: 16px; }
 .sec h3 { font-size: 0.95em; color: var(--sd-text-2); border-top: 1px solid var(--sd-border); padding-top: 14px; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+h3.sub { padding-top: 10px; margin-top: 2px; border-top: 0; font-size: 0.88em; }
 .actions { display: flex; gap: 8px; }
 .ver { display: flex; gap: 12px; }
 </style>

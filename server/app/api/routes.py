@@ -111,6 +111,7 @@ async def repo_detail(request: Request, repo_id: int, conn=Depends(get_conn)):
         "SELECT old_type, new_type, reason, created_at FROM classification_history WHERE repo_id=? ORDER BY id DESC", (repo_id,)
     ).fetchall()
     tags = [r["name"] for r in conn.execute("SELECT name FROM tags WHERE repo_id=? ORDER BY name", (repo_id,))]
+    auto_tags = [r["name"] for r in conn.execute("SELECT name FROM auto_tags WHERE repo_id=? ORDER BY name", (repo_id,))]
     versions = conn.execute(
         "SELECT id, version_no, commit_anchor, created_at FROM report_versions WHERE repo_id=? ORDER BY version_no DESC", (repo_id,)
     ).fetchall()
@@ -123,7 +124,7 @@ async def repo_detail(request: Request, repo_id: int, conn=Depends(get_conn)):
     ).fetchall()
     return {
         "repo": dict(repo), "classification": dict(cls) if cls else None,
-        "history": [dict(h) for h in history], "tags": tags,
+        "history": [dict(h) for h in history], "tags": tags, "auto_tags": auto_tags,
         "versions": [dict(v) for v in versions], "tasks": [dict(t) for t in tasks],
         "knowledge_points": [dict(k) for k in kps],
     }

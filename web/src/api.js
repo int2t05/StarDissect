@@ -27,6 +27,13 @@ export async function api(url, options) {
   return res.json()
 }
 
+// 服务端时间统一 UTC(ISO 或 "YYYY-MM-DD HH:MM:SS"),展示转本地时区
+export function fmtTime(s) {
+  if (!s) return ''
+  const d = new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z')
+  return isNaN(d) ? s : d.toLocaleString('zh-CN', { hour12: false })
+}
+
 export async function apiRaw(url) {
   const res = await fetch(url)
   if (!res.ok) {

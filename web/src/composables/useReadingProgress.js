@@ -37,11 +37,14 @@ export function useReadingProgress(getVid, computeCurrent) {
     timer = setTimeout(report, 800) // 节流上报(UX-28)
   }
 
-  async function restore() {
+  async function getSaved() {
     await flushRetry()
-    const saved = await api(`/api/reports/${getVid()}/progress`)
+    return api(`/api/reports/${getVid()}/progress`) // 进入默认开头;恢复由用户显式触发(resume)
+  }
+
+  function resume(saved) {
     const target = document.querySelector(`[data-seq="${saved.anchor_seq ?? 0}"]`)
-    if (target) target.scrollIntoView({ block: 'start' })
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function reset() {
@@ -55,7 +58,8 @@ export function useReadingProgress(getVid, computeCurrent) {
 
   return {
     report,
-    restore,
+    getSaved,
+    resume,
     reset,
     mount: () => window.addEventListener('scroll', onScroll, { passive: true }),
     unmount: () => { window.removeEventListener('scroll', onScroll); clearTimeout(timer) },

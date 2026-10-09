@@ -39,6 +39,7 @@ classifications(id PK, repo_id FK, type, reason, confidence,   -- 高/中/低
       source,               -- auto / deep / manual_lock / manual_scope
       locked INT DEFAULT 0, created_at)
 classification_history(id PK, repo_id FK, old_type, new_type, reason, created_at)
+auto_tags(id PK, repo_id FK, name, created_at, UNIQUE(repo_id,name))  -- AI 分类自动标签,独立于人工 tags
 
 tags(id PK, repo_id FK, name, created_at)          -- 仅人工写入(REQ-CLS-005)
 

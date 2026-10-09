@@ -33,6 +33,7 @@ class ClassificationResult(BaseModel):
     type: str = Field(description="七类主类型之一")
     reason: str
     confidence: str = Field(description="高/中/低")
+    tags: list[str] = Field(default_factory=list, description="2-4 个主题标签")
 
 
 class EvidenceRef(BaseModel):
@@ -111,6 +112,15 @@ def upsert_classification(conn, repo_id: int, type_: str, reason: str, confidenc
         "INSERT INTO classifications(repo_id, type, reason, confidence, source) VALUES (?,?,?,?,?)",
         (repo_id, type_, reason, confidence, source),
     )
+    conn.commit()
+
+
+def set_auto_tags(conn, repo_id: int, tags: list[str]) -> None:
+    """AI 分类附带的自动标签:独立 auto_tags 表,不触碰人工 tags(REQ-CLS-005);每次分析整表替换。"""
+    names = [t.strip() for t in tags if t.strip()][:4]
+    conn.execute("DELETE FROM auto_tags WHERE repo_id=?", (repo_id,))
+    for name in names:
+        conn.execute("INSERT OR IGNORE INTO auto_tags(repo_id, name) VALUES (?,?)", (repo_id, name))
     conn.commit()
 
 
@@ -203,6 +213,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
         except (UsageLimitExceeded, TimeoutError) as e:
             raise TaskLimited("分类触达轮次上限" if isinstance(e, UsageLimitExceeded) else "分类超时") from e
         upsert_classification(conn, repo["id"], c.output.type, c.output.reason, c.output.confidence, "auto")
+        set_auto_tags(conn, repo["id"], c.output.tags)
         cls_row = current_classification(conn, repo["id"])
         logger.info("分类完成 repo=%s type=%s confidence=%s", repo["full_name"], cls_row["type"], cls_row["confidence"])
         if cls_row["type"] == "混合/未识别":

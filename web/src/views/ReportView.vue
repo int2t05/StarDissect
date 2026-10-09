@@ -5,6 +5,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { NButton, NSelect } from 'naive-ui'
+import { fmtTime } from '../api'
 import { useReadingProgress } from '../composables/useReadingProgress'
 import { useScrollSpy } from '../composables/useScrollSpy'
 import { useReaderSettings } from '../composables/useReaderSettings'
@@ -16,6 +17,8 @@ const report = ref(null)
 const sections = ref([])
 const state = ref({ read: false, favorited: false })
 const violations = ref(-1) // -1=未显示;排版校验违规数(REQ-RPT-003)
+const hasSaved = ref(false)
+const lastSaved = ref(null)
 const activeSeq = ref(-1)
 
 const toc = computed(() => sections.value)
@@ -50,7 +53,9 @@ onMounted(async () => {
   progress.mount()
   window.addEventListener('keydown', onKey)
   await nextTick()
-  await progress.restore()  // 跨设备恢复(REQ-READ-003)
+  const saved = await progress.getSaved() // 进入默认开头;恢复由「继续上次」显式触发
+  lastSaved.value = saved
+  hasSaved.value = (saved.anchor_seq ?? 0) > 0
 })
 
 // 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)
@@ -131,7 +136,7 @@ function jump(seq) {
     <header class="bar">
       <div class="title">
         <h1>{{ report.repo_name }} · v{{ report.version_no }}</h1>
-        <span class="meta">commit {{ report.commit_anchor.slice(0, 8) }} · {{ report.created_at }}</span>
+        <span class="meta">commit {{ report.commit_anchor.slice(0, 8) }} · {{ fmtTime(report.created_at) }}</span>
         <span v-if="violations > 0" class="meta warn">排版提示 {{ violations }} 处</span>
       </div>
       <div class="tools">
@@ -142,6 +147,7 @@ function jump(seq) {
         <n-select v-model:value="settings.lineHeight" :options="lhOptions" size="tiny" style="width: 90px" />
         <n-select v-model:value="settings.theme" :options="themeOptions" size="tiny" style="width: 96px" />
         <n-button size="tiny" quaternary @click="settings.contrast = !settings.contrast">{{ settings.contrast ? '标准对比' : '强对比' }}</n-button>
+        <n-button v-if="hasSaved" size="tiny" quaternary @click="progress.resume(lastSaved)">继续上次</n-button>
         <n-button size="tiny" quaternary @click="progress.reset()">重置进度</n-button>
         <n-button size="tiny" quaternary tag="a" :href="`/api/reports/${route.params.vid}/export`">导出 MD</n-button>
       </div>

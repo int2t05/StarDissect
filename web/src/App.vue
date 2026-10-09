@@ -8,7 +8,7 @@ import { useReaderSettings } from './composables/useReaderSettings'
 import { naiveTheme, overridesFor } from './theme'
 
 useReaderSettings()
-const { handler, helpVisible } = useKeyboard()
+const { handler, helpVisible, echo } = useKeyboard()
 onMounted(() => window.addEventListener('keydown', handler))
 onUnmounted(() => window.removeEventListener('keydown', handler))
 
@@ -51,6 +51,9 @@ function onMenu(key) {
         </header>
         <main class="main"><RouterView /></main>
       </div>
+      <Transition name="key-echo">
+        <div v-if="echo" key="echo" class="key-echo">{{ echo }}</div>
+      </Transition>
       <div v-if="helpVisible" class="help" @click="helpVisible = false">
         <div class="help-panel">
           <h3>键盘快捷键</h3>
@@ -82,6 +85,15 @@ function onMenu(key) {
 .nav a.router-link-active { color: var(--sd-accent); background: var(--sd-accent-soft); } /* 当前项单强调色(UX-01) */
 .kbd-hint { color: var(--sd-text-3); font-size: 12px; }
 .main { flex: 1; }
+.key-echo {
+  position: fixed; left: 20px; bottom: 20px; z-index: 40;
+  background: var(--sd-elevated); color: var(--sd-accent);
+  border: 1px solid var(--sd-border-strong); border-radius: 8px;
+  font-family: var(--sd-font-mono); font-size: 15px; font-weight: 600;
+  padding: 8px 14px; box-shadow: 0 8px 24px #0007;
+}
+.key-echo-enter-active, .key-echo-leave-active { transition: all 0.18s; }
+.key-echo-enter-from, .key-echo-leave-to { opacity: 0; transform: translateY(6px); }
 .help { position: fixed; inset: 0; background: var(--sd-overlay); display: flex; align-items: center; justify-content: center; z-index: 30; }
 .help-panel { background: var(--sd-surface); border: 1px solid var(--sd-border-strong); border-radius: 8px; padding: 20px 28px; }
 .help-panel h3 { margin-top: 0; color: var(--sd-accent); }

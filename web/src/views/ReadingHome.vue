@@ -3,7 +3,7 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NEmpty, NInput, NSelect, NTag } from 'naive-ui'
-import { api } from '../api'
+import { api, fmtTime } from '../api'
 
 const router = useRouter()
 const entries = ref([])
@@ -151,7 +151,7 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
       <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
         <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
           <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
-          <span class="meta"><n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag> {{ e.created_at }}</span>
+          <span class="meta"><n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag> {{ fmtTime(e.created_at) }}</span>
         </RouterLink>
       </li>
     </ul>

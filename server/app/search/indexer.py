@@ -44,7 +44,12 @@ def index_repo(conn, repo_id: int) -> None:
     row = conn.execute("SELECT full_name, description FROM repos WHERE id=?", (repo_id,)).fetchone()
     if row is None:
         return
-    tags = " ".join(r["name"] for r in conn.execute("SELECT name FROM tags WHERE repo_id=?", (repo_id,)))
+    tags = " ".join(
+        r["name"]
+        for r in conn.execute(
+            "SELECT name FROM tags WHERE repo_id=? UNION ALL SELECT name FROM auto_tags WHERE repo_id=?", (repo_id, repo_id)
+        )
+    )
     conn.execute(
         "INSERT OR REPLACE INTO repo_fts(rowid, full_name, description) VALUES (?,?,?)",
         (repo_id, tokenize(row["full_name"]), tokenize(f"{row['description'] or ''} {tags}")),

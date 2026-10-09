@@ -2,7 +2,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { NAlert, NButton, NForm, NFormItem, NInput } from 'naive-ui'
-import { api } from '../api'
+import { api, fmtTime } from '../api'
 
 const form = ref({})
 const lastSync = ref(null)
@@ -55,7 +55,7 @@ onMounted(load)
         <n-input v-model:value="form.time_limit_sec" placeholder="1800" />
       </n-form-item>
       <n-alert v-if="lastSync && !lastSync.never" :type="lastSync.failed ? 'warning' : 'info'" :bordered="false">
-        最近同步:{{ lastSync.finished_at || lastSync.started_at }} · 新增 {{ lastSync.added }} / 取消 {{ lastSync.removed }} / 跳过 {{ lastSync.skipped }}<span v-if="lastSync.failed"> / 失败 {{ lastSync.failed }}</span>
+        最近同步:{{ fmtTime(lastSync.finished_at || lastSync.started_at) }} · 新增 {{ lastSync.added }} / 取消 {{ lastSync.removed }} / 跳过 {{ lastSync.skipped }}<span v-if="lastSync.failed"> / 失败 {{ lastSync.failed }}</span>
       </n-alert>
       <div class="row">
         <n-button attr-type="submit" type="primary" secondary>{{ saved ? '已保存 ✓' : '保存' }}</n-button>
