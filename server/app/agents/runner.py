@@ -191,7 +191,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
     if cls_row is None:
         classifier = Agent(
             model, output_type=ClassificationResult, instructions=prompts.CLASSIFIER_INSTRUCTIONS,
-            model_settings={"max_tokens": config.MODEL_MAX_TOKENS},
+            model_settings={"max_tokens": config.MODEL_MAX_TOKENS}, retries=3,
         )
         readme_path = clone_root / "README.md"
         readme = f"README 摘要: {readme_path.read_text(encoding='utf-8', errors='replace')[:4000]}" if readme_path.exists() else "README 摘要: (无)"
@@ -217,7 +217,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
         model, output_type=ReportDraft, instructions=prompts.ANALYZER_INSTRUCTIONS,
         tools=[tools.read_file, tools.search_code, tools.list_dir, tools.fetch_github, tools.web_search, tools.deep_research, tools.web_fetch],
         deps_type=tools.AgentDeps,
-        model_settings={"max_tokens": config.MODEL_MAX_TOKENS},
+        model_settings={"max_tokens": config.MODEL_MAX_TOKENS}, retries=3,
     )
     focus = prompts.TYPE_FOCUS.get(cls_row["type"], prompts.TYPE_FOCUS["混合/未识别"])
     prompt = (

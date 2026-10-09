@@ -25,7 +25,7 @@ QUEUE_INTERVAL_ACTIVE = 0.2    # 有任务时的轮询间隔(秒)
 QUEUE_INTERVAL_IDLE = 2.0      # 空闲轮询间隔
 QUEUE_RETRY_ON_ERROR = 5.0     # 循环异常后的重试间隔
 TERMINATE_POLL_SEC = 0.5       # 终止请求轮询间隔
-DAILY_SYNC_CRON = {"hour": 3, "minute": 17}  # 每日定时同步(REQ-SYNC-001)
+DAILY_SYNC_CRON = {"hour": "*/8", "minute": 17}  # 每 8 小时定时同步(REQ-SYNC-001,用户设定)
 
 # agent 工具限制
 MAX_FILE_LINES = 400
