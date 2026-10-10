@@ -42,9 +42,10 @@ export function useReadingProgress(getVid, computeCurrent) {
     return api(`/api/reports/${getVid()}/progress`) // 进入默认开头;恢复由用户显式触发(resume)
   }
 
+  // 恢复:按存储的视口百分比换算绝对滚动位,忠实回跳(比章节锚点精确)
   function resume(saved) {
-    const target = document.querySelector(`[data-seq="${saved.anchor_seq ?? 0}"]`)
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const doc = document.documentElement
+    window.scrollTo({ top: (doc.scrollHeight - doc.clientHeight) * ((saved.top_percent ?? 0) / 100), behavior: 'smooth' })
   }
 
   async function reset() {

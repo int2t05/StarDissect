@@ -55,7 +55,7 @@ onMounted(async () => {
   await nextTick()
   const saved = await progress.getSaved() // 进入默认开头;恢复由「继续上次」显式触发
   lastSaved.value = saved
-  hasSaved.value = (saved.anchor_seq ?? 0) > 0
+  hasSaved.value = (saved.anchor_seq ?? 0) > 0 || (saved.top_percent ?? 0) > 5  // 浅阅读(章节 0)也可见
   state.value = { read: !!report.value.read, favorited: !!report.value.favorited }  // 持久状态回读
 })
 
@@ -154,7 +154,7 @@ function openZoom(svg, title) {
   const onUp = () => {
     const backdropTap = downOnBackdrop && drag && !drag.moved
     drag = null
-    if (backdropTap) close()  // 点空白关闭;拖拽后松开不关闭(部署实测误触修复)
+    if (backdropTap) close()  // 点空白关闭;拖拽后松开不关闭
   }
   let closed = false
   const close = () => {
@@ -171,8 +171,8 @@ function openZoom(svg, title) {
   }
   const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close() } }
   ov.addEventListener('wheel', onWheel, { passive: false })
-  // 拖拽仅从图区起始:控制区(pointerdown 落在按钮/标题栏)绝不抢指针捕获,
-  // 否则后续 click 的 target 被重定向到覆盖层,关闭按钮永远点不中(部署实测缺陷)
+  // 拖拽仅从图区起始:控制区(pointerdown 落在按钮/标题栏)不抢指针捕获,
+  // 否则后续 click 的 target 被重定向到覆盖层,关闭按钮永远点不中
   ov.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.zoom-head, button')) return
     onDown(e)
@@ -252,6 +252,7 @@ function jump(seq) {
         </div>
         <div class="pgroup">
           <div class="ptitle">进度与导出</div>
+          <div v-if="hasSaved" class="prow">上次读到 <b>第 {{ (lastSaved.anchor_seq ?? 0) + 1 }} 章 · {{ Math.round(lastSaved.top_percent ?? 0) }}%</b></div>
           <n-button v-if="hasSaved" size="tiny" block quaternary @click="progress.resume(lastSaved)">继续上次</n-button>
           <n-button size="tiny" block quaternary @click="progress.reset()">重置进度</n-button>
           <n-button size="tiny" block quaternary tag="a" :href="`/api/reports/${route.params.vid}/export`">导出 Markdown</n-button>
@@ -280,12 +281,13 @@ function jump(seq) {
 <style scoped>
 .reader { padding: 24px 32px 80px; }
 .body {
-  /* 三列网格:工作区面板 | 正文居中 | 大纲钉右侧视口边缘(UX-61) */
-  display: grid; grid-template-columns: 200px min(var(--sd-width), 100%) minmax(200px, 1fr);
+  /* 两侧对称 1fr:正文视口居中,面板贴左缘、大纲贴右缘,与正文间距一致(UX-61) */
+  display: grid; grid-template-columns: minmax(200px, 1fr) min(var(--sd-width), 100%) minmax(200px, 1fr);
   gap: 72px;
 }
 .panel {
-  grid-column: 1; position: sticky; top: 76px; align-self: start;
+  grid-column: 1; justify-self: start; width: 200px;
+  position: sticky; top: 76px; align-self: start;
   display: flex; flex-direction: column; gap: 18px;
 }
 .pgroup { display: flex; flex-direction: column; gap: 8px; }

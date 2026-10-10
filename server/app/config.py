@@ -19,13 +19,13 @@ CLASSIFIER_TIMEOUT_SEC = 120
 CLASSIFIER_REQUEST_LIMIT = 3
 AUTO_TAG_MAX = 4               # AI 分类自动标签上限
 CLONE_TIMEOUT_SEC = 600        # 单次 git clone 超时
-TASK_DEFAULT_TURN_LIMIT = 80   # 部署实测校准:部分仓库 60 轮不够(OPN-02)
+TASK_DEFAULT_TURN_LIMIT = 80   # 深读大仓库 60 轮不足(OPN-02)
 TASK_AUTO_RETRY_MAX = 3        # 网络类失败自动重排上限
 TASK_RETRY_PRIORITY = 50       # 自动重排优先级(新 star=0 之后,历史批次=100 之前)
 TASK_TURN_ESCALATE_CAP = 160   # 轮次上限失败后的加倍预算封顶
 TASK_DEFAULT_TIME_LIMIT_SEC = 1800
 MODEL_MAX_TOKENS = 32768       # 网关默认输出上限会导致 IncompleteToolCall,显式放宽
-CLONE_ATTEMPTS = 5             # 克隆网络抖动重试次数(部署实测:服务器到 GitHub 链路持续抖动)
+CLONE_ATTEMPTS = 5             # 克隆网络抖动重试次数(GitHub 链路存在持续抖动)
 CLONE_BACKOFF_SEC = 20         # 重试退避间隔(跨过限流窗口)
 SEARCH_MAX_LIMIT = 50
 QUEUE_INTERVAL_ACTIVE = 0.2    # 有任务时的轮询间隔(秒)
