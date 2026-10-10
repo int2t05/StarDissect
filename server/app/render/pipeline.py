@@ -18,12 +18,18 @@ _md = MarkdownIt("commonmark").enable(["table", "strikethrough"])
 _default_fence = _md.renderer.rules["fence"]
 
 
+def _quote_mermaid_labels(src: str) -> str:
+    # 确定性规范化:未加引号的节点标签补双引号——标签含 {} 等结构字符时 mermaid 必解析失败,
+    # 引号内合法。模型输出不保证遵守写法契约,渲染层兜底保证存库即安全。
+    return re.sub(r'([A-Za-z0-9_]+)\[(?!")([^\]\[\n"]+)\]', r'\1["\2"]', src)
+
+
 def _fence_rule(self, tokens, idx, options, env):
     # mermaid 块输出专用容器(前端渲染+文字后备,RPT-005);其余 fence 走默认 <pre><code>
     # add_render_rule 会把函数绑定到 renderer(首参 self);捕获的默认规则已是绑定方法,调用不传 self
     t = tokens[idx]
     if t.info and t.info.strip() == "mermaid":
-        body = html.escape(t.content)
+        body = html.escape(_quote_mermaid_labels(t.content))
         return f'<div class="mermaid">\n{body}</div>\n'
     return _default_fence(tokens, idx, options, env)
 

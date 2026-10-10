@@ -86,16 +86,18 @@ async function renderMermaid() {
     fig.append(holder, cap, fallback)
     const mermaid = (await import('mermaid')).default  // 本地依赖随构建打包(E16:内网自托管不依赖外部 CDN)
     mermaid.initialize({ startOnLoad: false, theme })
+    // parse 先行验证:失败不产生 mermaid 的孤儿错误图;修复/后备而非页面报错炸弹
     const tryRender = async (text) => {
+      if (!(await mermaid.parse(text, { suppressErrors: true }))) throw new Error('parse failed')
       const { svg } = await mermaid.render(`m${Math.random().toString(36).slice(2)}`, text)
       holder.innerHTML = svg
       holder.addEventListener('click', () => openZoom(holder.querySelector('svg'), cap.textContent))
     }
+    // 确定性修复:未加引号的节点标签补双引号(引号内 {} 合法);与服务端 _quote_mermaid_labels 同一规则
+    const repaired = src.replace(/([A-Za-z0-9_]+)\[(?!")([^\]\[\n"]+)\]/g, '$1["$2"]')
     try {
       await tryRender(src)
     } catch {
-      // 旧版报告的标签可能含 { } 等结构字符:确定性修复=未加引号的节点标签补双引号(引号内 {} 合法)
-      const repaired = src.replace(/([A-Za-z0-9_]+)\[(?!")([^\]\[]+)\]/g, '$1["$2"]')
       try {
         if (repaired === src) throw new Error('unrepairable')
         await tryRender(repaired)
