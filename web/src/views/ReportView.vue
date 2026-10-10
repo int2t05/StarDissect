@@ -130,10 +130,31 @@ function openZoom(svg, title) {
     scale = Math.min(6, Math.max(0.4, scale * (e.deltaY < 0 ? 1.15 : 0.87)))
     applyT()
   }
+  // 拖拽状态机:pointer capture 会让松开后的合成 click 目标落到覆盖层,
+  // 因此「点空白关闭」在 pointerup 时按按下位置+是否真拖动判定,而非 click 事件
+  const stage = ov.querySelector('.zoom-stage')
   let drag = null
-  const onDown = (e) => { drag = { x: e.clientX - tx, y: e.clientY - ty }; ov.setPointerCapture(e.pointerId) }
-  const onMove = (e) => { if (drag) { tx = e.clientX - drag.x; ty = e.clientY - drag.y; applyT() } }
-  const onUp = () => { drag = null }
+  let downOnBackdrop = false
+  const onDown = (e) => {
+    if (e.target.closest('.zoom-head, button')) return
+    downOnBackdrop = e.target === stage
+    drag = { x: e.clientX - tx, y: e.clientY - ty, moved: false }
+    ov.setPointerCapture(e.pointerId)
+  }
+  const onMove = (e) => {
+    if (!drag) return
+    const nx = e.clientX - drag.x
+    const ny = e.clientY - drag.y
+    if (Math.abs(nx - tx) > 3 || Math.abs(ny - ty) > 3) drag.moved = true
+    tx = nx
+    ty = ny
+    applyT()
+  }
+  const onUp = () => {
+    const backdropTap = downOnBackdrop && drag && !drag.moved
+    drag = null
+    if (backdropTap) close()  // 点空白关闭;拖拽后松开不关闭(部署实测误触修复)
+  }
   let closed = false
   const close = () => {
     if (closed) return
@@ -159,10 +180,6 @@ function openZoom(svg, title) {
   ov.addEventListener('pointerup', onUp)
   ov.addEventListener('pointercancel', onUp)
   ov.querySelector('.zoom-close').addEventListener('click', close)
-  ov.addEventListener('click', (e) => {
-    // 点暗背景关闭;图与控制区除外
-    if (!e.target.closest('.zoom-canvas') && !e.target.closest('.zoom-head')) close()
-  })
   ov.addEventListener('keydown', onKey)
   window.addEventListener('keydown', onKey, true)
 }
