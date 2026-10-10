@@ -144,18 +144,22 @@ def step(conn: sqlite3.Connection, executor) -> bool:
         "UPDATE tasks SET status=?, fail_reason=?, finished_at=? WHERE id=?",
         (status, reason, _now(), task["id"]),
     )
-    # 网络类失败自愈:自动重排(上限内),排在新星之后(REQ-TASK-004 工程补强)
-    if (
-        status == "失败"
-        and task["auto_retries"] < config.TASK_AUTO_RETRY_MAX
-        and reason
-        and any(marker in reason for marker in ("git clone 失败", "ModelHTTPError", "ModelAPIError"))
-    ):
+    # 失败自愈:自动重排(REQ-TASK-004 工程补强)
+    # 1) 网络类(clone/模型网关):原预算重排,至多 TASK_AUTO_RETRY_MAX 次
+    # 2) 轮次上限:预算加倍重排一次(封顶 TASK_TURN_ESCALATE_CAP),深读大仓库
+    network_hit = status == "失败" and reason and any(
+        marker in reason for marker in ("git clone 失败", "ModelHTTPError", "ModelAPIError")
+    )
+    turn_capped = status == "失败" and reason == "轮次上限" and task["turn_limit"] < config.TASK_TURN_ESCALATE_CAP
+    if status == "失败" and task["auto_retries"] < config.TASK_AUTO_RETRY_MAX and (network_hit or turn_capped):
+        new_limit = min(task["turn_limit"] * 2, config.TASK_TURN_ESCALATE_CAP) if turn_capped else task["turn_limit"]
         conn.execute(
             "INSERT INTO tasks(repo_id, kind, status, priority, turn_limit, time_limit_sec, auto_retries)"
-            " VALUES (?,?, '排队', ?,?,?,?)",
-            (task["repo_id"], task["kind"], config.TASK_RETRY_PRIORITY, task["turn_limit"], task["time_limit_sec"], task["auto_retries"] + 1),
+            " VALUES (?,?,'排队',?,?,?,?)",
+            (task["repo_id"], task["kind"], config.TASK_RETRY_PRIORITY, new_limit, task["time_limit_sec"], task["auto_retries"] + 1),
         )
-        logger.info("网络类失败自动重排 repo=%s 第 %s/%s 次", task["repo_id"], task["auto_retries"] + 1, config.TASK_AUTO_RETRY_MAX)
+        logger.info("失败自动重排 repo=%s 第 %s/%s 次%s",
+                    task["repo_id"], task["auto_retries"] + 1, config.TASK_AUTO_RETRY_MAX,
+                    f"(轮次预算加倍至 {new_limit})" if turn_capped else "")
     conn.commit()
     return True

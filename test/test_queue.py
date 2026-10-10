@@ -111,3 +111,16 @@ def test_recover_marks_running_as_interrupted(conn):
     # 中断后可重新入队(人工重试,REQ-TASK-006)
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
     assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE status='排队'").fetchone()["c"] == 1
+
+
+def test_turn_limit_failure_escalates_budget(conn):
+    # 轮次上限 → 预算加倍自动重排一次(封顶 160)
+    conn.execute("INSERT INTO tasks(repo_id, kind, status, priority, turn_limit, time_limit_sec, auto_retries) VALUES (1,'analyze','排队',0,80,1800,0)")
+    conn.commit()
+
+    def capped(task_id):
+        raise queue.TaskLimited("轮次上限")
+
+    queue.step(conn, capped)
+    nxt = conn.execute("SELECT turn_limit, auto_retries FROM tasks WHERE status='排队'").fetchone()
+    assert nxt["turn_limit"] == 160 and nxt["auto_retries"] == 1
