@@ -343,6 +343,7 @@ async def get_report(request: Request, version_id: int, conn=Depends(get_conn)):
         "id": row["id"], "repo_id": row["repo_id"], "version_no": row["version_no"],
         "commit_anchor": row["commit_anchor"], "html": row["html"],
         "sections": row["sections_json"], "meta": row["meta_json"], "created_at": row["created_at"],
+        "read": bool(row["read"]), "favorited": bool(row["favorited"]),
     }
 
 

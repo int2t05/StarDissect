@@ -56,6 +56,7 @@ onMounted(async () => {
   const saved = await progress.getSaved() // 进入默认开头;恢复由「继续上次」显式触发
   lastSaved.value = saved
   hasSaved.value = (saved.anchor_seq ?? 0) > 0
+  state.value = { read: !!report.value.read, favorited: !!report.value.favorited }  // 持久状态回读
 })
 
 // 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)
@@ -227,28 +228,38 @@ function jump(seq) {
 
 <template>
   <div v-if="report" class="reader">
-    <header class="bar">
-      <div class="title">
-        <h1>{{ report.repo_name }} · v{{ report.version_no }}</h1>
-        <span class="meta">commit {{ report.commit_anchor.slice(0, 8) }} · {{ fmtTime(report.created_at) }}</span>
-        <span v-if="violations > 0" class="meta warn">排版提示 {{ violations }} 处</span>
-      </div>
-      <div class="tools">
-        <n-button size="tiny" secondary @click="toggleState('read')">{{ state.read ? '已读' : '未读' }} <kbd>m</kbd></n-button>
-        <n-button size="tiny" secondary @click="toggleState('favorited')">{{ state.favorited ? '★ 已藏' : '☆ 收藏' }} <kbd>f</kbd></n-button>
-        <n-select v-model:value="settings.fontSize" :options="fontOptions" size="tiny" style="width: 84px" />
-        <n-select v-model:value="settings.width" :options="widthOptions" size="tiny" style="width: 76px" />
-        <n-select v-model:value="settings.lineHeight" :options="lhOptions" size="tiny" style="width: 90px" />
-        <n-select v-model:value="settings.theme" :options="themeOptions" size="tiny" style="width: 96px" />
-        <n-button size="tiny" quaternary @click="settings.contrast = !settings.contrast">{{ settings.contrast ? '标准对比' : '强对比' }}</n-button>
-        <n-button v-if="hasSaved" size="tiny" quaternary @click="progress.resume(lastSaved)">继续上次</n-button>
-        <n-button size="tiny" quaternary @click="progress.reset()">重置进度</n-button>
-        <n-button size="tiny" quaternary tag="a" :href="`/api/reports/${route.params.vid}/export`">导出 MD</n-button>
-      </div>
-    </header>
-
     <div class="body">
+      <aside class="panel">
+        <div class="pgroup">
+          <div class="ptitle">报告</div>
+          <div class="pbig">{{ report.repo_name }}</div>
+          <div class="prow">v{{ report.version_no }} · commit {{ report.commit_anchor.slice(0, 8) }}</div>
+          <div class="prow">{{ fmtTime(report.created_at) }}</div>
+          <div v-if="violations > 0" class="prow warn">排版提示 {{ violations }} 处</div>
+        </div>
+        <div class="pgroup">
+          <div class="ptitle">阅读状态 <kbd>m</kbd><kbd>f</kbd></div>
+          <n-button size="tiny" block :type="state.read ? 'primary' : 'default'" secondary @click="toggleState('read')">{{ state.read ? '✓ 已读' : '标为已读' }}</n-button>
+          <n-button size="tiny" block :type="state.favorited ? 'warning' : 'default'" secondary @click="toggleState('favorited')">{{ state.favorited ? '★ 已收藏' : '☆ 收藏' }}</n-button>
+        </div>
+        <div class="pgroup">
+          <div class="ptitle">排版(本地保存)</div>
+          <label class="prow">字号 <n-select v-model:value="settings.fontSize" :options="fontOptions" size="tiny" style="width: 76px" /></label>
+          <label class="prow">行宽 <n-select v-model:value="settings.width" :options="widthOptions" size="tiny" style="width: 76px" /></label>
+          <label class="prow">行高 <n-select v-model:value="settings.lineHeight" :options="lhOptions" size="tiny" style="width: 76px" /></label>
+          <label class="prow">主题 <n-select v-model:value="settings.theme" :options="themeOptions" size="tiny" style="width: 76px" /></label>
+          <n-button size="tiny" block quaternary @click="settings.contrast = !settings.contrast">{{ settings.contrast ? '✓ 强对比' : '强对比' }}</n-button>
+        </div>
+        <div class="pgroup">
+          <div class="ptitle">进度与导出</div>
+          <n-button v-if="hasSaved" size="tiny" block quaternary @click="progress.resume(lastSaved)">继续上次</n-button>
+          <n-button size="tiny" block quaternary @click="progress.reset()">重置进度</n-button>
+          <n-button size="tiny" block quaternary tag="a" :href="`/api/reports/${route.params.vid}/export`">导出 Markdown</n-button>
+        </div>
+      </aside>
+
       <article class="article" v-html="report.html" @click="(e) => e.target.closest('.ev-source') && openSource({ currentTarget: e.target.closest('.ev-source') })"></article>
+
       <aside v-if="toc.length" class="toc">
         <div class="toc-title">本页大纲</div>
         <ul class="toc-list">
@@ -268,21 +279,25 @@ function jump(seq) {
 
 <style scoped>
 .reader { padding: 24px 32px 80px; }
-.bar {
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap;
-  width: min(var(--sd-width), 100%); margin: 0 auto 36px;
-  padding-bottom: 16px; border-bottom: 1px solid var(--sd-border);
-}
-.bar h1 { font-size: 19px; margin: 0 0 4px; }
-.meta { color: var(--sd-text-3); font-size: 0.82em; font-family: var(--sd-font-mono); margin-right: 12px; }
-.meta.warn { color: var(--sd-ev-infer); }
-.tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.tools kbd { font-size: 9px; margin-left: 2px; }
 .body {
-  /* 三列网格:左右留白对称,正文真居中,目录钉在右侧视口边缘(UX-61) */
-  display: grid; grid-template-columns: 1fr min(var(--sd-width), 100%) minmax(220px, 1fr);
-  gap: 80px;
+  /* 三列网格:工作区面板 | 正文居中 | 大纲钉右侧视口边缘(UX-61) */
+  display: grid; grid-template-columns: 200px min(var(--sd-width), 100%) minmax(200px, 1fr);
+  gap: 72px;
 }
+.panel {
+  grid-column: 1; position: sticky; top: 76px; align-self: start;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.pgroup { display: flex; flex-direction: column; gap: 8px; }
+.ptitle {
+  font-size: 11px; font-weight: 600; color: var(--sd-text-3);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;
+}
+.ptitle kbd { font-size: 9px; margin-left: 4px; }
+.pbig { font-weight: 600; font-size: 0.95em; overflow-wrap: anywhere; }
+.prow { color: var(--sd-text-2); font-size: 0.82em; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.prow.warn { color: var(--sd-ev-infer); }
+.panel :deep(kbd) { font-size: 9px; }
 .article { grid-column: 2; }
 .toc {
   grid-column: 3; width: 200px; justify-self: end;
@@ -306,7 +321,18 @@ function jump(seq) {
 .toc-list a:hover { color: var(--sd-text); }
 .toc-list a.sub { padding-left: 28px; font-size: 12px; }
 .toc-list a.active { color: var(--sd-accent); border-left-color: var(--sd-accent); font-weight: 500; } /* 指示条跟随(UX-59) */
-@media (max-width: 1365px) { .toc { display: none; } } /* 窄屏收起目录 */
+@media (max-width: 1365px) {
+  .toc { display: none; } /* 窄屏收起目录 */
+  .body { grid-template-columns: 200px min(var(--sd-width), 100%); }
+  .article { grid-column: 2; }
+}
+@media (max-width: 1023px) {
+  /* 移动/平板:面板转为顶部横排流式,不再占据左栏 */
+  .body { display: flex; flex-direction: column; gap: 24px; }
+  .panel { position: static; flex-direction: row; flex-wrap: wrap; gap: 16px 24px; }
+  .pgroup { min-width: 180px; }
+  .article { width: 100%; }
+}
 @media (max-width: 767px) { .reader { padding: 12px 12px 48px; } }
 </style>
 
