@@ -70,17 +70,17 @@ function onMenu(key) {
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 .topbar {
   position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--sd-bg) 88%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--sd-bg) 80%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);  /* Apple frosted-nav 基线 */
   border-bottom: 1px solid var(--sd-border);
 }
 .topbar-inner {
-  max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 56px;
+  max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 48px;
   display: flex; align-items: center; gap: 32px;
 }
-.brand { font-size: 18px; font-weight: 700; color: var(--sd-accent); cursor: pointer; letter-spacing: 0.06em; }
+.brand { font-size: 16px; font-weight: 600; color: var(--sd-text); cursor: pointer; letter-spacing: 0.02em; }
 .nav { display: flex; gap: 4px; flex: 1; }
-.nav a { padding: 6px 14px; border-radius: 6px; color: var(--sd-text-2); font-size: 15px; }
+.nav a { padding: 6px 14px; border-radius: 9999px; color: var(--sd-text-2); font-size: 13px; }
 .nav a:hover { color: var(--sd-text); background: var(--sd-accent-soft); }
 .nav a.router-link-active { color: var(--sd-accent); background: var(--sd-accent-soft); } /* 当前项单强调色(UX-01) */
 .kbd-hint { color: var(--sd-text-3); font-size: 12px; }

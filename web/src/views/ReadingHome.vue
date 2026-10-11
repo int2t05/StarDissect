@@ -168,10 +168,10 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .entries .dot { color: var(--sd-accent); font-size: 0.65em; margin-left: 8px; vertical-align: 2px; }
 .meta { color: var(--sd-text-3); font-size: 0.85em; display: flex; align-items: center; gap: 8px; }
 .search-pop {
-  position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
   width: min(680px, 92vw); background: var(--sd-elevated);
-  border: 1px solid var(--sd-border-strong); border-radius: 8px; padding: 10px; z-index: 25;
-  box-shadow: 0 12px 40px #0006;
+  border: 1px solid var(--sd-border); border-radius: 18px; padding: 10px; z-index: 25;
+  backdrop-filter: saturate(180%) blur(20px);
 }
 .group { margin-top: 6px; }
 .group-name { color: var(--sd-text-3); font-size: 0.78em; padding: 8px 8px 2px; }

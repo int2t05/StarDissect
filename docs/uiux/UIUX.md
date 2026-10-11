@@ -158,6 +158,7 @@
 | UX-60 | 组件库 Naive UI | 主题经 n-config-provider themeOverrides 完全映射本规范 tokens（web/src/theme.js），深浅两轴成对；组件零硬编码色值原则不变                                                          |
 | UX-61 | 布局范式：顶栏 + 居中内容 | VitePress/Linear 式吸顶顶栏；内容列居中占主体；文章页大纲右浮（≥1366px，auto-trend 风格：本页大纲标题/hairline/主色指示）；页面容器统一 .page（8 基数纵向间距） |
 | UX-62 | 标签双轨展示 | 仓库抽屉「标签」区:自动标签 info 芯片（AI 分类生成,auto_tags）与人工标签分区显示;自动标签入检索域 |
+| UX-63 | 风格基线:Apple 式克制 | 单一强调色（琥珀系,唯一「可点击」信号）;主色按钮=pill 胶囊;hairline 细线（rgba 0.08/0.1）替代实色边框;无装饰阴影（浮层仅 frosted blur）;display 负字距;顶栏真黑 48px;卡片 18px 圆角;正文默认 16.5px |
 
 ## 12. 依据索引
 
