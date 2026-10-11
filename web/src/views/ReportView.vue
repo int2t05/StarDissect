@@ -50,6 +50,7 @@ onMounted(async () => {
   const tv = meta.typography_check?.status === 'checked' ? meta.typography_check.violations.length : 0
   const si = meta.structure_check?.issues?.length ?? 0
   violations.value = tv + si // 质量提示合并:排版违规 + 产物结构问题(REQ-RPT-001/003)
+  decorateEvidence()
   renderMermaid()
   spy.mount() // scrollspy:UX-59 完整算法(useScrollSpy)
   progress.mount()
@@ -60,6 +61,47 @@ onMounted(async () => {
   hasSaved.value = (saved.anchor_seq ?? 0) > 0 || (saved.top_percent ?? 0) > 5  // 浅阅读(章节 0)也可见
   state.value = { read: !!report.value.read, favorited: !!report.value.favorited }  // 持久状态回读
 })
+
+// 证据折叠兼容层:旧版报告存的是展开式 div.ev,展示时包成 details 默认折叠,
+// 与新版服务端 details 结构对齐;源码块注入锚定 commit 的 GitHub 链接(REQ-READ-005)
+function decorateEvidence() {
+  document.querySelectorAll('.article div.ev').forEach((d) => {
+    const det = document.createElement('details')
+    det.className = d.className
+    if (d.dataset.ref) det.dataset.ref = d.dataset.ref
+    if (d.dataset.url) det.dataset.url = d.dataset.url
+    const summary = document.createElement('summary')
+    summary.append(d.querySelector('.ev-label') ?? Object.assign(document.createElement('span'), { className: 'ev-label', textContent: '证据' }))
+    const snippet = document.createElement('span')
+    snippet.className = 'ev-snip'
+    const text = (d.textContent || '').replace(d.querySelector('.ev-label')?.textContent ?? '', '').trim()
+    snippet.textContent = text.slice(0, 48) + (text.length > 48 ? '…' : '')
+    summary.append(snippet)
+    const body = document.createElement('div')
+    body.className = 'ev-body'
+    ;[...d.childNodes].forEach((n) => {
+      if (n.classList?.contains('ev-label')) return
+      body.append(n)
+    })
+    det.append(summary, body)
+    d.replaceWith(det)
+  })
+  const gh = (ref) => {
+    const [path, lines] = String(ref).split(':')
+    const anchor = lines ? `#L${lines.split('-')[0]}` : ''
+    return `https://github.com/${report.value.repo_name}/blob/${report.value.commit_anchor}/${path}${anchor}`
+  }
+  document.querySelectorAll('.article details.ev-source').forEach((d) => {
+    const slot = d.querySelector('.ev-src-hint')
+    if (!slot || d.querySelector('.ev-open')) return
+    const a = document.createElement('a')
+    a.href = gh(d.dataset.ref)
+    a.target = '_blank'
+    a.rel = 'noopener'
+    a.textContent = '在 GitHub 打开源文件 ↗'
+    slot.replaceWith(a)
+  })
+}
 
 // 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)
 function openSource(ev) {
@@ -244,8 +286,8 @@ function jump(seq) {
         </div>
         <div class="pgroup">
           <div class="ptitle">阅读状态 <kbd>m</kbd><kbd>f</kbd></div>
-          <n-button size="tiny" block :type="state.read ? 'primary' : 'default'" secondary @click="toggleState('read')">{{ state.read ? '✓ 已读' : '标为已读' }}</n-button>
-          <n-button size="tiny" block :type="state.favorited ? 'warning' : 'default'" secondary @click="toggleState('favorited')">{{ state.favorited ? '★ 已收藏' : '☆ 收藏' }}</n-button>
+          <n-button size="tiny" text @click="toggleState('read')">{{ state.read ? '✓ 已读' : '标为已读' }}</n-button>
+          <n-button size="tiny" text @click="toggleState('favorited')">{{ state.favorited ? '★ 已收藏' : '☆ 收藏' }}</n-button>
         </div>
         <div class="pgroup">
           <div class="ptitle">排版(本地保存)</div>
@@ -253,18 +295,18 @@ function jump(seq) {
           <label class="prow">行宽 <n-select v-model:value="settings.width" :options="widthOptions" size="tiny" style="width: 76px" /></label>
           <label class="prow">行高 <n-select v-model:value="settings.lineHeight" :options="lhOptions" size="tiny" style="width: 76px" /></label>
           <label class="prow">主题 <n-select v-model:value="settings.theme" :options="themeOptions" size="tiny" style="width: 76px" /></label>
-          <n-button size="tiny" block quaternary @click="settings.contrast = !settings.contrast">{{ settings.contrast ? '✓ 强对比' : '强对比' }}</n-button>
+          <n-button size="tiny" text @click="settings.contrast = !settings.contrast">{{ settings.contrast ? '✓ 强对比' : '强对比' }}</n-button>
         </div>
         <div class="pgroup">
           <div class="ptitle">进度与导出</div>
           <div v-if="hasSaved" class="prow">上次读到 <b>第 {{ (lastSaved.anchor_seq ?? 0) + 1 }} 章 · {{ Math.round(lastSaved.top_percent ?? 0) }}%</b></div>
-          <n-button v-if="hasSaved" size="tiny" block quaternary @click="progress.resume(lastSaved)">继续上次</n-button>
-          <n-button size="tiny" block quaternary @click="progress.reset()">重置进度</n-button>
-          <n-button size="tiny" block quaternary tag="a" :href="`/api/reports/${route.params.vid}/export`">导出 Markdown</n-button>
+          <n-button v-if="hasSaved" size="tiny" text @click="progress.resume(lastSaved)">继续上次 ↪</n-button>
+          <n-button size="tiny" text @click="progress.reset()">重置进度</n-button>
+          <n-button size="tiny" text tag="a" :href="`/api/reports/${route.params.vid}/export`">导出 Markdown ↗</n-button>
         </div>
       </aside>
 
-      <article class="article" v-html="report.html" @click="(e) => e.target.closest('.ev-source') && openSource({ currentTarget: e.target.closest('.ev-source') })"></article>
+      <article class="article" v-html="report.html"></article>
 
       <aside v-if="toc.length" class="toc">
         <div class="toc-title">本页大纲</div>
@@ -295,7 +337,8 @@ function jump(seq) {
   position: sticky; top: 76px; align-self: start;
   display: flex; flex-direction: column; gap: 18px;
 }
-.pgroup { display: flex; flex-direction: column; gap: 8px; }
+.pgroup { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.pgroup :deep(.n-button) { justify-content: flex-start; padding-left: 0; }
 .ptitle {
   font-size: 11px; font-weight: 600; color: var(--sd-text-3);
   text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;
