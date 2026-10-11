@@ -17,12 +17,29 @@ def test_evidence_blocks_to_structured_html():
         "> [unknown] 两处实现相互矛盾",
     ])
     html, sections, text = _sections(md)
-    assert '<details class="ev ev-source" data-ref="internal/auth/middleware.py:42-58"' in html
-    assert '<details class="ev ev-author"' in html and "https://example.com/post" in html
-    assert '<details class="ev ev-infer"' in html and "分析推断" in html
-    assert '<details class="ev ev-external"' in html
-    assert '<details class="ev ev-unknown"' in html and "证据不足" in html
-    assert "middle" not in text.replace("中间件", "")  # 证据块内容不进纯文本流
+    # 连续证据(混合五类)合并为单一折叠块,展开见逐条标签
+    assert html.count('<details class="ev') == 1
+    assert '<span class="ev-count">×5</span>' in html
+    for label in ("源码事实", "作者说明", "分析推断", "外部背景", "证据不足"):
+        assert label in html
+    assert "https://example.com/post" in html
+    # 证据块内容不进纯文本流(主体=叙述文字)
+
+
+def test_evidence_same_kind_run_merged():
+    # 相邻同类证据同样并入单一折叠块(×3),展开看全部条目
+    md = "\n".join([
+        "结论:启动链路涉及三个文件。",
+        "> [source] UmiOCR-data/main.py:109-121",
+        "> [source] UmiOCR-data/py_src/run.py:144-151",
+        "> [source] UmiOCR-data/py_src/run.py:120-126",
+        "正文继续。",
+    ])
+    html, _, text = _sections(md)
+    assert html.count('<details class="ev') == 1
+    assert '<span class="ev-count">×3</span>' in html
+    assert "main.py:109-121" in html and "run.py:120-126" in html
+    assert "正文继续" in text
 
 
 def test_normalize_fences_inline_block():
