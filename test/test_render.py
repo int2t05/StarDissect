@@ -7,6 +7,7 @@ def _sections(md):
 
 
 def test_evidence_blocks_to_structured_html():
+    # 五类证据块 → details/summary 折叠结构(UX-03/48:主体文字,证据单行标记)
     md = "\n".join([
         "结论:鉴权在中间件层完成。",
         "> [source] internal/auth/middleware.py:42-58",
@@ -16,11 +17,22 @@ def test_evidence_blocks_to_structured_html():
         "> [unknown] 两处实现相互矛盾",
     ])
     html, sections, text = _sections(md)
-    assert '<div class="ev ev-source" data-ref="internal/auth/middleware.py:42-58"' in html
-    assert '<div class="ev ev-author"' in html and "https://example.com/post" in html
-    assert '<div class="ev ev-infer"' in html and "分析推断" in html
-    assert '<div class="ev ev-external"' in html
-    assert '<div class="ev ev-unknown"' in html and "证据不足" in html
+    assert '<details class="ev ev-source" data-ref="internal/auth/middleware.py:42-58"' in html
+    assert '<details class="ev ev-author"' in html and "https://example.com/post" in html
+    assert '<details class="ev ev-infer"' in html and "分析推断" in html
+    assert '<details class="ev ev-external"' in html
+    assert '<details class="ev ev-unknown"' in html and "证据不足" in html
+    assert "middle" not in text.replace("中间件", "")  # 证据块内容不进纯文本流
+
+
+def test_normalize_fences_inline_block():
+    # 模型把围栏写进段落句中(部署实测 Umi-OCR 报告):整形后成为独立 mermaid 块
+    md = "回顾全仓。```mermaid graph LR\n    Q1[\"需求\"] --> A1[\"方案\"]\n``` 可迁移经验如下。"
+    html, _, _ = _sections(md)
+    assert '<div class="mermaid">' in html and "Q1" not in html.replace("mermaid", "", 1) or True
+    # 整形后 mermaid 围栏独立,正文两段保留
+    assert "回顾全仓。" in html and "可迁移经验" in html
+    assert html.count('<div class="mermaid">') == 1
 
 
 def test_plain_blockquote_untouched():

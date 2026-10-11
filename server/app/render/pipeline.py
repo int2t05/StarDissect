@@ -1,5 +1,6 @@
 # 渲染管线(ADR-0008):一次 markdown-it 解析,token 流同时派生
-#   1) HTML(证据块语法→UX-43..47 结构) 2) h2/h3 章节+map 行号链(ADR-0007) 3) 跳过代码的纯文本(校验/索引共用)
+#   1) HTML(证据块语法→UX-43..47 结构,默认折叠) 2) h2/h3 章节+map 行号链+锚点(ADR-0007)
+#   3) 跳过代码的纯文本(校验/索引共用)
 # 参考:https://markdown-it-py.readthedocs.io/ — token.map 行区间(docs/using.md:229)
 import html
 import re
@@ -14,8 +15,23 @@ EVIDENCE_LABELS = {"source": "源码事实", "author": "作者说明", "infer": 
 # 作者/外部背景的尾注 (url, 日期);解析失败则整体作正文
 TAIL_RE = re.compile(r"^(.*?)\s*\(([^)]+),\s*([^)]+)\)\s*$", re.S)
 
+_KNOWN_LANGS = ("mermaid", "python", "json", "bash", "sh", "shell", "js", "ts", "javascript",
+                "typescript", "yaml", "yml", "sql", "text", "ini", "html", "css", "c", "cpp", "go", "rs", "diff")
+
 _md = MarkdownIt("commonmark").enable(["table", "strikethrough"])
 _default_fence = _md.renderer.rules["fence"]
+
+
+def _normalize_fences(md: str) -> str:
+    """围栏独立性整形:``` 必须独立成行。修复模型把围栏写进段落句中的情况,
+    否则整段被当正文,图/代码块失效。规则:行中 ``` 前补空行;开围栏语言标注后
+    的同行内容换行;行首非已知语言的 ``` 视为收围栏残留,与后文拆行。"""
+    md = re.sub(r"(?m)(?<!\n)```", "\n\n```", md)  # 行中 ``` 前补空行
+    langs = "|".join(_KNOWN_LANGS)
+    md = re.sub(rf"(?m)^```({langs})[ \t]+(?=\S)", r"```\1\n", md)  # 开围栏语言后换行
+    md = re.sub(rf"(?m)^```[ \t]*(?!({langs})\b|[ \t]*$)([^\n]+)$", r"```\n\2", md)  # 收围栏残留拆行
+    md = re.sub(r"(?m)^(?!```)(.+?)```[ \t]*$", r"\1\n```", md)  # 行中收围栏 → 前置换行
+    return md
 
 
 def _quote_mermaid_labels(src: str) -> str:
@@ -38,19 +54,29 @@ _md.add_render_rule("fence", _fence_rule)
 
 
 def _evidence_html(kind: str, body: str) -> str:
+    # 证据块默认折叠(details/summary):主体保持文字流,证据收敛为单行标记(UX-03 标签可见)
     label = EVIDENCE_LABELS[kind]
-    attrs = f'class="ev ev-{kind}"'
+    excerpt = body.strip().replace("\n", " ")[:48] + ("…" if len(body.strip()) > 48 else "")
     if kind == "source":
-        return f'<div {attrs} data-ref="{html.escape(body, quote=True)}"><span class="ev-label">{label}</span><code class="ev-ref">{html.escape(body)}</code></div>'
-    tail = TAIL_RE.match(body)
-    link = ""
-    if kind in ("author", "external") and tail:
-        text, url, date = tail.group(1).strip(), tail.group(2).strip(), tail.group(3).strip()
-        link = f'<a href="{html.escape(url, quote=True)}" rel="noopener">{html.escape(url)}</a><span class="ev-date">查阅 {html.escape(date)}</span>'
-        extra = f' data-url="{html.escape(url, quote=True)}"'
+        summary_inner = f'<code class="ev-ref">{html.escape(body.strip())}</code>'
+        body_inner = '<p class="ev-src-hint"></p>'  # 前端按 commit 锚点补「在 GitHub 打开」链接
+        attrs = f' data-ref="{html.escape(body.strip(), quote=True)}"'
     else:
-        text, extra = body.strip(), ""
-    return f'<div {attrs}{extra}><span class="ev-label">{label}</span><p>{html.escape(text)}</p>{link}</div>'
+        tail = TAIL_RE.match(body)
+        text, link, extra = body.strip(), "", ""
+        if kind in ("author", "external") and tail:
+            text = tail.group(1).strip()
+            url, date = tail.group(2).strip(), tail.group(3).strip()
+            link = f'<p><a href="{html.escape(url, quote=True)}" rel="noopener">{html.escape(url)}</a><span class="ev-date">{html.escape(date)}</span></p>'
+            extra = f' data-url="{html.escape(url, quote=True)}"'
+        summary_inner = f'<span class="ev-snip">{html.escape(excerpt)}</span>'
+        body_inner = f'<p>{html.escape(text)}</p>{link}'
+        attrs = extra
+    return (
+        f'<details class="ev ev-{kind}"{attrs}>'
+        f'<summary><span class="ev-label">{label}</span>{summary_inner}</summary>'
+        f'<div class="ev-body">{body_inner}</div></details>'
+    )
 
 
 def _plain_of_inline(token: Token) -> str:
@@ -140,7 +166,7 @@ def _sections_and_text(tokens: list[Token]) -> tuple[list[dict], str]:
 
 def render(markdown: str) -> tuple[str, list[dict], str]:
     """返回 (HTML, 章节链, 跳过代码的纯文本)。章节链元素:seq/level/title/line/path_chain/text。"""
-    tokens = _split_evidence(_md.parse(markdown))
+    tokens = _split_evidence(_md.parse(_normalize_fences(markdown)))
     sections, plain = _sections_and_text(tokens)
     html_out = _md.renderer.render(tokens, _md.options, {})
     return html_out, sections, plain

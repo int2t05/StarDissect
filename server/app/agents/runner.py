@@ -24,7 +24,8 @@ logger = logging.getLogger("stardissect.agent")
 # 消毒白名单:报告 HTML 存库前执行(服务端消毒纪律,对齐 UX-41)
 # rel 由 nh3 link_rel 自动管理,不入白名单
 CLEAN_TAGS = {"div", "span", "code", "pre", "a", "p", "h1", "h2", "h3", "h4", "ul", "ol", "li",
-              "table", "thead", "tbody", "tr", "th", "td", "blockquote", "br", "hr", "em", "strong", "figure", "figcaption", "mark"}
+              "table", "thead", "tbody", "tr", "th", "td", "blockquote", "br", "hr", "em", "strong",
+              "figure", "figcaption", "mark", "details", "summary"}
 CLEAN_ATTRS = {tag: {"class", "data-ref", "data-url", "id", "data-seq"} for tag in CLEAN_TAGS}
 CLEAN_ATTRS["a"] |= {"href"}
 
@@ -152,7 +153,8 @@ def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: 
     md = "\n\n".join(f"## {s.title}\n\n{s.body}" for s in draft.sections)
     html, sections, plain = pipeline.render(md)
     html = nh3.clean(html, tags=CLEAN_TAGS, attributes=CLEAN_ATTRS, url_schemes={"http", "https", "mailto"})
-    meta = {"commit_anchor": commit_anchor, "typography_check": _typography_check(plain)}
+    meta = {"commit_anchor": commit_anchor, "typography_check": _typography_check(plain),
+            "structure_check": _structure_check(md, sections)}
     cur = conn.execute(
         "INSERT INTO report_versions(repo_id, version_no, task_id, commit_anchor, markdown, html, sections_json, meta_json)"
         " VALUES (?,?,?,?,?,?,?,?)",
@@ -196,6 +198,20 @@ def _typography_check(plain: str) -> dict:
         return {"status": "checked", "violations": violations[:50]}
     except Exception as e:  # noqa: BLE001 —— REQ-RPT-003 异常分支
         return {"status": "unchecked", "error": f"{type(e).__name__}"}
+
+
+_BASE_SECTIONS = [("定位", "概览"), ("系统设计", "架构"), ("流程", "精读"), ("取舍", "方案"), ("可迁移", "经验")]
+
+
+def _structure_check(md: str, sections: list[dict]) -> dict:
+    # 产物结构校验(REQ-RPT-001):通用基础章节覆盖、mermaid 围栏数量;标记不阻断
+    titles = " ".join(s["title"] for s in sections)
+    missing = ["/".join(keys) for keys in _BASE_SECTIONS if not any(k in titles for k in keys)]
+    mermaid_blocks = md.count("```mermaid")
+    issues = [f"缺基础章节: {m}" for m in missing]
+    if mermaid_blocks < 3:
+        issues.append(f"mermaid 图仅 {mermaid_blocks} 张(要求 ≥3)")
+    return {"mermaid_blocks": mermaid_blocks, "missing_base_sections": missing, "issues": issues}
 
 
 async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[str, int]:

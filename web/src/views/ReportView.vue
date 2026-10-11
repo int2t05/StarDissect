@@ -47,7 +47,9 @@ onMounted(async () => {
   sections.value = JSON.parse(report.value.sections || '[]')
   report.value.repo_name = (await (await fetch(`/api/repos/${report.value.repo_id}`)).json()).repo.full_name
   const meta = JSON.parse(report.value.meta || '{}')
-  violations.value = meta.typography_check?.status === 'checked' ? meta.typography_check.violations.length : -1
+  const tv = meta.typography_check?.status === 'checked' ? meta.typography_check.violations.length : 0
+  const si = meta.structure_check?.issues?.length ?? 0
+  violations.value = tv + si // 质量提示合并:排版违规 + 产物结构问题(REQ-RPT-001/003)
   renderMermaid()
   spy.mount() // scrollspy:UX-59 完整算法(useScrollSpy)
   progress.mount()
@@ -235,7 +237,7 @@ function jump(seq) {
           <div class="pbig">{{ report.repo_name }}</div>
           <div class="prow">v{{ report.version_no }} · commit {{ report.commit_anchor.slice(0, 8) }}</div>
           <div class="prow">{{ fmtTime(report.created_at) }}</div>
-          <div v-if="violations > 0" class="prow warn">排版提示 {{ violations }} 处</div>
+          <div v-if="violations > 0" class="prow warn">质量提示 {{ violations }} 处</div>
         </div>
         <div class="pgroup">
           <div class="ptitle">阅读状态 <kbd>m</kbd><kbd>f</kbd></div>
@@ -349,6 +351,13 @@ function jump(seq) {
 .article table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; }
 .article th, .article td { border: 1px solid var(--sd-border); padding: 6px 12px; }
 .article blockquote { border-left: 3px solid var(--sd-accent); margin: 0; padding: 2px 16px; color: var(--sd-text-2); }
+.article details.ev { border: 1px solid var(--sd-border); border-radius: 6px; padding: 6px 14px; margin: 10px 0; background: var(--sd-surface); }
+.article details.ev summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 10px; }
+.article details.ev summary::-webkit-details-marker { display: none; }
+.article details.ev .ev-label { font-size: 0.72em; letter-spacing: 0.1em; color: var(--sd-text-3); flex: none; }
+.article details.ev .ev-snip { color: var(--sd-text-3); font-size: 0.82em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.article details.ev .ev-body { padding: 6px 0 4px; border-top: 1px dashed var(--sd-border); margin-top: 6px; }
+.article details.ev[open] { padding-bottom: 10px; }
 .article .ev { border: 1px solid var(--sd-border); border-radius: 6px; padding: 10px 14px; margin: 14px 0; background: var(--sd-surface); }
 .article .ev .ev-label { font-size: 0.75em; letter-spacing: 0.1em; color: var(--sd-text-3); display: block; margin-bottom: 4px; }
 .article .ev .ev-ref { font-family: var(--sd-font-mono); font-size: 0.9em; }
