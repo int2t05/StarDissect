@@ -169,9 +169,12 @@ function openZoom(svg, title) {
     ov.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', onKey, true)
     ov.remove()
-    document.querySelector('.article .fig-ok')?.focus?.()
+    document.querySelector('.article .zoomable')?.focus?.()
   }
-  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close() } }
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close() }
+    else if (e.key === 'Tab') { e.preventDefault(); ov.querySelector('.zoom-close').focus() }  // 焦点圈闭:层内唯一可聚焦元素
+  }
   ov.addEventListener('wheel', onWheel, { passive: false })
   // 拖拽仅从图区起始:控制区(pointerdown 落在按钮/标题栏)不抢指针捕获,
   // 否则后续 click 的 target 被重定向到覆盖层,关闭按钮永远点不中
@@ -374,7 +377,7 @@ function jump(seq) {
 .article figcaption { font-size: 0.75em; color: var(--sd-text-3); text-align: center; padding-top: 6px; letter-spacing: 0.04em; }
 .article .zoomable { cursor: zoom-in; border-radius: 6px; }
 .article .zoomable:hover { background: color-mix(in srgb, var(--sd-accent) 4%, var(--sd-surface)); }
-#sd-zoom { position: fixed; inset: 0; z-index: 60; background: #000d; display: flex; flex-direction: column; outline: none; }
+#sd-zoom { position: fixed; inset: 0; z-index: 60; background: var(--sd-overlay); display: flex; flex-direction: column; outline: none; }
 #sd-zoom .zoom-head { color: var(--sd-text); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; background: var(--sd-surface); }
 #sd-zoom .zoom-close { background: var(--sd-elevated); }
 #sd-zoom .zoom-stage { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; }

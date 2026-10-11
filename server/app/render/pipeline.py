@@ -23,15 +23,28 @@ _default_fence = _md.renderer.rules["fence"]
 
 
 def _normalize_fences(md: str) -> str:
-    """围栏独立性整形:``` 必须独立成行。修复模型把围栏写进段落句中的情况,
-    否则整段被当正文,图/代码块失效。规则:行中 ``` 前补空行;开围栏语言标注后
-    的同行内容换行;行首非已知语言的 ``` 视为收围栏残留,与后文拆行。"""
-    md = re.sub(r"(?m)(?<!\n)```", "\n\n```", md)  # 行中 ``` 前补空行
-    langs = "|".join(_KNOWN_LANGS)
-    md = re.sub(rf"(?m)^```({langs})[ \t]+(?=\S)", r"```\1\n", md)  # 开围栏语言后换行
-    md = re.sub(rf"(?m)^```[ \t]*(?!({langs})\b|[ \t]*$)([^\n]+)$", r"```\n\2", md)  # 收围栏残留拆行
-    md = re.sub(r"(?m)^(?!```)(.+?)```[ \t]*$", r"\1\n```", md)  # 行中收围栏 → 前置换行
-    return md
+    """围栏独立性整形:``` 必须独立成行。修复模型把围栏写进段落句中的情况。
+    按 ``` 分段重组:仅当存在「语言标注后同行接内容」的粘连特征才整形;
+    反引号成对的行内 code span 不受影响。"""
+    if md.count("```") < 2:
+        return md
+    parts = md.split("```")
+    glued = any(
+        re.match(r"^([A-Za-z0-9_#+-]+)[ \t]+\S", seg)
+        and seg.split(" ")[0].strip() in set(_KNOWN_LANGS)
+        for i, seg in enumerate(parts)
+        if i % 2 == 1
+    )
+    if not glued:
+        return md
+    out = [parts[0].rstrip() + "\n\n"]
+    for i, seg in enumerate(parts[1:], 1):
+        if i % 2 == 1:  # 围栏内部:语言标注与同行内容拆行,收尾换行让 ``` 独占一行
+            seg = re.sub(r"^([A-Za-z0-9_#+-]+)[ \t]+(?=\S)", r"\1\n", seg, count=1)
+            out.append(seg.rstrip() + "\n")
+        else:  # 围栏外文本:前后留空行
+            out.append("\n\n" + seg.lstrip("\n") + "\n\n")
+    return "```".join(out)
 
 
 def _quote_mermaid_labels(src: str) -> str:
@@ -108,7 +121,8 @@ def _split_evidence(tokens: list[Token]) -> list[Token]:
             # 未命中行保留为普通段落,不丢内容
             divs: list[str] = []
             leftovers: list[str] = []
-            for line in inner[0].content.splitlines():
+            for x in inner:
+              for line in x.content.splitlines():
                 m = EVIDENCE_RE.match(line)
                 if m:
                     divs.append(_evidence_html(m.group(1), m.group(2)))

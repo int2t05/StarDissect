@@ -90,7 +90,7 @@ function onMenu(key) {
   background: var(--sd-elevated); color: var(--sd-accent);
   border: 1px solid var(--sd-border-strong); border-radius: 8px;
   font-family: var(--sd-font-mono); font-size: 15px; font-weight: 600;
-  padding: 8px 14px; box-shadow: 0 8px 24px #0007;
+  padding: 8px 14px;
 }
 .key-echo-enter-active, .key-echo-leave-active { transition: all 0.18s; }
 .key-echo-enter-from, .key-echo-leave-to { opacity: 0; transform: translateY(6px); }

@@ -46,7 +46,7 @@ tags(id PK, repo_id FK, name, created_at, UNIQUE(repo_id,name))  -- 仅人工写
 tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
       status,                                      -- 排队/进行/完成/失败/中断
       priority, turn_limit, time_limit_sec,        -- 入队时快照(REQ-CFG-002)
-      auto_retries,                                -- 网络类失败自动重排计数(上限 TASK_AUTO_RETRY_MAX)
+      auto_retries,                                -- 失败自动重排计数(网络类/轮次预算加倍,上限 TASK_AUTO_RETRY_MAX)
       started_at, finished_at, fail_reason)
 
 report_versions(id PK, repo_id FK, version_no, task_id FK,
@@ -81,7 +81,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 - 干预(REQ-TASK-002):暂停/恢复=循环开关;优先级/取消/排除=tasks/repos 字段更新;「分析中」终止=触发 asyncio 取消→归「失败」(可重试)。
 - 限额(REQ-TASK-003,DEC-09):request_limit 与墙钟超时双约束;达到上限即终止归「失败」并记录原因,可重试,不保留部分产出。
 - 重试/重分析(REQ-TASK-004/005):新增 tasks 行,不覆盖历史;同仓库「排队/进行」存在则拒绝。
-- 网络类失败自愈(工程补强):失败原因命中 clone/模型网关类标记且 auto_retries 未达上限时,自动重排同任务(优先级排新 star 之后);人工重试不受此限。
+- 失败自愈(工程补强):网络类失败(clone/模型网关)按原预算自动重排,轮次上限失败按预算加倍(封顶 TASK_TURN_ESCALATE_CAP)重排一次,均以 auto_retries 计数、上限 3 次;排除仓库不重排;人工重试不受此限。
 - 启动恢复(REQ-TASK-006):扫描「进行」→置「中断」;产出的半成品由事务原子性保证不存在。
 
 ## 4. 分析 agent 规格(ADR-0005)
@@ -114,7 +114,9 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
    - `> [infer] 文本` → 分析推断(UX-45)
    - `> [external] 文本 (url, 日期)` → 外部背景(UX-46)
    - `> [unknown] 文本` → 未知/冲突提示条(UX-47)
-2. markdown-it-py 解析 → token 流:渲染器把上述引用块转为 UIUX §8 结构;```mermaid fence 由专用渲染规则输出 `<div class="mermaid">` 容器(前端渲染+文字后备)。
+1a. 围栏整形 `_normalize_fences`:把写进段落句中的 ``` 块整形为独立围栏(修复 agent 粘连输出);
+1b. mermaid 标签规范化 `_quote_mermaid_labels`:未引号节点标签补双引号(标签含 {} 必解析失败);
+2. markdown-it-py 解析 → token 流:渲染器把上述引用块转为 UIUX §8 折叠结构;```mermaid fence 由专用渲染规则输出 `<div class="mermaid">` 容器(前端渲染+文字后备)。前端 ReportView 内置同源修复规则作最后兜底。
 3. 同一 token 流派生:h2/h3 章节+`map` 行号链+锚点 id/data-seq(ADR-0007)→ sections_json;跳过代码区段的纯文本 → report_sections.text_content(校验输入与 FTS 索引共用)。
 4. 排版校验(REQ-RPT-003):UIUX-16…20 规则作用于纯文本流,违规记录入 meta_json(标记不阻断,→OPN-04)。
 

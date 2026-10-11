@@ -151,7 +151,9 @@ def step(conn: sqlite3.Connection, executor) -> bool:
         marker in reason for marker in ("git clone 失败", "ModelHTTPError", "ModelAPIError")
     )
     turn_capped = status == "失败" and reason == "轮次上限" and task["turn_limit"] < config.TASK_TURN_ESCALATE_CAP
-    if status == "失败" and task["auto_retries"] < config.TASK_AUTO_RETRY_MAX and (network_hit or turn_capped):
+    excluded = conn.execute("SELECT excluded FROM repos WHERE id=?", (task["repo_id"],)).fetchone()
+    if status == "失败" and not (excluded and excluded["excluded"]) \
+            and task["auto_retries"] < config.TASK_AUTO_RETRY_MAX and (network_hit or turn_capped):
         new_limit = min(task["turn_limit"] * 2, config.TASK_TURN_ESCALATE_CAP) if turn_capped else task["turn_limit"]
         conn.execute(
             "INSERT INTO tasks(repo_id, kind, status, priority, turn_limit, time_limit_sec, auto_retries)"

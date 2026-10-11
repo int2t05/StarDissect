@@ -1,4 +1,5 @@
 // Naive UI 主题映射:取值全部源自 UIUX tokens(UX-60/63),深浅两轴成对,组件零硬编码色值
+// 注意:本文件色值与 web/src/styles/tokens.css 成对手工维护——改任一侧必须同步另一侧(UX-55)
 // 风格基线(UX-63,Apple 式):单一强调色、pill 主动作、hairline 细线、无装饰阴影、display 负字距
 import { darkTheme, lightTheme } from 'naive-ui'
 

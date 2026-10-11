@@ -122,6 +122,8 @@ async def deep_research(chain: SearchChain, query: str, max_pages: int = 3, page
     单次工具调用内完成多页核实,消耗计入任务轮次预算(DEC-03)。"""
     results = await chain.search(query, min(max_pages, config.MAX_DEEP_PAGES))
     if not results:
+        if chain.last_errors:
+            return "无搜索结果(后端故障: " + "; ".join(chain.last_errors) + ")"
         return "无搜索结果"
     parts: list[str] = []
     async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:

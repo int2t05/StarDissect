@@ -128,7 +128,7 @@
 
 | ID    | 项         | 规定                                                                                                          |
 | ----- | ---------- | ------------------------------------------------------------------------------------------------------------- |
-| UX-48 | 图表与表格 | mermaid 渲染区 + 图题 + 放大层（滚轮缩放、Esc 退出、焦点圈闭）+ 文字后备折叠；宽表格容器内滚动，页面不横向溢出 |
+| UX-48 | 图表与表格 | mermaid 渲染区 + 图题 + 放大层（滚轮缩放、拖拽平移、Esc 退出、焦点圈闭已实现）+ 文字后备折叠；宽表格容器内滚动，页面不横向溢出 |
 
 ## 9. 无障碍
 
@@ -156,7 +156,7 @@
 | UX-58 | composables  | 键盘处理器、进度回传、格式调节为独立 composable：`useKeyboard` / `useReadingProgress` / `useReaderSettings`                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | UX-59 | 目录 scrollspy | 直接改写 VitePress `useActiveAnchor`（`reference/vitepress/src/client/theme-default/composables/outline.ts:79-205`）：scroll 监听 + `throttleAndDebounce(100)`（首调立即、尾部防抖）；判定 = 「最后一个越过视口顶（+`scroll-margin-top`+4px 容差）的标题」，页顶置空、页底取最后一个标题；坐标用 `offsetParent` 链累加（`getAbsoluteTop`，过滤 `display:none`）；点击目录置 `ignoreScrollOnce` 防高亮闪跳；左侧滑动指示条按 `offsetTop` 定位并 `scrollIntoView(block:'nearest')`。若 ReportView 用独立滚动容器，监听该容器并换算容器内偏移（VitePress 监听 window、Docusaurus 监听 document，二者差异在此） |
 | UX-60 | 组件库 Naive UI | 主题经 n-config-provider themeOverrides 完全映射本规范 tokens（web/src/theme.js），深浅两轴成对；组件零硬编码色值原则不变                                                          |
-| UX-61 | 布局范式：顶栏 + 居中内容 | VitePress/Linear 式吸顶顶栏；内容列居中占主体；文章页大纲右浮（≥1366px，auto-trend 风格：本页大纲标题/hairline/主色指示）；页面容器统一 .page（8 基数纵向间距） |
+| UX-61 | 布局范式：顶栏 + 居中内容 | VitePress/Linear 式吸顶顶栏；内容列居中占主体；阅读页三列:左侧工作区面板（报告信息/阅读状态/排版调节/进度导出,sticky）+ 居中正文 + 大纲右浮（≥1366px,auto-trend 风格:本页大纲标题/hairline/主色指示）；页面容器统一 .page（8 基数纵向间距） |
 | UX-62 | 标签双轨展示 | 仓库抽屉「标签」区:自动标签 info 芯片（AI 分类生成,auto_tags）与人工标签分区显示;自动标签入检索域 |
 | UX-63 | 风格基线:Apple 式克制 | 单一强调色（琥珀系,唯一「可点击」信号）;主色按钮=pill 胶囊;hairline 细线（rgba 0.08/0.1）替代实色边框;无装饰阴影（浮层仅 frosted blur）;display 负字距;顶栏真黑 48px;卡片 18px 圆角;正文默认 16.5px |
 
