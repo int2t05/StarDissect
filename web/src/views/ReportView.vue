@@ -132,15 +132,6 @@ function decorateEvidence() {
   article.replaceChildren(out)
 }
 
-// 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)// 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)
-function openSource(ev) {
-  const ref = ev.currentTarget.dataset.ref // path:line 或 path:start-end
-  if (!ref || !ref.includes(':')) return
-  const [path, lines] = ref.split(':')
-  const anchor = lines ? `#L${lines.split('-')[0]}` : ''
-  window.open(`https://github.com/${report.value.repo_name}/blob/${report.value.commit_anchor}/${path}${anchor}`, '_blank', 'noopener')
-}
-
 // mermaid 渲染 + 图题 + 放大层 + 文字后备(UX-48/RPT-005):渲染失败展开源码,不空块
 let figIndex = 0
 async function renderMermaid() {
