@@ -18,6 +18,11 @@ TAIL_RE = re.compile(r"^(.*?)\s*\(([^)]+),\s*([^)]+)\)\s*$", re.S)
 _KNOWN_LANGS = ("mermaid", "python", "json", "bash", "sh", "shell", "js", "ts", "javascript",
                 "typescript", "yaml", "yml", "sql", "text", "ini", "html", "css", "c", "cpp", "go", "rs", "diff")
 
+# 证据块准入:source 正文必须是「路径:行号」形态;infer 超长视为叙述误标。
+# 不合准入的条目降级还原为正文段落——证据块只放出处佐证,主体永远是叙述(REQ-RPT-001/002)
+_REF_SHAPE = re.compile(r"^[A-Za-z0-9_./\-]+:\d+(-\d+)?$")
+_DEMOTE_CHARS = 120
+
 _md = MarkdownIt("commonmark").enable(["table", "strikethrough"])
 _default_fence = _md.renderer.rules["fence"]
 
@@ -139,14 +144,26 @@ def _split_evidence(tokens: list[Token]) -> list[Token]:
                     elif line.strip():
                         leftovers.append(line)
             if entries:
-                # 连续证据(混合类型)合并为一个折叠块(REQ-RPT-002 展示:一行摘要,展开全条目)
-                block = Token("html_block", "", 0)
-                block.content = _evidence_details(entries)
-                out.append(block)
-                # 引用块内非证据行重建为真段落 token:HTML 与纯文本流都保留
-                if leftovers:
-                    text_token = Token("inline", "", 0, content="\n".join(leftovers))
-                    text_token.children = [Token("text", "", 0, content=text_token.content)]
+                # 准入过滤:叙述误标(source 非「路径:行号」/ infer 超长)还原为正文段落
+                fold, demoted = [], []
+                for kind, body in entries:
+                    t = body.strip()
+                    if kind == "source" and not _REF_SHAPE.match(t):
+                        demoted.append(t)
+                    elif kind == "infer" and len(t) > _DEMOTE_CHARS:
+                        demoted.append(t)
+                    else:
+                        fold.append((kind, body))
+                if fold:
+                    # 连续证据(混合类型)合并为一个折叠块(REQ-RPT-002 展示:一行摘要,展开全条目)
+                    block = Token("html_block", "", 0)
+                    block.content = _evidence_details(fold)
+                    out.append(block)
+                # 引用块内非证据行与降级叙述重建为真段落 token:HTML 与纯文本流都保留
+                if leftovers or demoted:
+                    all_text = "\n".join(leftovers + demoted)
+                    text_token = Token("inline", "", 0, content=all_text)
+                    text_token.children = [Token("text", "", 0, content=all_text)]
                     out.extend([
                         Token("paragraph_open", "p", 1),
                         text_token,

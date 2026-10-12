@@ -99,3 +99,17 @@ def test_typography_validator_rules():
     assert "UX-17 数字中文间距" in rules  # 第 3 行「第3章」
     # 白名单行豁免:含 GitHub 的行不报中英间距
     assert not [x for x in v if x["line"] == 1 and x["rule"].startswith("UX-16")]
+
+
+def test_evidence_demote_narrative_to_body():
+    # 证据准入:source 非「路径:行号」与超长 infer 还原为正文段落——主体永远是叙述
+    md = "\n".join([
+        "> [source] OCR(一句话:光学字符识别)软件 Umi-OCR 是一个面向最终用户的桌面应用,主打离线 OCR,发布形态是解压即用的绿色包。",
+        "> [infer] 项目定位:解压即用的离线 OCR 桌面应用。",
+        "以上是开头。",
+    ])
+    html, _, text = _sections(md)
+    # 长叙述还原正文:进 HTML 与纯文本流,不再折叠
+    assert "面向最终用户的桌面应用" in html and "面向最终用户的桌面应用" in text
+    # 短 infer 保留折叠:摘要行即全文(类型标签可见)
+    assert '<details class="ev ev-infer"' in html and "项目定位:解压即用" in html
