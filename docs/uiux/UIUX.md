@@ -17,15 +17,16 @@
 ## 2. 设计 tokens
 
 ```css
-/* 深色（默认）——来自 mockup，实现照抄 */
---sd-bg:#101014; --sd-surface:#18181f; --sd-elevated:#20202a;
---sd-border:#2b2b36; --sd-border-strong:#3d3d4c;
---sd-text:#e9e9ee; --sd-text-2:#a3a3b3; --sd-text-3:#6e6e80;
+/* 深色（默认）——UX-63 Apple 式基线：真黑顶栏、近黑瓦面、hairline 细线 */
+--sd-bg:#000000; --sd-surface:#1d1d1f; --sd-elevated:#2a2a2c;
+--sd-border:rgba(255,255,255,.1); --sd-border-strong:rgba(255,255,255,.18);
+--sd-text:#f5f5f7; --sd-text-2:#a1a1a6; --sd-text-3:#6e6e73;
 --sd-accent:#e8a33d; --sd-accent-soft:#e8a33d1c;
---sd-focus:#e8a33d88;          /* 焦点外圈，用法对照 miniflux focus-box-shadow */
---sd-ev-source:#4ade80; --sd-ev-author:#67b7ff; --sd-ev-infer:#e8a33d;
---sd-ev-external:#c4a5ff; --sd-ev-unknown:#7a7a8c;
-/* 浅色轴成对定义（同一变量名换值），html 加 color-scheme:dark|light
+--sd-focus:#e8a33d88;          /* 焦点外圈 */
+--sd-radius-card:18px; --sd-radius-pill:9999px;
+--sd-ev-source:#4ade80; --sd-ev-author:#2997ff; --sd-ev-infer:#e8a33d;
+--sd-ev-external:#bf5af2; --sd-ev-unknown:#7a7a8c;
+/* 浅色轴成对定义（同一变量名换值，parchment #f5f5f7 画布），html 加 color-scheme:dark|light
    （miniflux dark.css 对 color-scheme 的用法），字体轴仅换 --sd-font-* 两个变量 */
 ```
 
@@ -89,7 +90,7 @@
 | ID    | 项       | 范围/步进                                               | 持久化                 |
 | ----- | -------- | ------------------------------------------------------- | ---------------------- |
 | UX-30 | 字号     | 12–22px，±1，键盘 `[` `]`                               | localStorage           |
-| UX-31 | 正文宽   | 62ch / 72ch / 88ch 三档                                 | localStorage + 账户配置 |
+| UX-31 | 正文宽   | 72ch / 84ch / 100ch 三档（UX-10 定稿）                  | localStorage（本地保存,DEC-04） |
 | UX-32 | 行高     | 1.6 / 1.8 / 2.0                                         | localStorage           |
 | UX-33 | 主题     | 浅 / 深 / 跟随系统（auto 同 wallabag `dark-theme#useAuto`） | localStorage + 账户配置 |
 | UX-34 | 强对比文本 | bool                                                  | localStorage           |

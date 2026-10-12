@@ -12,9 +12,6 @@ from markdown_it.token import Token
 EVIDENCE_RE = re.compile(r"^\[(source|author|infer|external|unknown)\]\s*(.+)$", re.S)
 EVIDENCE_LABELS = {"source": "源码事实", "author": "作者说明", "infer": "分析推断", "external": "外部背景", "unknown": "证据不足"}
 
-# 作者/外部背景的尾注 (url, 日期);解析失败则整体作正文
-TAIL_RE = re.compile(r"^(.*?)\s*\(([^)]+),\s*([^)]+)\)\s*$", re.S)
-
 _KNOWN_LANGS = ("mermaid", "python", "json", "bash", "sh", "shell", "js", "ts", "javascript",
                 "typescript", "yaml", "yml", "sql", "text", "ini", "html", "css", "c", "cpp", "go", "rs", "diff")
 
@@ -22,6 +19,8 @@ _KNOWN_LANGS = ("mermaid", "python", "json", "bash", "sh", "shell", "js", "ts", 
 # 不合准入的条目降级还原为正文段落——证据块只放出处佐证,主体永远是叙述(REQ-RPT-001/002)
 _REF_SHAPE = re.compile(r"^[A-Za-z0-9_./\-]+:\d+(-\d+)?$")
 _DEMOTE_CHARS = 120
+
+TAIL_RE = re.compile(r"^(.*?)\s*\(([^)]+),\s*([^)]+)\)\s*$", re.S)
 
 _md = MarkdownIt("commonmark").enable(["table", "strikethrough"])
 _default_fence = _md.renderer.rules["fence"]
