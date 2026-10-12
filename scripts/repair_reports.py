@@ -19,7 +19,7 @@ dry = "--dry" in sys.argv
 init_db(config.db_path())
 conn = connect(config.db_path())
 
-rows = conn.execute("SELECT id, markdown, meta_json FROM report_versions ORDER BY id").fetchall()
+rows = conn.execute("SELECT id, markdown, html, meta_json FROM report_versions ORDER BY id").fetchall()
 fixed_md = fixed_html = skipped = 0
 for r in rows:
     md_old = r["markdown"]
