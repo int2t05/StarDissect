@@ -30,8 +30,7 @@ def _normalize_fences(md: str) -> str:
         return md
     parts = md.split("```")
     glued = any(
-        re.match(r"^([A-Za-z0-9_#+-]+)[ \t]+\S", seg)
-        and seg.split(" ")[0].strip() in set(_KNOWN_LANGS)
+        (m := re.match(r"^([A-Za-z0-9_#+-]+)[ \t]+\S", seg)) and m.group(1) in set(_KNOWN_LANGS)
         for i, seg in enumerate(parts)
         if i % 2 == 1
     )
@@ -88,7 +87,11 @@ def _evidence_details(entries: list[tuple[str, str]]) -> str:
     refs = [b.strip() for k, b in entries if k == "source"]
     refs_attr = f' data-refs="{html.escape(chr(31).join(refs), quote=True)}"' if refs else ""
     items = "".join(_evidence_entry(k, b) for k, b in entries)
-    summary = f'<span class="ev-label">证据</span><span class="ev-count">×{n}</span>'
+    first_label = EVIDENCE_LABELS[first_kind]
+    first_excerpt = entries[0][1].strip().replace("\n", " ")
+    snip = first_excerpt[:40] + ("…" if len(first_excerpt) > 40 else "")
+    count_chip = f'<span class="ev-count">×{n}</span>' if n > 1 else ""
+    summary = f'<span class="ev-label">{first_label}</span><span class="ev-snip">{html.escape(snip)}</span>{count_chip}'
     return (
         f'<details class="ev ev-{first_kind}"{refs_attr}>'
         f'<summary>{summary}</summary>'
@@ -142,9 +145,11 @@ def _split_evidence(tokens: list[Token]) -> list[Token]:
                 out.append(block)
                 # 引用块内非证据行重建为真段落 token:HTML 与纯文本流都保留
                 if leftovers:
+                    text_token = Token("inline", "", 0, content="\n".join(leftovers))
+                    text_token.children = [Token("text", "", 0, content=text_token.content)]
                     out.extend([
                         Token("paragraph_open", "p", 1),
-                        Token("inline", "", 0, content="\n".join(leftovers)),
+                        text_token,
                         Token("paragraph_close", "p", -1),
                     ])
                 i = j

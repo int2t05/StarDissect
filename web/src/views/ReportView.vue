@@ -5,7 +5,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { NButton, NSelect } from 'naive-ui'
-import { fmtTime } from '../api'
+import { api, fmtTime, toast } from '../api'
 import { useReadingProgress } from '../composables/useReadingProgress'
 import { useScrollSpy } from '../composables/useScrollSpy'
 import { useReaderSettings } from '../composables/useReaderSettings'
@@ -23,7 +23,7 @@ const activeSeq = ref(-1)
 
 const toc = computed(() => sections.value)
 
-const fontOptions = [12, 13, 14, 15.5, 17, 19, 21, 22].map((v) => ({ label: `${v}px`, value: v }))
+const fontOptions = [12, 13, 14, 15.5, 16.5, 17, 19, 21, 22].map((v) => ({ label: `${v}px`, value: v }))
 const widthOptions = [
   { label: '窄', value: 'narrow' },
   { label: '标准', value: 'standard' },
@@ -43,9 +43,10 @@ const themeOptions = [
 const spy = useScrollSpy()
 
 onMounted(async () => {
-  report.value = await (await fetch(`/api/reports/${route.params.vid}`)).json()
+  try {
+  report.value = await api(`/api/reports/${route.params.vid}`)
   sections.value = JSON.parse(report.value.sections || '[]')
-  report.value.repo_name = (await (await fetch(`/api/repos/${report.value.repo_id}`)).json()).repo.full_name
+  report.value.repo_name = (await api(`/api/repos/${report.value.repo_id}`)).repo.full_name
   const meta = JSON.parse(report.value.meta || '{}')
   const tv = meta.typography_check?.status === 'checked' ? meta.typography_check.violations.length : 0
   const si = meta.structure_check?.issues?.length ?? 0
@@ -60,6 +61,9 @@ onMounted(async () => {
   lastSaved.value = saved
   hasSaved.value = (saved.anchor_seq ?? 0) > 0 || (saved.top_percent ?? 0) > 5  // 浅阅读(章节 0)也可见
   state.value = { read: !!report.value.read, favorited: !!report.value.favorited }  // 持久状态回读
+  } catch (e) {
+    toast('报告加载失败:' + (e?.message ?? e))
+  }
 })
 
 // 证据折叠兼容层:旧版报告存的是展开式 div.ev,展示时包成 details 默认折叠,
@@ -98,38 +102,51 @@ function decorateEvidence() {
   const out = document.createDocumentFragment()
   for (const group of groups) {
     if (group.length === 1 && group[0].tagName === 'DETAILS' && group[0].querySelector('.ev-count')) {
-      out.appendChild(group[0])  // 已是合并形态(新版服务端)
+      injectSourceLinks(group[0])  // 已是合并形态(新版服务端):补 GitHub 链接
+      out.appendChild(group[0])
       continue
     }
     const det = document.createElement('details')
     det.className = 'ev ' + [...new Set(group.flatMap((el) => [...el.classList].filter((c) => c.startsWith('ev-'))))].join(' ')
     const refs = group.flatMap((el) => (el.dataset.refs ? el.dataset.refs.split(sep) : el.dataset.ref ? [el.dataset.ref] : []))
     if (refs.length) det.dataset.refs = refs.join(sep)
+    const firstLabel = group[0].querySelector('.ev-label')?.textContent || '证据'
+    const rawSnip = (group[0].querySelector('.ev-snip')?.textContent
+      || group[0].querySelector('.ev-ref')?.textContent
+      || group[0].textContent.replace(firstLabel, '').trim()) || ''
+    const snip = rawSnip.slice(0, 40) + (rawSnip.length > 40 ? '…' : '')
     const summary = document.createElement('summary')
-    summary.innerHTML = '<span class="ev-label">证据</span><span class="ev-count">×' + group.length + '</span>'
+    summary.append(Object.assign(document.createElement('span'), { className: 'ev-label', textContent: firstLabel }))
+    summary.append(Object.assign(document.createElement('span'), { className: 'ev-snip', textContent: snip }))
+    if (group.length > 1) summary.append(Object.assign(document.createElement('span'), { className: 'ev-count', textContent: '×' + group.length }))
     const body = document.createElement('div')
     body.className = 'ev-body'
     group.forEach((el) => body.appendChild(buildBody(el)))
-    if (refs.length) {
-      const linkRow = document.createElement('p')
-      linkRow.className = 'ev-links'
-      refs.forEach((ref) => {
-        const [path, lines] = String(ref).split(':')
-        const a = document.createElement('a')
-        a.href = `https://github.com/${report.value.repo_name}/blob/${report.value.commit_anchor}/${path}` + (lines ? `#L${lines.split('-')[0]}` : '')
-        a.target = '_blank'
-        a.rel = 'noopener'
-        a.textContent = '↗ ' + path.split('/').pop() + (lines ? ':' + lines.split('-')[0] : '')
-        linkRow.appendChild(a)
-      })
-      body.appendChild(linkRow)
-    }
     det.append(summary, body)
+    injectSourceLinks(det)
     group[0].replaceWith(det)
     group.slice(1).forEach((el) => el.remove())
     out.appendChild(det)
   }
   article.replaceChildren(out)
+}
+
+// 源码条目注入锚定 commit 的 GitHub 链接(REQ-READ-005;折叠路径共用)
+function injectSourceLinks(det) {
+  const refs = det.dataset.refs ? det.dataset.refs.split(String.fromCharCode(31)) : []
+  if (!refs.length || det.querySelector('.ev-links')) return
+  const row = document.createElement('p')
+  row.className = 'ev-links'
+  refs.forEach((ref) => {
+    const [path, lines] = ref.split(':')
+    const a = document.createElement('a')
+    a.href = `https://github.com/${report.value.repo_name}/blob/${report.value.commit_anchor}/${path}` + (lines ? `#L${lines.split('-')[0]}` : '')
+    a.target = '_blank'
+    a.rel = 'noopener'
+    a.textContent = '↗ ' + path.split('/').pop() + (lines ? ':' + lines.split('-')[0] : '')
+    row.appendChild(a)
+  })
+  det.querySelector('.ev-body').appendChild(row)
 }
 
 // mermaid 渲染 + 图题 + 放大层 + 文字后备(UX-48/RPT-005):渲染失败展开源码,不空块

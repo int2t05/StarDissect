@@ -26,7 +26,7 @@ logger = logging.getLogger("stardissect.agent")
 CLEAN_TAGS = {"div", "span", "code", "pre", "a", "p", "h1", "h2", "h3", "h4", "ul", "ol", "li",
               "table", "thead", "tbody", "tr", "th", "td", "blockquote", "br", "hr", "em", "strong",
               "figure", "figcaption", "mark", "details", "summary"}
-CLEAN_ATTRS = {tag: {"class", "data-ref", "data-url", "id", "data-seq"} for tag in CLEAN_TAGS}
+CLEAN_ATTRS = {tag: {"class", "data-ref", "data-refs", "data-url", "id", "data-seq"} for tag in CLEAN_TAGS}
 CLEAN_ATTRS["a"] |= {"href"}
 
 
