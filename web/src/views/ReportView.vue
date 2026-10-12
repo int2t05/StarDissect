@@ -65,45 +65,74 @@ onMounted(async () => {
 // 证据折叠兼容层:旧版报告存的是展开式 div.ev,展示时包成 details 默认折叠,
 // 与新版服务端 details 结构对齐;源码块注入锚定 commit 的 GitHub 链接(REQ-READ-005)
 function decorateEvidence() {
-  document.querySelectorAll('.article div.ev').forEach((d) => {
+  // 兼容三代证据形态(div 展开 / details 单条 / details 合并):
+  // 连续 .ev 元素合并为单一折叠块,摘要一行「证据 ×n」,主体保持正文流
+  const article = document.querySelector('.article')
+  if (!article) return
+  const kids = [...article.children]
+  const groups = []
+  let cur = []
+  kids.forEach((el) => {
+    if (el.classList.contains('ev')) cur.push(el)
+    else { if (cur.length) groups.push(cur); cur = []; groups.push([el]) }
+  })
+  if (cur.length) groups.push(cur)
+
+  const sep = String.fromCharCode(31)
+  const buildBody = (el) => {
+    const item = document.createElement('div')
+    item.className = 'ev-item'
+    const label = el.querySelector('.ev-label')
+    if (label) item.appendChild(label.cloneNode(true))
+    if (el.tagName === 'DETAILS') {
+      const body = el.querySelector('.ev-body')
+      if (body) [...body.childNodes].forEach((n) => item.appendChild(n))
+    } else {
+      ;[...el.childNodes].forEach((n) => {
+        if (n !== label) item.appendChild(n)
+      })
+    }
+    return item
+  }
+
+  const out = document.createDocumentFragment()
+  for (const group of groups) {
+    if (group.length === 1 && group[0].tagName === 'DETAILS' && group[0].querySelector('.ev-count')) {
+      out.appendChild(group[0])  // 已是合并形态(新版服务端)
+      continue
+    }
     const det = document.createElement('details')
-    det.className = d.className
-    if (d.dataset.ref) det.dataset.ref = d.dataset.ref
-    if (d.dataset.url) det.dataset.url = d.dataset.url
+    det.className = 'ev ' + [...new Set(group.flatMap((el) => [...el.classList].filter((c) => c.startsWith('ev-'))))].join(' ')
+    const refs = group.flatMap((el) => (el.dataset.refs ? el.dataset.refs.split(sep) : el.dataset.ref ? [el.dataset.ref] : []))
+    if (refs.length) det.dataset.refs = refs.join(sep)
     const summary = document.createElement('summary')
-    summary.append(d.querySelector('.ev-label') ?? Object.assign(document.createElement('span'), { className: 'ev-label', textContent: '证据' }))
-    const snippet = document.createElement('span')
-    snippet.className = 'ev-snip'
-    const text = (d.textContent || '').replace(d.querySelector('.ev-label')?.textContent ?? '', '').trim()
-    snippet.textContent = text.slice(0, 48) + (text.length > 48 ? '…' : '')
-    summary.append(snippet)
+    summary.innerHTML = '<span class="ev-label">证据</span><span class="ev-count">×' + group.length + '</span>'
     const body = document.createElement('div')
     body.className = 'ev-body'
-    ;[...d.childNodes].forEach((n) => {
-      if (n.classList?.contains('ev-label')) return
-      body.append(n)
-    })
+    group.forEach((el) => body.appendChild(buildBody(el)))
+    if (refs.length) {
+      const linkRow = document.createElement('p')
+      linkRow.className = 'ev-links'
+      refs.forEach((ref) => {
+        const [path, lines] = String(ref).split(':')
+        const a = document.createElement('a')
+        a.href = `https://github.com/${report.value.repo_name}/blob/${report.value.commit_anchor}/${path}` + (lines ? `#L${lines.split('-')[0]}` : '')
+        a.target = '_blank'
+        a.rel = 'noopener'
+        a.textContent = '↗ ' + path.split('/').pop() + (lines ? ':' + lines.split('-')[0] : '')
+        linkRow.appendChild(a)
+      })
+      body.appendChild(linkRow)
+    }
     det.append(summary, body)
-    d.replaceWith(det)
-  })
-  const gh = (ref) => {
-    const [path, lines] = String(ref).split(':')
-    const anchor = lines ? `#L${lines.split('-')[0]}` : ''
-    return `https://github.com/${report.value.repo_name}/blob/${report.value.commit_anchor}/${path}${anchor}`
+    group[0].replaceWith(det)
+    group.slice(1).forEach((el) => el.remove())
+    out.appendChild(det)
   }
-  document.querySelectorAll('.article details.ev-source').forEach((d) => {
-    const slot = d.querySelector('.ev-src-hint')
-    if (!slot || d.querySelector('.ev-open')) return
-    const a = document.createElement('a')
-    a.href = gh(d.dataset.ref)
-    a.target = '_blank'
-    a.rel = 'noopener'
-    a.textContent = '在 GitHub 打开源文件 ↗'
-    slot.replaceWith(a)
-  })
+  article.replaceChildren(out)
 }
 
-// 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)
+// 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)// 源码事实点击:跳转锚定 commit 的 GitHub blob(REQ-READ-005)
 function openSource(ev) {
   const ref = ev.currentTarget.dataset.ref // path:line 或 path:start-end
   if (!ref || !ref.includes(':')) return
@@ -414,7 +443,12 @@ function jump(seq) {
 .article .ev-infer { border-left: 3px dashed var(--sd-ev-infer); }
 .article .ev-external { border-left: 3px solid var(--sd-ev-external); }
 .article .ev-unknown { border-left: 3px solid var(--sd-ev-unknown); }
-.article .ev a { word-break: break-all; }
+.article .ev a { word-break: break-all; font-size: 0.82em; color: var(--sd-text-2); }
+.article .ev a:hover { color: var(--sd-accent); }
+.article .ev-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.article .ev-item { padding: 3px 0; }
+.article .ev-item .ev-label { font-size: 0.72em; letter-spacing: 0.08em; color: var(--sd-text-3); display: inline-block; margin-right: 10px; }
+.article .ev-item p { margin: 2px 0; display: inline; }
 .article .ev .ev-date { color: var(--sd-text-3); font-size: 0.8em; margin-left: 8px; }
 .article .mermaid { text-align: center; }
 .article figcaption { font-size: 0.75em; color: var(--sd-text-3); text-align: center; padding-top: 6px; letter-spacing: 0.04em; }
