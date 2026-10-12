@@ -66,69 +66,43 @@ onMounted(async () => {
   }
 })
 
-// 证据折叠兼容层:旧版报告存的是展开式 div.ev,展示时包成 details 默认折叠,
-// 与新版服务端 details 结构对齐;源码块注入锚定 commit 的 GitHub 链接(REQ-READ-005)
+// 证据折叠:全报告所有证据收进唯一的置顶折叠块「证据 ×n」,
+// 正文 100% 纯叙述;兼容三代形态(div 展开 / details 单条 / details 合并)
 function decorateEvidence() {
-  // 兼容三代证据形态(div 展开 / details 单条 / details 合并):
-  // 连续 .ev 元素合并为单一折叠块,摘要一行「证据 ×n」,主体保持正文流
   const article = document.querySelector('.article')
   if (!article) return
-  const kids = [...article.children]
-  const groups = []
-  let cur = []
-  kids.forEach((el) => {
-    if (el.classList.contains('ev')) cur.push(el)
-    else { if (cur.length) groups.push(cur); cur = []; groups.push([el]) }
-  })
-  if (cur.length) groups.push(cur)
-
+  const blocks = [...article.querySelectorAll(':scope > .ev')]
+  if (!blocks.length) return
   const sep = String.fromCharCode(31)
-  const buildBody = (el) => {
+
+  const det = document.createElement('details')
+  det.className = 'ev ev-merged'
+  const refs = blocks.flatMap((el) => (el.dataset.refs ? el.dataset.refs.split(sep) : el.dataset.ref ? [el.dataset.ref] : []))
+  if (refs.length) det.dataset.refs = refs.join(sep)
+  const summary = document.createElement('summary')
+  summary.append(Object.assign(document.createElement('span'), { className: 'ev-label', textContent: '证据' }))
+  summary.append(Object.assign(document.createElement('span'), { className: 'ev-count', textContent: '×' + blocks.length }))
+  const body = document.createElement('div')
+  body.className = 'ev-body'
+  blocks.forEach((el) => {
     const item = document.createElement('div')
     item.className = 'ev-item'
     const label = el.querySelector('.ev-label')
     if (label) item.appendChild(label.cloneNode(true))
     if (el.tagName === 'DETAILS') {
-      const body = el.querySelector('.ev-body')
-      if (body) [...body.childNodes].forEach((n) => item.appendChild(n))
+      const b = el.querySelector('.ev-body')
+      if (b) [...b.childNodes].forEach((n) => item.appendChild(n))
     } else {
       ;[...el.childNodes].forEach((n) => {
         if (n !== label) item.appendChild(n)
       })
     }
-    return item
-  }
-
-  const out = document.createDocumentFragment()
-  for (const group of groups) {
-    if (group.length === 1 && group[0].tagName === 'DETAILS' && group[0].querySelector('.ev-count')) {
-      injectSourceLinks(group[0])  // 已是合并形态(新版服务端):补 GitHub 链接
-      out.appendChild(group[0])
-      continue
-    }
-    const det = document.createElement('details')
-    det.className = 'ev ' + [...new Set(group.flatMap((el) => [...el.classList].filter((c) => c.startsWith('ev-'))))].join(' ')
-    const refs = group.flatMap((el) => (el.dataset.refs ? el.dataset.refs.split(sep) : el.dataset.ref ? [el.dataset.ref] : []))
-    if (refs.length) det.dataset.refs = refs.join(sep)
-    const firstLabel = group[0].querySelector('.ev-label')?.textContent || '证据'
-    const rawSnip = (group[0].querySelector('.ev-snip')?.textContent
-      || group[0].querySelector('.ev-ref')?.textContent
-      || group[0].textContent.replace(firstLabel, '').trim()) || ''
-    const snip = rawSnip.slice(0, 40) + (rawSnip.length > 40 ? '…' : '')
-    const summary = document.createElement('summary')
-    summary.append(Object.assign(document.createElement('span'), { className: 'ev-label', textContent: firstLabel }))
-    summary.append(Object.assign(document.createElement('span'), { className: 'ev-snip', textContent: snip }))
-    if (group.length > 1) summary.append(Object.assign(document.createElement('span'), { className: 'ev-count', textContent: '×' + group.length }))
-    const body = document.createElement('div')
-    body.className = 'ev-body'
-    group.forEach((el) => body.appendChild(buildBody(el)))
-    det.append(summary, body)
-    injectSourceLinks(det)
-    group[0].replaceWith(det)
-    group.slice(1).forEach((el) => el.remove())
-    out.appendChild(det)
-  }
-  article.replaceChildren(out)
+    body.appendChild(item)
+  })
+  det.append(summary, body)
+  injectSourceLinks(det)
+  article.prepend(det)
+  blocks.forEach((el) => el.remove())
 }
 
 // 源码条目注入锚定 commit 的 GitHub 链接(REQ-READ-005;折叠路径共用)
