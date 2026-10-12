@@ -27,19 +27,11 @@ _default_fence = _md.renderer.rules["fence"]
 
 
 def _normalize_fences(md: str) -> str:
-    """围栏独立性整形:``` 必须独立成行。修复模型把围栏写进段落句中的情况。
-    按 ``` 分段重组:仅当存在「语言标注后同行接内容」的粘连特征才整形;
-    反引号成对的行内 code span 不受影响。"""
-    if md.count("```") < 2:
+    """围栏独立性整形:``` 必须独立成行。修复模型把围栏写进段落句中的情况
+    (含全文仅一处粘连的情况);反引号成对的行内 code span 不受影响。"""
+    if not re.search(r"[^\n]```", md):  # 所有 ``` 都已独占一行 → 无需整形
         return md
     parts = md.split("```")
-    glued = any(
-        (m := re.match(r"^([A-Za-z0-9_#+-]+)[ \t]+\S", seg)) and m.group(1) in set(_KNOWN_LANGS)
-        for i, seg in enumerate(parts)
-        if i % 2 == 1
-    )
-    if not glued:
-        return md
     out = [parts[0].rstrip() + "\n\n"]
     for i, seg in enumerate(parts[1:], 1):
         if i % 2 == 1:  # 围栏内部:语言标注与同行内容拆行,收尾换行让 ``` 独占一行
