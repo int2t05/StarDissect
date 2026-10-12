@@ -113,3 +113,11 @@ def test_evidence_demote_narrative_to_body():
     assert "面向最终用户的桌面应用" in html and "面向最终用户的桌面应用" in text
     # 短 infer 保留折叠:摘要行即全文(类型标签可见)
     assert '<details class="ev ev-infer"' in html and "项目定位:解压即用" in html
+
+
+def test_unclosed_fence_closed_at_blank_line():
+    # 未闭合围栏:在首个空行处自动闭合,其后正文不被吞(部署实测两份报告正文被吞)
+    md = "正文前。\n```mermaid\ngraph LR\n    Q1[\"需求\"]\n\n术语:SSG 是静态站点生成。\n正文后。"
+    html, _, text = _sections(md)
+    assert "术语:SSG 是静态站点生成" in html and "正文后" in html
+    assert "术语:SSG" in text

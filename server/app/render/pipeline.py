@@ -27,19 +27,34 @@ _default_fence = _md.renderer.rules["fence"]
 
 
 def _normalize_fences(md: str) -> str:
-    """围栏独立性整形:``` 必须独立成行。修复模型把围栏写进段落句中的情况
-    (含全文仅一处粘连的情况);反引号成对的行内 code span 不受影响。"""
-    if not re.search(r"[^\n]```", md):  # 所有 ``` 都已独占一行 → 无需整形
-        return md
-    parts = md.split("```")
-    out = [parts[0].rstrip() + "\n\n"]
-    for i, seg in enumerate(parts[1:], 1):
-        if i % 2 == 1:  # 围栏内部:语言标注与同行内容拆行,收尾换行让 ``` 独占一行
-            seg = re.sub(r"^([A-Za-z0-9_#+-]+)[ \t]+(?=\S)", r"\1\n", seg, count=1)
-            out.append(seg.rstrip() + "\n")
-        else:  # 围栏外文本:前后留空行
-            out.append("\n\n" + seg.lstrip("\n") + "\n\n")
-    return "```".join(out)
+    """围栏整形两步:1) 行中粘连的 ``` 拆到独立行;2) 未闭合围栏在首个空行处闭合,
+    防吞其后正文。反引号成对的行内 code span 不受影响。"""
+    if re.search(r"[^\n]```", md):  # 存在行中粘连 → 粘连整形
+        parts = md.split("```")
+        out = [parts[0].rstrip() + "\n\n"]
+        for i, seg in enumerate(parts[1:], 1):
+            if i % 2 == 1:  # 围栏内部:语言标注与同行内容拆行,收尾换行让 ``` 独占一行
+                seg = re.sub(r"^([A-Za-z0-9_#+-]+)[ \t]+(?=\S)", r"\1\n", seg, count=1)
+                out.append(seg.rstrip() + "\n")
+            else:  # 围栏外文本:前后留空行
+                out.append("\n\n" + seg.lstrip("\n") + "\n\n")
+        md = "```".join(out)
+    if md.count("```") % 2 == 1:
+        # 未闭合围栏:在开围栏后的首个空行处闭合,防吞其后正文(部署实测两份报告正文被吞)
+        lines = md.split("\n")
+        inside = False
+        for i, l in enumerate(lines):
+            if l.lstrip().startswith("```"):
+                inside = not inside
+                continue
+            if inside and l.strip() == "":
+                lines.insert(i, "```")
+                break
+        else:
+            if inside:
+                lines.append("```")
+        md = "\n".join(lines)
+    return md
 
 
 def _quote_mermaid_labels(src: str) -> str:
