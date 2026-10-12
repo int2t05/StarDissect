@@ -101,7 +101,7 @@ function decorateEvidence() {
   })
   det.append(summary, body)
   injectSourceLinks(det)
-  article.prepend(det)
+  article.append(det)  // 证据统一放文章最后面(用户定稿)
   blocks.forEach((el) => el.remove())
 }
 
