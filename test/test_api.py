@@ -226,3 +226,34 @@ async def test_repo_categories_multi_assign_and_filter(client):
     assert (await c.get("/api/repos/1")).json()["categories"] == []
     assert conn.execute("SELECT COUNT(*) c FROM repo_categories").fetchone()["c"] == 0
     assert conn.execute("SELECT COUNT(*) c FROM categories").fetchone()["c"] == 1  # AI 工具仍在
+
+
+async def test_reading_mosaic_counts_and_category_filter(client):
+    # 阅读中心拼图:类别报告/未读计数、/api/entries 类别过滤、未分类与总量(REQ-CLS-006)
+    c, conn = client
+    await _seed_report(conn)  # o/demo:repo 1,一篇未读报告
+    conn.execute("INSERT INTO repos(id, github_id, full_name, status) VALUES (2, 22, 'o/other', '可阅读')")
+    conn.commit()
+    from app.agents.runner import ReportDraft, Section
+
+    from app.agents import runner
+    runner.persist_report(conn, 2, task_id=None, commit_anchor="b" * 40, draft=ReportDraft(
+        sections=[Section(title="概览", body="另一篇。")], knowledge_points=[]))
+    conn.commit()
+    await c.patch("/api/reports/2/state", json={"read": True})
+
+    await c.post("/api/repos/1/categories", json={"name": "AI"})
+    cats = (await c.get("/api/categories")).json()
+    assert cats[0]["name"] == "AI" and cats[0]["repos"] == 1 and cats[0]["reports"] == 1 and cats[0]["unread"] == 1
+
+    ov = (await c.get("/api/reading/overview")).json()
+    assert ov["total"] == {"reports": 2, "unread": 1}
+    assert ov["uncategorized"] == {"reports": 1, "unread": 0}
+
+    ai_id = cats[0]["id"]
+    r = (await c.get("/api/entries", params={"category": ai_id})).json()
+    assert [x["full_name"] for x in r] == ["o/demo"]
+    r = (await c.get("/api/entries", params={"category": -1})).json()
+    assert [x["full_name"] for x in r] == ["o/other"]  # 未分类
+    r = (await c.get("/api/entries", params={"category": ai_id, "state": "favorited"})).json()
+    assert r == []

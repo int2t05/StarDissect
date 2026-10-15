@@ -256,10 +256,27 @@ def _require_repo(conn, repo_id: int):
 
 @router.get("/categories")
 async def list_categories(request: Request, conn=Depends(get_conn)):
+    # repos=入库仓库数(仓库库);reports/unread=报告数与未读数(阅读中心拼图)
     return [dict(r) for r in conn.execute(
-        """SELECT c.id, c.name, COUNT(rc.repo_id) AS repos
-           FROM categories c LEFT JOIN repo_categories rc ON rc.category_id=c.id
+        """SELECT c.id, c.name, COUNT(DISTINCT rc.repo_id) AS repos,
+                  COUNT(v.id) AS reports,
+                  COALESCE(SUM(CASE WHEN v.read=0 THEN 1 ELSE 0 END), 0) AS unread
+           FROM categories c
+           LEFT JOIN repo_categories rc ON rc.category_id=c.id
+           LEFT JOIN report_versions v ON v.repo_id=rc.repo_id
            GROUP BY c.id ORDER BY c.name""")]
+
+
+@router.get("/reading/overview")
+async def reading_overview(request: Request, conn=Depends(get_conn)):
+    # 拼图首块「全部」与「未分类」的计数;未分类=报告仓库未归入任何领域类别
+    total = conn.execute(
+        "SELECT COUNT(*) AS reports, COALESCE(SUM(read=0), 0) AS unread FROM report_versions").fetchone()
+    uncat = conn.execute(
+        """SELECT COUNT(*) AS reports, COALESCE(SUM(v.read=0), 0) AS unread
+           FROM report_versions v
+           WHERE NOT EXISTS (SELECT 1 FROM repo_categories rc WHERE rc.repo_id=v.repo_id)""").fetchone()
+    return {"total": dict(total), "uncategorized": dict(uncat)}
 
 
 @router.post("/categories")
@@ -523,15 +540,24 @@ async def export_report(request: Request, version_id: int, conn=Depends(get_conn
 
 
 @router.get("/entries")
-async def entries(request: Request, state: str = "all", conn=Depends(get_conn)):
+async def entries(request: Request, state: str = "all", category: int = 0, conn=Depends(get_conn)):
     # 阅读中心条目聚合:单查询返回报告条目+仓库信息(消除前端逐仓库 N+1)
-    where = {"unread": "WHERE v.read=0", "favorited": "WHERE v.favorited=1"}.get(state, "")
-    rows = conn.execute(
-        f"""SELECT v.id, v.version_no, v.read, v.favorited, v.created_at,
-                   r.id AS repo_id, r.full_name
-            FROM report_versions v JOIN repos r ON r.id = v.repo_id {where}
-            ORDER BY v.id DESC LIMIT 200"""
-    ).fetchall()
+    # category:0=全部,-1=未分类,>0=按领域类别过滤(REQ-CLS-006)
+    clauses = {"unread": "v.read=0", "favorited": "v.favorited=1"}
+    where, args = [], []
+    if state in clauses:
+        where.append(clauses[state])
+    if category > 0:
+        where.append("r.id IN (SELECT repo_id FROM repo_categories WHERE category_id=?)")
+        args.append(category)
+    elif category == -1:
+        where.append("NOT EXISTS (SELECT 1 FROM repo_categories rc WHERE rc.repo_id=r.id)")
+    sql = f"""SELECT v.id, v.version_no, v.read, v.favorited, v.created_at,
+                     r.id AS repo_id, r.full_name
+              FROM report_versions v JOIN repos r ON r.id = v.repo_id
+              {'WHERE ' + ' AND '.join(where) if where else ''}
+              ORDER BY v.id DESC LIMIT 200"""
+    rows = conn.execute(sql, args).fetchall()
     return [dict(x) for x in rows]
 
 

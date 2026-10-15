@@ -1,11 +1,14 @@
-<!-- 阅读中心:报告条目列表 + 全局搜索(UX-38..42);条目聚合 /api/entries(REQ-READ-006) -->
+<!-- 阅读中心:类别拼图(大号标签块,UX-64)→ 点入类别看报告卡片;全局搜索(UX-38..42);条目聚合 /api/entries(REQ-READ-006) -->
 <script setup>
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NEmpty, NInput, NSelect, NTag } from 'naive-ui'
 import { api, fmtTime } from '../api'
 
 const router = useRouter()
+const categories = ref([])
+const overview = ref(null)
+const cat = ref(null) // null=拼图;0=全部;-1=未分类;>0=领域类别 id(REQ-CLS-006)
 const entries = ref([])
 const filter = ref('all')
 const searchOpen = ref(false)
@@ -23,6 +26,15 @@ const filterOptions = [
   { label: '收藏', value: 'favorited' },
 ]
 
+// 拼图只呈现有内容的类别;按报告数优先排序
+const sortedCats = computed(() =>
+  categories.value.filter(c => c.reports > 0)
+    .sort((a, b) => b.reports - a.reports || a.name.localeCompare(b.name, 'zh')))
+
+const catName = computed(() =>
+  cat.value === 0 ? '全部' : cat.value === -1 ? '未分类'
+    : categories.value.find(c => c.id === cat.value)?.name ?? '')
+
 // 检索结果按「报告>章节」两级分组(REQ-SRCH-001)
 const groupedHits = () => {
   const map = new Map()
@@ -34,17 +46,33 @@ const groupedHits = () => {
   return [...map.entries()]
 }
 
-async function load() {
-  entries.value = await api(`/api/entries?state=${filter.value}`) // 聚合端点,消除逐仓库 N+1
+async function loadMosaic() {
+  [categories.value, overview.value] = await Promise.all([
+    api('/api/categories'), api('/api/reading/overview'),
+  ])
+}
+
+async function loadEntries() {
+  if (cat.value === null) return
+  entries.value = await api(`/api/entries?state=${filter.value}&category=${cat.value}`)
   if (active.value >= entries.value.length) active.value = entries.value.length - 1
 }
 
-watch(filter, load) // 筛选服务端执行(REQ-READ-006)
+function enter(id) {
+  cat.value = id
+}
 
-// 列表键盘 j/k 移动、o/Enter 打开、m/f 切换(REQ-READ-004)
+async function back() {
+  cat.value = null
+  await loadMosaic() // 未读/收藏可能在类别内被切换,回拼图前刷新计数
+}
+
+watch([cat, filter], loadEntries) // 筛选服务端执行(REQ-READ-006)
+
+// 卡片键盘 j/k 移动、o/Enter 打开、m/f 切换(REQ-READ-004)
 const active = ref(-1)
 function onListKey(e) {
-  if (e.isComposing || searchOpen.value) return
+  if (e.isComposing || searchOpen.value || cat.value === null) return
   const list = entries.value
   if (e.key === 'j') { active.value = Math.min(active.value + 1, list.length - 1); scrollActiveEntry() }
   else if (e.key === 'k') { active.value = Math.max(active.value - 1, 0); scrollActiveEntry() }
@@ -112,7 +140,7 @@ function goto(hit) {
   else router.push(`/repos/${hit.repo_id}/report/${hit.version_id}`)
 }
 
-onMounted(() => { load(); window.addEventListener('keydown', onListKey) })
+onMounted(() => { loadMosaic(); loadEntries(); window.addEventListener('keydown', onListKey) })
 onUnmounted(() => window.removeEventListener('keydown', onListKey))
 </script>
 
@@ -121,7 +149,6 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
     <header class="bar">
       <h1>阅读中心</h1>
       <div class="bar-tools">
-        <n-select v-model:value="filter" :options="filterOptions" size="small" style="width: 110px" />
         <n-button size="small" secondary data-search-open @click="searchOpen = !searchOpen">搜索 <kbd>/</kbd></n-button>
       </div>
     </header>
@@ -147,26 +174,69 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
       <div v-else-if="searchEmpty" class="empty"><n-empty description="无结果" size="small" /></div>
     </div>
 
-    <ul class="entries">
-      <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
-        <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
-          <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
-          <span class="meta"><n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag> {{ fmtTime(e.created_at) }}</span>
-        </RouterLink>
-      </li>
-    </ul>
-    <n-empty v-if="!entries.length" description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint" />
+    <!-- 类别拼图(UX-64):大号标签块,一类别一入口 -->
+    <div v-if="cat === null" class="cloud">
+      <button class="tile" @click="enter(0)">
+        <span class="name">全部</span>
+        <span class="meta">{{ overview?.total.reports ?? 0 }} 篇<span v-if="overview?.total.unread" class="unread"> · {{ overview.total.unread }} 未读</span></span>
+      </button>
+      <button v-for="c in sortedCats" :key="c.id" class="tile" @click="enter(c.id)">
+        <span class="name">{{ c.name }}</span>
+        <span class="meta">{{ c.reports }} 篇<span v-if="c.unread" class="unread"> · {{ c.unread }} 未读</span></span>
+      </button>
+      <button v-if="overview?.uncategorized.reports" class="tile" @click="enter(-1)">
+        <span class="name">未分类</span>
+        <span class="meta">{{ overview.uncategorized.reports }} 篇<span v-if="overview.uncategorized.unread" class="unread"> · {{ overview.uncategorized.unread }} 未读</span></span>
+      </button>
+    </div>
+    <n-empty
+      v-if="cat === null && overview && !overview.total.reports"
+      description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint"
+    />
+
+    <!-- 类别内:报告卡片,可切未读/收藏态 -->
+    <template v-else>
+      <div class="cat-head">
+        <n-button size="small" quaternary @click="back">← 全部类别</n-button>
+        <b class="cat-title">{{ catName }}</b>
+        <n-select v-model:value="filter" :options="filterOptions" size="small" style="width: 100px" />
+      </div>
+      <ul class="entries">
+        <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
+          <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
+            <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
+            <span class="meta"><n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag> {{ fmtTime(e.created_at) }}</span>
+          </RouterLink>
+        </li>
+      </ul>
+      <n-empty v-if="!entries.length" description="该类别暂无可看的报告。" class="hint" />
+    </template>
   </div>
 </template>
 
 <style scoped>
-.entries { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
-.entries li { border-bottom: 1px solid var(--sd-border); content-visibility: auto; contain-intrinsic-size: auto 64px; } /* UX-15 */
+.cloud { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+.tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 16px 28px; border: 1px solid var(--sd-border); border-radius: 9999px;
+  background: var(--sd-surface); color: var(--sd-text); cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.tile:hover { background: var(--sd-accent-soft); border-color: var(--sd-accent); }
+.tile .name { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; } /* UX-63 display 负字距 */
+.tile .meta { font-size: 13px; color: var(--sd-text-3); }
+.tile .unread { color: var(--sd-accent); }
+.cat-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.cat-title { font-size: 18px; letter-spacing: -0.01em; }
+.cat-head .n-select { margin-left: auto; }
+.entries { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.entries li { border: 1px solid var(--sd-border); border-radius: 14px; content-visibility: auto; contain-intrinsic-size: auto 84px; } /* UX-15 */
 .entries li.active { background: var(--sd-accent-soft); }
-.entries a { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 12px; color: var(--sd-text); border-radius: 6px; }
+.entries a { display: flex; flex-direction: column; gap: 6px; height: 100%; padding: 14px 16px; color: var(--sd-text); box-sizing: border-box; }
 .entries a:hover { background: var(--sd-accent-soft); }
+.entries .name { font-weight: 500; }
 .entries .dot { color: var(--sd-accent); font-size: 0.65em; margin-left: 8px; vertical-align: 2px; }
-.meta { color: var(--sd-text-3); font-size: 0.85em; display: flex; align-items: center; gap: 8px; }
+.entries .meta { color: var(--sd-text-3); font-size: 0.85em; display: flex; align-items: center; gap: 8px; }
 .search-pop {
   position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
   width: min(680px, 92vw); background: var(--sd-elevated);
