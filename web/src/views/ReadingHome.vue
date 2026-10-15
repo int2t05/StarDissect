@@ -175,24 +175,26 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
     </div>
 
     <!-- 类别拼图(UX-64):大号标签块,一类别一入口 -->
-    <div v-if="cat === null" class="cloud">
-      <button class="tile" @click="enter(0)">
-        <span class="name">全部</span>
-        <span class="meta">{{ overview?.total.reports ?? 0 }} 篇<span v-if="overview?.total.unread" class="unread"> · {{ overview.total.unread }} 未读</span></span>
-      </button>
-      <button v-for="c in sortedCats" :key="c.id" class="tile" @click="enter(c.id)">
-        <span class="name">{{ c.name }}</span>
-        <span class="meta">{{ c.reports }} 篇<span v-if="c.unread" class="unread"> · {{ c.unread }} 未读</span></span>
-      </button>
-      <button v-if="overview?.uncategorized.reports" class="tile" @click="enter(-1)">
-        <span class="name">未分类</span>
-        <span class="meta">{{ overview.uncategorized.reports }} 篇<span v-if="overview.uncategorized.unread" class="unread"> · {{ overview.uncategorized.unread }} 未读</span></span>
-      </button>
-    </div>
-    <n-empty
-      v-if="cat === null && overview && !overview.total.reports"
-      description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint"
-    />
+    <template v-if="cat === null">
+      <div class="cloud">
+        <button class="tile" @click="enter(0)">
+          <span class="name">全部</span>
+          <span class="meta">{{ overview?.total.reports ?? 0 }} 篇<span v-if="overview?.total.unread" class="unread"> · {{ overview.total.unread }} 未读</span></span>
+        </button>
+        <button v-for="c in sortedCats" :key="c.id" class="tile" @click="enter(c.id)">
+          <span class="name">{{ c.name }}</span>
+          <span class="meta">{{ c.reports }} 篇<span v-if="c.unread" class="unread"> · {{ c.unread }} 未读</span></span>
+        </button>
+        <button v-if="overview?.uncategorized.reports" class="tile" @click="enter(-1)">
+          <span class="name">未分类</span>
+          <span class="meta">{{ overview.uncategorized.reports }} 篇<span v-if="overview.uncategorized.unread" class="unread"> · {{ overview.uncategorized.unread }} 未读</span></span>
+        </button>
+      </div>
+      <n-empty
+        v-if="overview && !overview.total.reports"
+        description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint"
+      />
+    </template>
 
     <!-- 类别内:报告卡片,可切未读/收藏态 -->
     <template v-else>
