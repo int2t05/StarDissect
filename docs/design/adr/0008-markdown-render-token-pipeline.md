@@ -8,7 +8,7 @@
 
 ## 决策
 
-markdown-it-py(commonmark+table/strikethrough 等有限插件)服务端渲染:一次解析得 token 流,token 流同时派生 1) 最终 HTML(证据标注语法→UX-43…47 结构);2) 纯文本章节流(跳过 code_block/inline code 的 fence 区段,供排版校验);3) 章节+行号 map(供 ADR-0006/0007)。HTML 与章节链存 report_versions,阅读页零渲染。
+markdown-it-py(CommonMark 核心 + GFM 表格 + URL/邮箱自动链接；关闭无协议的模糊域名匹配)服务端渲染:关闭原始 HTML,危险链接由解析器拒绝;一次解析得 token 流,同时派生 1) 最终 HTML(证据标注语法→UX-43…47 结构);2) 纯文本章节流(跳过代码,供排版校验);3) 章节+行号 map(供 ADR-0006/0007)。Mermaid 是应用层围栏渲染,不扩展通用 Markdown 语法。HTML 与章节链存 report_versions,阅读页零渲染。
 
 ## 理由与落选
 

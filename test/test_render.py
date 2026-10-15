@@ -90,6 +90,37 @@ def test_mermaid_block_marked():
     assert '<pre><code class="mermaid' not in html
 
 
+def test_raw_html_is_escaped():
+    html, _, _ = _sections("<script>alert(1)</script>")
+
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_profile_enables_tables_and_autolinks_but_not_strikethrough():
+    html, _, _ = _sections("~~text~~\n\n| col |\n| --- |\n| val |\n\nhttps://example.com/docs")
+
+    assert "<table>" in html
+    assert "<s>" not in html
+    assert "~~text~~" in html
+    assert '<a href="https://example.com/docs">https://example.com/docs</a>' in html
+
+
+def test_markdown_keeps_dotted_names_as_plain_text():
+    html, _, _ = _sections("CLAUDE.md Character.AI")
+
+    assert "CLAUDE.md" in html
+    assert "Character.AI" in html
+    assert 'href="http://claude.md"' not in html.lower()
+    assert 'href="http://character.ai"' not in html.lower()
+
+
+def test_unsafe_link_schemes_are_not_rendered():
+    html, _, _ = _sections("[click](javascript:alert(1))")
+
+    assert 'href="javascript:' not in html.lower()
+
+
 def test_typography_validator_rules():
     from app.render import validator
 

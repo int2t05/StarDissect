@@ -22,7 +22,17 @@ _DEMOTE_CHARS = 120
 
 TAIL_RE = re.compile(r"^(.*?)\s*\(([^)]+),\s*([^)]+)\)\s*$", re.S)
 
-_md = MarkdownIt("commonmark").enable(["table", "strikethrough"])
+_md = MarkdownIt(
+    "commonmark",
+    {
+        "html": False,
+        "xhtmlOut": True,
+        "breaks": False,
+        "linkify": True,
+        "typographer": False,
+    },
+).enable(["table", "linkify"])
+_md.linkify.set({"fuzzy_link": False})
 _default_fence = _md.renderer.rules["fence"]
 
 
