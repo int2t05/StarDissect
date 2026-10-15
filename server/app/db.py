@@ -57,6 +57,20 @@ CREATE TABLE IF NOT EXISTS tags (
     UNIQUE (repo_id, name)
 );
 
+-- 领域类别(REQ-CLS-006):用户自建的大方向,与七类主类型/标签正交;一仓库可归多类
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS repo_categories (
+    repo_id INTEGER NOT NULL REFERENCES repos(id),
+    category_id INTEGER NOT NULL REFERENCES categories(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (repo_id, category_id)
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY,
     repo_id INTEGER NOT NULL REFERENCES repos(id),
@@ -153,10 +167,11 @@ ALL_TABLES = {
     "repos", "classifications", "classification_history", "auto_tags", "tags", "tasks",
     "report_versions", "knowledge_points", "reading_progress", "sync_runs",
     "settings", "report_sections", "report_fts", "knowledge_fts", "repo_fts",
+    "categories", "repo_categories",
 }
 
 
-SCHEMA_VERSION = 3  # 结构变更:更新 SCHEMA 并递增版本;SCHEMA 全 IF NOT EXISTS 幂等重放建新表,
+SCHEMA_VERSION = 4  # 结构变更:更新 SCHEMA 并递增版本;SCHEMA 全 IF NOT EXISTS 幂等重放建新表,
                     # 列变更走 MIGRATIONS 显式语句(按版本顺序执行)
 
 

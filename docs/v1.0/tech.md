@@ -43,6 +43,9 @@ auto_tags(id PK, repo_id FK, name, created_at, UNIQUE(repo_id,name))  -- AI 分�
 
 tags(id PK, repo_id FK, name, created_at, UNIQUE(repo_id,name))  -- 仅人工写入(REQ-CLS-005)
 
+categories(id PK, name UNIQUE, created_at)        -- 领域类别(REQ-CLS-006),用户自建大方向
+repo_categories(repo_id FK, category_id FK, PRIMARY KEY(repo_id,category_id))  -- 一库多类
+
 tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
       status,                                      -- 排队/进行/完成/失败/中断
       priority, turn_limit, time_limit_sec,        -- 入队时快照(REQ-CFG-002)
@@ -125,7 +128,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | 端点                            | 方法           | 覆盖 REQ                |
 | ------------------------------- | -------------- | ----------------------- |
 | /api/sync                       | POST/GET 状态  | SYNC-001/002/003        |
-| /api/repos                      | GET(筛选/标签) | CLS-005、TASK-001       |
+| /api/repos                      | GET(筛选/标签/类别) | CLS-005/006、TASK-001   |
 | /api/repos/{id}                 | GET/PATCH      | CLS-001…005、TASK-002 排除 |
 | /api/repos/{id}/analyze         | POST           | TASK-005                |
 | /api/tasks                      | GET/PATCH      | TASK-001…004            |
@@ -135,6 +138,9 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/queue                      | POST           | TASK-002(暂停/恢复)     |
 | /api/repos/{id}/lock            | POST           | CLS-003(分类锁定)       |
 | /api/repos/{id}/tags            | POST / DELETE  | CLS-005(人工标签)       |
+| /api/categories                 | GET/POST       | CLS-006(领域类别,含计数)|
+| /api/categories/{id}            | PATCH/DELETE   | CLS-006(改名/删除仅解除关联)|
+| /api/repos/{id}/categories      | POST / DELETE  | CLS-006(归类/解除,不存在即建)|
 | /api/repos/{id}/classify        | POST           | CLS-002(人工选择范围)   |
 | /api/reports/{vid}/state        | PATCH          | READ-006(已读/收藏)    |
 | /api/knowledge_points/{id}      | PATCH/DELETE   | KP-002(人工修订/软删除) |

@@ -179,3 +179,50 @@ async def test_entries_aggregated_with_state_filter(client):
     assert r.json() == []
     r = await c.get("/api/entries", params={"state": "favorited"})
     assert len(r.json()) == 1
+
+
+async def test_repo_categories_multi_assign_and_filter(client):
+    # REQ-CLS-006:领域类别(大方向)集中管理,一仓库可归多类;独立于主类型与标签
+    c, conn = client
+    conn.execute("INSERT INTO repos(id, github_id, full_name, status) VALUES (1, 11, 'o/demo', '已分类')")
+    conn.execute("INSERT INTO repos(id, github_id, full_name, status) VALUES (2, 22, 'o/other', '已分类')")
+    conn.commit()
+
+    r = await c.post("/api/categories", json={"name": "前端"})
+    assert r.status_code == 200
+    web_id = r.json()["id"]
+    assert (await c.post("/api/categories", json={"name": "前端"})).status_code == 409  # 重名拒绝
+    assert (await c.post("/api/categories", json={"name": " "})).status_code == 422     # 空名拒绝
+
+    # 一库多类;归类时类别不存在则自动创建
+    await c.post("/api/repos/1/categories", json={"name": "前端"})
+    await c.post("/api/repos/1/categories", json={"name": "AI 工具"})
+    await c.post("/api/repos/2/categories", json={"name": "前端"})
+
+    detail = (await c.get("/api/repos/1")).json()
+    assert [x["name"] for x in detail["categories"]] == ["AI 工具", "前端"]
+
+    cats = {x["name"]: x for x in (await c.get("/api/categories")).json()}
+    assert cats["前端"]["repos"] == 2 and cats["AI 工具"]["repos"] == 1
+
+    # 列表按类别过滤,且每行附带类别
+    r = (await c.get("/api/repos", params={"category": web_id})).json()
+    assert {x["full_name"] for x in r} == {"o/demo", "o/other"}
+    ai_id = cats["AI 工具"]["id"]
+    r = (await c.get("/api/repos", params={"category": ai_id})).json()
+    assert [x["full_name"] for x in r] == ["o/demo"]
+    assert {"id": ai_id, "name": "AI 工具"} in r[0]["categories"]
+
+    # 重命名传播到仓库视图
+    assert (await c.patch(f"/api/categories/{web_id}", json={"name": "Web"})).status_code == 200
+    detail = (await c.get("/api/repos/1")).json()
+    assert "Web" in [x["name"] for x in detail["categories"]]
+
+    # 解除关联不删类别;删除类别解除全部关联
+    assert (await c.delete(f"/api/repos/1/categories/{ai_id}")).status_code == 200
+    detail = (await c.get("/api/repos/1")).json()
+    assert [x["name"] for x in detail["categories"]] == ["Web"]
+    assert (await c.delete(f"/api/categories/{web_id}")).status_code == 200
+    assert (await c.get("/api/repos/1")).json()["categories"] == []
+    assert conn.execute("SELECT COUNT(*) c FROM repo_categories").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM categories").fetchone()["c"] == 1  # AI 工具仍在

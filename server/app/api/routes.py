@@ -1,5 +1,6 @@
 # REST API 路由(docs/v1.0/tech.md §6;覆盖 REQ-SYNC/CLS/TASK/READ/SRCH/OUT/CFG 的 HTTP 面)
 import logging
+import sqlite3
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
@@ -79,7 +80,7 @@ def _setting(conn, key: str) -> str | None:
 # ---------- 仓库与分类(REQ-CLS) ----------
 
 @router.get("/repos")
-async def list_repos(request: Request, filter: str = "all", q: str = "", conn=Depends(get_conn)):
+async def list_repos(request: Request, filter: str = "all", q: str = "", category: int = 0, conn=Depends(get_conn)):
     where, args = "WHERE 1=1", []
     if filter == "active":
         where += " AND unstarred=0 AND excluded=0"
@@ -88,6 +89,9 @@ async def list_repos(request: Request, filter: str = "all", q: str = "", conn=De
     if q:
         where += " AND (r.full_name LIKE ? OR r.description LIKE ? OR r.id IN (SELECT repo_id FROM tags WHERE name LIKE ? UNION SELECT repo_id FROM auto_tags WHERE name LIKE ?))"
         args += [f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"]
+    if category:
+        where += " AND r.id IN (SELECT repo_id FROM repo_categories WHERE category_id=?)"
+        args.append(category)
     rows = conn.execute(
         f"""SELECT r.*, c.type, c.confidence, c.locked,
                    (SELECT COUNT(*) FROM report_versions v WHERE v.repo_id=r.id) AS versions
@@ -96,7 +100,20 @@ async def list_repos(request: Request, filter: str = "all", q: str = "", conn=De
             {where} ORDER BY r.updated_at DESC LIMIT 500""",
         args,
     ).fetchall()
-    return [dict(x) for x in rows]
+    out = [dict(x) for x in rows]
+    if out:  # 类别按批补齐,避免行级子查询(REQ-CLS-006)
+        ids = [r["id"] for r in rows]
+        marks = ",".join("?" * len(ids))
+        by_repo: dict[int, list] = {}
+        for link in conn.execute(
+            f"""SELECT rc.repo_id, c.id AS category_id, c.name FROM repo_categories rc
+                JOIN categories c ON c.id=rc.category_id WHERE rc.repo_id IN ({marks}) ORDER BY c.name""",
+            ids,
+        ):
+            by_repo.setdefault(link["repo_id"], []).append({"id": link["category_id"], "name": link["name"]})
+        for r in out:
+            r["categories"] = by_repo.get(r["id"], [])
+    return out
 
 
 @router.get("/repos/{repo_id}")
@@ -112,6 +129,9 @@ async def repo_detail(request: Request, repo_id: int, conn=Depends(get_conn)):
     ).fetchall()
     tags = [r["name"] for r in conn.execute("SELECT name FROM tags WHERE repo_id=? ORDER BY name", (repo_id,))]
     auto_tags = [r["name"] for r in conn.execute("SELECT name FROM auto_tags WHERE repo_id=? ORDER BY name", (repo_id,))]
+    categories = [dict(r) for r in conn.execute(
+        "SELECT c.id, c.name FROM repo_categories rc JOIN categories c ON c.id=rc.category_id"
+        " WHERE rc.repo_id=? ORDER BY c.name", (repo_id,))]
     versions = conn.execute(
         "SELECT id, version_no, commit_anchor, created_at FROM report_versions WHERE repo_id=? ORDER BY version_no DESC", (repo_id,)
     ).fetchall()
@@ -125,6 +145,7 @@ async def repo_detail(request: Request, repo_id: int, conn=Depends(get_conn)):
     return {
         "repo": dict(repo), "classification": dict(cls) if cls else None,
         "history": [dict(h) for h in history], "tags": tags, "auto_tags": auto_tags,
+        "categories": categories,
         "versions": [dict(v) for v in versions], "tasks": [dict(t) for t in tasks],
         "knowledge_points": [dict(k) for k in kps],
     }
@@ -222,6 +243,84 @@ async def delete_tag(request: Request, repo_id: int, name: str, conn=Depends(get
     conn.execute("DELETE FROM tags WHERE repo_id=? AND name=?", (repo_id, name))
     conn.commit()
     indexer.index_repo(conn, repo_id)
+    conn.commit()
+    return {"ok": True}
+
+
+# ---------- 领域类别(REQ-CLS-006:大方向归类,一库多类;独立于七类主类型与标签) ----------
+
+def _require_repo(conn, repo_id: int):
+    if conn.execute("SELECT 1 FROM repos WHERE id=?", (repo_id,)).fetchone() is None:
+        raise HTTPException(404, "仓库不存在")
+
+
+@router.get("/categories")
+async def list_categories(request: Request, conn=Depends(get_conn)):
+    return [dict(r) for r in conn.execute(
+        """SELECT c.id, c.name, COUNT(rc.repo_id) AS repos
+           FROM categories c LEFT JOIN repo_categories rc ON rc.category_id=c.id
+           GROUP BY c.id ORDER BY c.name""")]
+
+
+@router.post("/categories")
+async def create_category(request: Request, body: dict, conn=Depends(get_conn)):
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(422, "类别名不能为空")
+    try:
+        cur = conn.execute("INSERT INTO categories(name) VALUES (?)", (name,))
+    except sqlite3.IntegrityError:
+        raise HTTPException(409, "类别已存在") from None
+    conn.commit()
+    return {"id": cur.lastrowid, "name": name}
+
+
+@router.patch("/categories/{category_id}")
+async def rename_category(request: Request, category_id: int, body: dict, conn=Depends(get_conn)):
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(422, "类别名不能为空")
+    if conn.execute("SELECT 1 FROM categories WHERE id=?", (category_id,)).fetchone() is None:
+        raise HTTPException(404, "类别不存在")
+    try:
+        conn.execute("UPDATE categories SET name=? WHERE id=?", (name, category_id))
+    except sqlite3.IntegrityError:
+        raise HTTPException(409, "类别已存在") from None
+    conn.commit()
+    return {"ok": True}
+
+
+@router.delete("/categories/{category_id}")
+async def delete_category(request: Request, category_id: int, conn=Depends(get_conn)):
+    # 删类别只解除关联,仓库与其余数据不动
+    if conn.execute("SELECT 1 FROM categories WHERE id=?", (category_id,)).fetchone() is None:
+        raise HTTPException(404, "类别不存在")
+    conn.execute("DELETE FROM repo_categories WHERE category_id=?", (category_id,))
+    conn.execute("DELETE FROM categories WHERE id=?", (category_id,))
+    conn.commit()
+    return {"ok": True}
+
+
+@router.post("/repos/{repo_id}/categories")
+async def add_repo_category(request: Request, repo_id: int, body: dict, conn=Depends(get_conn)):
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(422, "类别名不能为空")
+    _require_repo(conn, repo_id)
+    row = conn.execute("SELECT id FROM categories WHERE name=?", (name,)).fetchone()
+    if row is None:
+        cur = conn.execute("INSERT INTO categories(name) VALUES (?)", (name,))
+        category_id = cur.lastrowid
+    else:
+        category_id = row["id"]
+    conn.execute("INSERT OR IGNORE INTO repo_categories(repo_id, category_id) VALUES (?,?)", (repo_id, category_id))
+    conn.commit()
+    return {"ok": True, "category_id": category_id}
+
+
+@router.delete("/repos/{repo_id}/categories/{category_id}")
+async def remove_repo_category(request: Request, repo_id: int, category_id: int, conn=Depends(get_conn)):
+    conn.execute("DELETE FROM repo_categories WHERE repo_id=? AND category_id=?", (repo_id, category_id))
     conn.commit()
     return {"ok": True}
 
