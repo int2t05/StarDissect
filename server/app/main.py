@@ -136,13 +136,20 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
                 if flag and flag["value"] == "1":
                     logger.info("定时同步跳过:手动同步进行中")
                     return
-                from app.sync import syncer
+                from app.sync import syncer, updates
 
                 try:
                     counts = await syncer.sync_star(conn, row["value"])
                     logger.info("定时同步完成:%s", counts)
                 except Exception:
                     logger.exception("定时同步失败(下轮重试)")
+                    return
+                # 同步顺带更新检测(手动建议式,仅存库提示;失败不影响同步结果)
+                try:
+                    stats = await updates.check_all(conn, row["value"])
+                    logger.info("定时更新检测:%s", stats)
+                except Exception:
+                    logger.exception("定时更新检测失败(下轮重试)")
 
             scheduler.add_job(_daily_sync, "cron", **config.DAILY_SYNC_CRON)
             scheduler.start()

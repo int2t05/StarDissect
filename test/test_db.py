@@ -45,3 +45,59 @@ def test_fts_external_content_wired(db_path):
     hit = conn.execute("SELECT rowid FROM report_fts WHERE report_fts MATCH '模块'").fetchone()
     conn.close()
     assert hit == (1,)
+
+
+def test_new_schema_carries_v5_columns(db_path):
+    # v5:归档旗标与更新检测三列直达(新库 SCHEMA 建全量)
+    init_db(db_path)
+    conn = sqlite3.connect(db_path)
+    repos_cols = {r[1] for r in conn.execute("PRAGMA table_info(repos)")}
+    rv_cols = {r[1] for r in conn.execute("PRAGMA table_info(report_versions)")}
+    conn.close()
+    assert {"archived", "behind_count", "behind_checked_at", "behind_anchor"} <= repos_cols
+    assert "archived" in rv_cols
+
+
+# v4 时点的 repos / report_versions 结构(v5 迁移模拟底座;tasks 等未涉表省略)
+_V4_SCHEMA = """
+CREATE TABLE repos (
+    id INTEGER PRIMARY KEY, github_id INTEGER UNIQUE, full_name TEXT NOT NULL,
+    description TEXT, language TEXT, default_branch TEXT,
+    status TEXT NOT NULL DEFAULT '已收录',
+    excluded INTEGER NOT NULL DEFAULT 0, unstarred INTEGER NOT NULL DEFAULT 0,
+    starred_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE report_versions (
+    id INTEGER PRIMARY KEY, repo_id INTEGER NOT NULL REFERENCES repos(id),
+    version_no INTEGER NOT NULL, task_id INTEGER REFERENCES tasks(id),
+    commit_anchor TEXT NOT NULL, markdown TEXT NOT NULL DEFAULT '', html TEXT NOT NULL,
+    sections_json TEXT NOT NULL, meta_json TEXT NOT NULL DEFAULT '{}',
+    read INTEGER NOT NULL DEFAULT 0, favorited INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (repo_id, version_no)
+);
+"""
+
+
+def test_migration_v4_to_v5(db_path):
+    # 旧库(v4)挂到 v5:五列补齐,既有数据保留且默认未归档
+    conn = sqlite3.connect(db_path)
+    conn.executescript(_V4_SCHEMA)
+    conn.execute("INSERT INTO repos(id, full_name, status) VALUES (1, 'o/old', '已分类')")
+    conn.execute("PRAGMA user_version=4")
+    conn.commit()
+    conn.close()
+
+    init_db(db_path)
+
+    conn = sqlite3.connect(db_path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+    repos_cols = {r[1] for r in conn.execute("PRAGMA table_info(repos)")}
+    assert {"archived", "behind_count", "behind_checked_at", "behind_anchor"} <= repos_cols
+    rv_cols = {r[1] for r in conn.execute("PRAGMA table_info(report_versions)")}
+    assert "archived" in rv_cols
+    row = conn.execute("SELECT full_name, archived, behind_count FROM repos WHERE id=1").fetchone()
+    assert row[0] == "o/old" and row[1] == 0 and row[2] is None
+    conn.close()

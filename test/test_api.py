@@ -257,3 +257,108 @@ async def test_reading_mosaic_counts_and_category_filter(client):
     assert [x["full_name"] for x in r] == ["o/other"]  # 未分类
     r = (await c.get("/api/entries", params={"category": ai_id, "state": "favorited"})).json()
     assert r == []
+
+
+# ---------- 归档(仓库级 + 报告级)与更新检测 ----------
+
+async def test_repo_archive_filter_and_refusal(client):
+    # 仓库归档:默认视图隐藏、归档页签可见、拒绝入队、恢复可逆
+    c, conn = client
+    conn.execute("INSERT INTO repos(id, github_id, full_name, status) VALUES (1, 11, 'o/demo', '已分类')")
+    conn.commit()
+    assert (await c.patch("/api/repos/1", json={"archived": True})).status_code == 200
+    assert (await c.get("/api/repos", params={"filter": "all"})).json() == []
+    assert (await c.get("/api/repos", params={"filter": "active"})).json() == []
+    arch = (await c.get("/api/repos", params={"filter": "archived"})).json()
+    assert [x["full_name"] for x in arch] == ["o/demo"]
+    r = await c.post("/api/repos/1/analyze")
+    assert r.status_code == 400 and "归档" in r.json()["detail"]  # 拒绝新分析任务
+    assert (await c.patch("/api/repos/1", json={"archived": False})).status_code == 200
+    assert [x["full_name"] for x in (await c.get("/api/repos", params={"filter": "all"})).json()] == ["o/demo"]
+    assert (await c.post("/api/repos/1/analyze")).status_code == 200
+
+
+async def test_report_archive_entries_rss_and_counts(client):
+    # 报告归档:阅读中心默认隐藏、state=archived 可见、RSS 与拼图计数排除;恢复可逆
+    c, conn = client
+    vid = await _seed_report(conn)
+    await c.post("/api/repos/1/categories", json={"name": "AI"})
+    assert (await c.patch(f"/api/reports/{vid}/state", json={"archived": True})).status_code == 200
+    assert (await c.get("/api/entries")).json() == []
+    arch = (await c.get("/api/entries", params={"state": "archived"})).json()
+    assert len(arch) == 1 and arch[0]["archived"] == 1
+    assert b"<entry>" not in (await c.get("/rss.xml")).content
+    ov = (await c.get("/api/reading/overview")).json()
+    assert ov["total"] == {"reports": 0, "unread": 0}
+    cats = (await c.get("/api/categories")).json()
+    assert cats[0]["reports"] == 0 and cats[0]["unread"] == 0
+    await c.patch(f"/api/reports/{vid}/state", json={"archived": False})  # 恢复
+    assert len((await c.get("/api/entries")).json()) == 1
+    assert b"<entry>" in (await c.get("/rss.xml")).content
+
+
+async def test_repo_archive_hides_reports_and_counts(client):
+    # 仓库归档:报告随仓隐藏(任一归档即隐藏),计数与 RSS 同步排除;恢复回归
+    c, conn = client
+    await _seed_report(conn)
+    await c.post("/api/repos/1/categories", json={"name": "AI"})
+    assert (await c.patch("/api/repos/1", json={"archived": True})).status_code == 200
+    assert (await c.get("/api/entries")).json() == []
+    ov = (await c.get("/api/reading/overview")).json()
+    assert ov["total"] == {"reports": 0, "unread": 0}
+    cats = (await c.get("/api/categories")).json()
+    assert cats[0]["repos"] == 0 and cats[0]["reports"] == 0
+    assert b"<entry>" not in (await c.get("/rss.xml")).content
+    await c.patch("/api/repos/1", json={"archived": False})
+    assert len((await c.get("/api/entries")).json()) == 1
+
+
+async def test_updates_check_guards(client):
+    # 更新检测护栏:未配 token 400;无报告仓库 400(真实网络调用不在此覆盖)
+    c, conn = client
+    conn.execute("DELETE FROM settings WHERE key='github_token'")
+    conn.commit()
+    r = await c.post("/api/repos/1/updates/check")
+    assert r.status_code == 400 and "token" in r.json()["detail"]
+    conn.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('github_token', 't')")
+    conn.execute("INSERT INTO repos(id, github_id, full_name, status) VALUES (2, 22, 'o/none', '已分类')")
+    conn.commit()
+    r = await c.post("/api/repos/2/updates/check")
+    assert r.status_code == 400 and "报告" in r.json()["detail"]
+
+
+async def test_report_hard_delete_requires_archive_and_cascades(client):
+    # 归档后可硬删除(DEC-06 修订):未归档 400;删除连带章节/知识点/进度/FTS,单事务
+    c, conn = client
+    vid = await _seed_report(conn)
+    await c.put(f"/api/reports/{vid}/progress", json={"anchor_seq": 1, "top_percent": 10, "bottom_percent": 10})
+    # 未归档拒绝删除
+    r = await c.delete(f"/api/reports/{vid}")
+    assert r.status_code == 400 and "归档" in r.json()["detail"]
+    # 归档后删除
+    await c.patch(f"/api/reports/{vid}/state", json={"archived": True})
+    assert (await c.delete(f"/api/reports/{vid}")).status_code == 200
+    assert conn.execute("SELECT COUNT(*) c FROM report_versions").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM report_sections").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM knowledge_points").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM reading_progress").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM report_fts").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM knowledge_fts").fetchone()["c"] == 0
+    assert (await c.get(f"/api/reports/{vid}")).status_code == 404
+    assert (await c.get("/api/search", params={"q": "模块边界"})).json() == []
+    # 删除后再次删除:404
+    assert (await c.delete(f"/api/reports/{vid}")).status_code == 404
+
+
+async def test_report_delete_invalidates_behind_state(client):
+    # 删除的版本即落后检测锚点时:behind 三列失效清空
+    c, conn = client
+    vid = await _seed_report(conn)
+    from app.sync import updates
+
+    updates.apply_behind(conn, 1, 5)
+    conn.commit()
+    await c.patch(f"/api/reports/{vid}/state", json={"archived": True})
+    assert (await c.delete(f"/api/reports/{vid}")).status_code == 200
+    row = conn.execute("SELECT behind_count, behind_checked_at FROM repos WHERE id=1").fetchone()
+    assert row["behind_count"] is None and row["behind_checked_at"] is None

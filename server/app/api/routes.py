@@ -42,6 +42,13 @@ async def _run_sync(token: str):
     conn = connect(db_path())
     try:
         await syncer.sync_star(conn, token)
+        # 手动同步同样顺带更新检测(与定时路径一致);失败仅记日志
+        from app.sync import updates
+
+        try:
+            await updates.check_all(conn, token)
+        except Exception:  # noqa: BLE001 —— 检测失败不影响同步
+            logging.getLogger("stardissect.updates").exception("手动同步后的更新检测失败")
     finally:
         conn.execute("INSERT INTO settings(key, value) VALUES ('syncing','0')"
                      " ON CONFLICT(key) DO UPDATE SET value='0'")
@@ -83,9 +90,13 @@ def _setting(conn, key: str) -> str | None:
 async def list_repos(request: Request, filter: str = "all", q: str = "", category: int = 0, conn=Depends(get_conn)):
     where, args = "WHERE 1=1", []
     if filter == "active":
-        where += " AND unstarred=0 AND excluded=0"
-    if filter == "unstarred":
+        where += " AND unstarred=0 AND excluded=0 AND archived=0"
+    elif filter == "archived":
+        where += " AND archived=1"  # 归档页签:仅归档仓库,可查看/恢复
+    elif filter == "unstarred":
         where += " AND unstarred=1"
+    else:  # all 默认排除归档,归档仓库走归档页签查看
+        where += " AND archived=0"
     if q:
         where += " AND (r.full_name LIKE ? OR r.description LIKE ? OR r.id IN (SELECT repo_id FROM tags WHERE name LIKE ? UNION SELECT repo_id FROM auto_tags WHERE name LIKE ?))"
         args += [f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"]
@@ -133,7 +144,7 @@ async def repo_detail(request: Request, repo_id: int, conn=Depends(get_conn)):
         "SELECT c.id, c.name FROM repo_categories rc JOIN categories c ON c.id=rc.category_id"
         " WHERE rc.repo_id=? ORDER BY c.name", (repo_id,))]
     versions = conn.execute(
-        "SELECT id, version_no, commit_anchor, created_at FROM report_versions WHERE repo_id=? ORDER BY version_no DESC", (repo_id,)
+        "SELECT id, version_no, commit_anchor, archived, created_at FROM report_versions WHERE repo_id=? ORDER BY version_no DESC", (repo_id,)
     ).fetchall()
     tasks = conn.execute(
         "SELECT id, kind, status, priority, fail_reason, started_at, finished_at FROM tasks WHERE repo_id=? ORDER BY id DESC", (repo_id,)
@@ -159,15 +170,17 @@ async def patch_repo(request: Request, repo_id: int, body: dict, conn=Depends(ge
         else:
             conn.execute("UPDATE repos SET excluded=0, updated_at=datetime('now') WHERE id=?", (repo_id,))
             conn.commit()
+    if "archived" in body:
+        queue.archive_repo(conn, repo_id, bool(body["archived"]))
     return {"ok": True}
 
 
 @router.patch("/reports/{version_id}/state")
 async def patch_report_state(request: Request, version_id: int, body: dict, conn=Depends(get_conn)):
-    # 条目级已读/收藏(REQ-READ-006,键盘 m/f)
+    # 条目级已读/收藏/归档(REQ-READ-006,键盘 m/f;归档为手动建议式管理动作)
     fields = []
     args = []
-    for key in ("read", "favorited"):
+    for key in ("read", "favorited", "archived"):
         if key in body:
             fields.append(f"{key}=?")
             args.append(1 if body[key] else 0)
@@ -257,25 +270,29 @@ def _require_repo(conn, repo_id: int):
 @router.get("/categories")
 async def list_categories(request: Request, conn=Depends(get_conn)):
     # repos=入库仓库数(仓库库);reports/unread=报告数与未读数(阅读中心拼图)
+    # 计数与可见条目一致:排除归档仓库与归档报告
     return [dict(r) for r in conn.execute(
-        """SELECT c.id, c.name, COUNT(DISTINCT rc.repo_id) AS repos,
+        """SELECT c.id, c.name,
+                  COUNT(DISTINCT CASE WHEN r.archived=0 THEN rc.repo_id END) AS repos,
                   COUNT(v.id) AS reports,
                   COALESCE(SUM(CASE WHEN v.read=0 THEN 1 ELSE 0 END), 0) AS unread
            FROM categories c
            LEFT JOIN repo_categories rc ON rc.category_id=c.id
-           LEFT JOIN report_versions v ON v.repo_id=rc.repo_id
+           LEFT JOIN repos r ON r.id=rc.repo_id
+           LEFT JOIN report_versions v ON v.repo_id=rc.repo_id AND v.archived=0 AND r.archived=0
            GROUP BY c.id ORDER BY c.name""")]
 
 
 @router.get("/reading/overview")
 async def reading_overview(request: Request, conn=Depends(get_conn)):
-    # 拼图首块「全部」与「未分类」的计数;未分类=报告仓库未归入任何领域类别
+    # 拼图首块「全部」与「未分类」的计数;未分类=报告仓库未归入任何领域类别;排除归档(与可见条目一致)
+    base = """FROM report_versions v JOIN repos r ON r.id=v.repo_id
+           WHERE v.archived=0 AND r.archived=0"""
     total = conn.execute(
-        "SELECT COUNT(*) AS reports, COALESCE(SUM(read=0), 0) AS unread FROM report_versions").fetchone()
+        f"SELECT COUNT(*) AS reports, COALESCE(SUM(v.read=0), 0) AS unread {base}").fetchone()
     uncat = conn.execute(
-        """SELECT COUNT(*) AS reports, COALESCE(SUM(v.read=0), 0) AS unread
-           FROM report_versions v
-           WHERE NOT EXISTS (SELECT 1 FROM repo_categories rc WHERE rc.repo_id=v.repo_id)""").fetchone()
+        f"""SELECT COUNT(*) AS reports, COALESCE(SUM(v.read=0), 0) AS unread {base}
+           AND NOT EXISTS (SELECT 1 FROM repo_categories rc WHERE rc.repo_id=v.repo_id)""").fetchone()
     return {"total": dict(total), "uncategorized": dict(uncat)}
 
 
@@ -377,7 +394,25 @@ async def analyze(request: Request, repo_id: int, body: dict = None, conn=Depend
         raise HTTPException(409, "该仓库已有排队/进行任务")
     except queue.ExcludedRepo:
         raise HTTPException(400, "仓库已被排除")
+    except queue.ArchivedRepo:
+        raise HTTPException(400, "仓库已归档,请先恢复")
     return task
+
+
+@router.post("/repos/{repo_id}/updates/check")
+async def check_updates(request: Request, repo_id: int, conn=Depends(get_conn)):
+    # 单仓库更新检测(手动建议式):报告锚点落后远端 HEAD 的 commits 数;不自动入队(DEC-06)
+    token = _setting(conn, "github_token")
+    if not token:
+        raise HTTPException(400, "未配置 github_token")
+    from app.sync import updates
+
+    try:
+        return await updates.check_repo(conn, token, repo_id)
+    except LookupError:
+        raise HTTPException(404, "仓库不存在") from None
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
 
 
 # ---------- 任务与队列(REQ-TASK) ----------
@@ -463,6 +498,38 @@ async def get_report(request: Request, version_id: int, conn=Depends(get_conn)):
     }
 
 
+@router.delete("/reports/{version_id}")
+async def delete_report(request: Request, version_id: int, conn=Depends(get_conn)):
+    # 归档后可硬删除(REQ-ARCH-002,DEC-06 修订):连带章节/知识点/进度/FTS,单事务
+    row = conn.execute(
+        "SELECT repo_id, commit_anchor, archived FROM report_versions WHERE id=?", (version_id,)
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404, "报告版本不存在")
+    if not row["archived"]:
+        raise HTTPException(400, "须先归档才能删除")
+    section_ids = [r["id"] for r in conn.execute(
+        "SELECT id FROM report_sections WHERE report_version_id=?", (version_id,))]
+    kp_ids = [r["id"] for r in conn.execute(
+        "SELECT id FROM knowledge_points WHERE report_version_id=?", (version_id,))]
+    for sid in section_ids:
+        conn.execute("DELETE FROM report_fts WHERE rowid=?", (sid,))
+    for kid in kp_ids:
+        conn.execute("DELETE FROM knowledge_fts WHERE rowid=?", (kid,))
+    conn.execute("DELETE FROM report_sections WHERE report_version_id=?", (version_id,))
+    conn.execute("DELETE FROM knowledge_points WHERE report_version_id=?", (version_id,))
+    conn.execute("DELETE FROM reading_progress WHERE report_version_id=?", (version_id,))
+    conn.execute("DELETE FROM report_versions WHERE id=?", (version_id,))
+    # 锚点随版本删除:落后数失效,等待下次检测刷新
+    conn.execute(
+        "UPDATE repos SET behind_count=NULL, behind_checked_at=NULL, behind_anchor=NULL"
+        " WHERE id=? AND behind_anchor=?",
+        (row["repo_id"], row["commit_anchor"]),
+    )
+    conn.commit()
+    return {"ok": True}
+
+
 @router.get("/reports/{version_id}/progress")
 async def get_progress(request: Request, version_id: int, conn=Depends(get_conn)):
     row = conn.execute(
@@ -543,16 +610,22 @@ async def export_report(request: Request, version_id: int, conn=Depends(get_conn
 async def entries(request: Request, state: str = "all", category: int = 0, conn=Depends(get_conn)):
     # 阅读中心条目聚合:单查询返回报告条目+仓库信息(消除前端逐仓库 N+1)
     # category:0=全部,-1=未分类,>0=按领域类别过滤(REQ-CLS-006)
-    clauses = {"unread": "v.read=0", "favorited": "v.favorited=1"}
+    # 默认隐藏归档(报告级或仓库级任一);state=archived 仅看报告级归档条目(仓库级归档随仓隐藏)
+    clauses = {"unread": "v.read=0", "favorited": "v.favorited=1",
+               "archived": "v.archived=1 AND r.archived=0"}
     where, args = [], []
-    if state in clauses:
+    if state == "archived":
         where.append(clauses[state])
+    else:
+        where.append("v.archived=0 AND r.archived=0")
+        if state in clauses:
+            where.append(clauses[state])
     if category > 0:
         where.append("r.id IN (SELECT repo_id FROM repo_categories WHERE category_id=?)")
         args.append(category)
     elif category == -1:
         where.append("NOT EXISTS (SELECT 1 FROM repo_categories rc WHERE rc.repo_id=r.id)")
-    sql = f"""SELECT v.id, v.version_no, v.read, v.favorited, v.created_at,
+    sql = f"""SELECT v.id, v.version_no, v.read, v.favorited, v.archived, v.created_at,
                      r.id AS repo_id, r.full_name
               FROM report_versions v JOIN repos r ON r.id = v.repo_id
               {'WHERE ' + ' AND '.join(where) if where else ''}
@@ -589,6 +662,7 @@ async def rss(request: Request, conn=Depends(get_conn)):
         """SELECT v.id, v.version_no, v.created_at, r.full_name, s.title, s.text_content
            FROM report_versions v JOIN repos r ON r.id=v.repo_id
            LEFT JOIN report_sections s ON s.report_version_id=v.id AND s.seq=0
+           WHERE v.archived=0 AND r.archived=0
            ORDER BY v.id DESC LIMIT 50"""
     ).fetchall()
     for row in rows:

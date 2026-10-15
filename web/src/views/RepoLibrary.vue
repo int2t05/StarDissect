@@ -1,4 +1,4 @@
-<!-- 仓库库:列表筛选、领域类别筛选与管理、仓库详情抽屉(分类/锁定/标签/类别/排除/重新分析/版本/知识点,US-02/03/08) -->
+<!-- 仓库库:列表筛选、领域类别筛选与管理、仓库详情抽屉(分类/锁定/标签/类别/排除/归档/更新检测/重新分析/版本/知识点,US-02/03/08) -->
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { NAutoComplete, NButton, NCard, NDrawer, NDrawerContent, NEmpty, NInput, NModal, NPopconfirm, NTag } from 'naive-ui'
@@ -19,6 +19,7 @@ const filterOptions = [
   { label: '在库', value: 'active' },
   { label: '全部', value: 'all' },
   { label: '已取消收藏', value: 'unstarred' },
+  { label: '已归档', value: 'archived' },
 ]
 
 // 归类输入补全:只提示未归入的已有类别;新名回车即建(REQ-CLS-006)
@@ -111,6 +112,31 @@ async function toggleExclude() {
   await load()
 }
 
+async function toggleArchive() {
+  // 仓库归档/恢复:归档后默认隐藏且拒绝新分析,可随时恢复
+  await api(`/api/repos/${detail.value.repo.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archived: !detail.value.repo.archived }) })
+  await open(detail.value.repo.id)
+  await load()
+}
+
+async function checkUpdates() {
+  // 手动检查更新:返回报告锚点落后远端 HEAD 的 commits 数(仅提示,不自动入队)
+  await api(`/api/repos/${detail.value.repo.id}/updates/check`, { method: 'POST' })
+  await open(detail.value.repo.id)
+}
+
+async function toggleVersionArchive(v) {
+  // 报告级归档/恢复,独立于仓库归档
+  await api(`/api/reports/${v.id}/state`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archived: !v.archived }) })
+  await open(detail.value.repo.id)
+}
+
+async function delVersion(v) {
+  // 硬删除(仅限已归档版本):连带章节/知识点/检索索引,不可恢复
+  await api(`/api/reports/${v.id}`, { method: 'DELETE' })
+  await open(detail.value.repo.id)
+}
+
 async function analyze() {
   await api(`/api/repos/${detail.value.repo.id}/analyze`, { method: 'POST' })
   await open(detail.value.repo.id)
@@ -146,6 +172,7 @@ onMounted(() => { load(); loadCategories() })
             <n-tag v-if="r.type" size="tiny" :bordered="false">{{ r.type }} · {{ r.confidence }}</n-tag>
             <n-tag v-if="r.locked" size="tiny" type="warning" :bordered="false">已锁定</n-tag>
             <n-tag v-if="r.excluded" size="tiny" :bordered="false">已排除</n-tag>
+            <n-tag v-if="r.behind_count > 0" size="tiny" type="error" :bordered="false">落后 {{ r.behind_count }} commits</n-tag>
           </span>
         </div>
         <p class="desc">{{ r.description }}</p>
@@ -160,6 +187,9 @@ onMounted(() => { load(); loadCategories() })
       <n-drawer-content v-if="detail" :title="detail.repo.full_name" closable>
         <div class="detail">
           <p class="desc">{{ detail.repo.description }}</p>
+          <p v-if="detail.repo.behind_count > 0" class="desc behind">
+            落后远端 {{ detail.repo.behind_count }} commits(检查于 {{ fmtTime(detail.repo.behind_checked_at) }})· 建议重新分析
+          </p>
           <div v-if="detail.classification" class="cls">
             <n-tag size="small" :bordered="false">{{ detail.classification.type }} · 置信 {{ detail.classification.confidence }}</n-tag>
             <n-button size="tiny" quaternary @click="toggleLock">{{ detail.classification.locked ? '解锁分类' : '锁定分类' }}</n-button>
@@ -194,14 +224,30 @@ onMounted(() => { load(); loadCategories() })
             <n-input size="small" placeholder="+ 标签,回车添加" @keydown.enter="addTag" />
           </div>
           <div class="actions">
-            <n-button size="small" type="primary" secondary @click="analyze">{{ detail.versions.length ? '重新分析' : '开始分析' }}</n-button>
+            <n-button v-if="!detail.repo.archived" size="small" type="primary" secondary @click="analyze">{{ detail.versions.length ? '重新分析' : '开始分析' }}</n-button>
+            <n-button size="small" secondary @click="checkUpdates">检查更新</n-button>
             <n-button size="small" quaternary @click="toggleExclude">{{ detail.repo.excluded ? '取消排除' : '排除(不再自动分析)' }}</n-button>
+            <n-popconfirm v-if="!detail.repo.archived" @positive-click="toggleArchive">
+              <template #trigger>
+                <n-button size="small" quaternary type="error">归档</n-button>
+              </template>
+              归档后仓库默认隐藏并拒绝新分析,可随时恢复。确认归档?
+            </n-popconfirm>
+            <n-button v-else size="small" quaternary type="primary" @click="toggleArchive">恢复(取消归档)</n-button>
           </div>
           <div v-if="detail.versions.length" class="sec">
             <h3>报告版本</h3>
             <p v-for="v in detail.versions" :key="v.id" class="ver">
               <RouterLink :to="`/repos/${detail.repo.id}/report/${v.id}`" @click="showDetail = false">v{{ v.version_no }} · {{ fmtTime(v.created_at) }}</RouterLink>
+              <n-tag v-if="v.archived" size="tiny" :bordered="false">已归档</n-tag>
               <a :href="`/api/reports/${v.id}/export`">导出</a>
+              <a href="#" @click.prevent="toggleVersionArchive(v)">{{ v.archived ? '恢复' : '归档' }}</a>
+              <n-popconfirm v-if="v.archived" @positive-click="delVersion(v)">
+                <template #trigger>
+                  <a href="#" @click.prevent class="danger">删除</a>
+                </template>
+                删除 v{{ v.version_no }} 及其章节/知识点/检索索引?不可恢复。
+              </n-popconfirm>
             </p>
           </div>
           <div v-if="detail.knowledge_points.length" class="sec">
@@ -246,10 +292,12 @@ onMounted(() => { load(); loadCategories() })
 .mgr-row .n-input { flex: 1; }
 .count { color: var(--sd-text-3); font-size: 12px; white-space: nowrap; }
 .desc { color: var(--sd-text-2); margin: 6px 0 0; font-size: 0.9em; }
+.desc.behind { color: var(--sd-error, #d03050); }
 .detail { display: flex; flex-direction: column; gap: 16px; }
 .sec h3 { font-size: 0.95em; color: var(--sd-text-2); border-top: 1px solid var(--sd-border); padding-top: 14px; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 h3.sub { padding-top: 10px; margin-top: 2px; border-top: 0; font-size: 0.88em; }
 .actions { display: flex; gap: 8px; }
-.ver { display: flex; gap: 12px; }
+.ver { display: flex; gap: 12px; align-items: center; }
+.ver .danger { color: var(--sd-error, #d03050); }
 </style>

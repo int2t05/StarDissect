@@ -185,6 +185,11 @@ def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: 
                     "INSERT INTO classification_history(repo_id, old_type, new_type, reason) VALUES (?,?,?,?)",
                     (repo_id, old, corr.type, corr.reason),
                 )
+    # 新报告=新锚点:旧落后数失效,等待下次检测刷新(更新检测,手动建议式)
+    conn.execute(
+        "UPDATE repos SET behind_count=NULL, behind_checked_at=NULL, behind_anchor=NULL WHERE id=?",
+        (repo_id,),
+    )
     conn.commit()
     return version_id
 

@@ -1,4 +1,4 @@
-<!-- 阅读中心:类别拼图(大号标签块,UX-64)→ 点入类别看报告卡片;全局搜索(UX-38..42);条目聚合 /api/entries(REQ-READ-006) -->
+<!-- 阅读中心:类别拼图(大号标签块,UX-64)→ 点入类别看报告卡片(已读/收藏/归档);全局搜索(UX-38..42);条目聚合 /api/entries(REQ-READ-006) -->
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -24,6 +24,7 @@ const filterOptions = [
   { label: '全部', value: 'all' },
   { label: '未读', value: 'unread' },
   { label: '收藏', value: 'favorited' },
+  { label: '已归档', value: 'archived' },
 ]
 
 // 拼图只呈现有内容的类别;按报告数优先排序
@@ -207,7 +208,12 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
         <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
           <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
             <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
-            <span class="meta"><n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag> {{ fmtTime(e.created_at) }}</span>
+            <span class="meta">
+              <n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag>
+              <n-tag v-if="e.archived" size="tiny" :bordered="false">已归档</n-tag>
+              {{ fmtTime(e.created_at) }}
+              <a href="#" @click.prevent.stop="toggleEntryState(e, 'archived')">{{ e.archived ? '恢复' : '归档' }}</a>
+            </span>
           </RouterLink>
         </li>
       </ul>

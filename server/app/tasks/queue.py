@@ -27,6 +27,10 @@ class ExcludedRepo(Exception):
     """仓库已被排除,不自动分析(REQ-TASK-002)"""
 
 
+class ArchivedRepo(Exception):
+    """仓库已归档,拒绝新分析任务(恢复后可再入队)"""
+
+
 class TaskLimited(Exception):
     """执行器触达轮次/时限上限或流程性终止(待人工等);统一归「失败」(DEC-09 轻量语义)"""
 
@@ -40,11 +44,13 @@ def _now() -> str:
 
 
 def enqueue(conn: sqlite3.Connection, repo_id: int, kind: str, priority: int, turn_limit: int, time_limit_sec: int, auto_retries: int = 0) -> dict:
-    repo = conn.execute("SELECT excluded FROM repos WHERE id=?", (repo_id,)).fetchone()
+    repo = conn.execute("SELECT excluded, archived FROM repos WHERE id=?", (repo_id,)).fetchone()
     if repo is None:
         raise LookupError(f"仓库不存在: {repo_id}")
     if repo["excluded"]:
         raise ExcludedRepo(f"仓库已排除: {repo_id}")
+    if repo["archived"]:
+        raise ArchivedRepo(f"仓库已归档: {repo_id}")
     busy = conn.execute(
         "SELECT 1 FROM tasks WHERE repo_id=? AND status IN ('排队','进行')", (repo_id,)
     ).fetchone()
@@ -106,6 +112,14 @@ def exclude_repo(conn: sqlite3.Connection, repo_id: int) -> None:
     conn.commit()
 
 
+def archive_repo(conn: sqlite3.Connection, repo_id: int, archived: bool) -> None:
+    """仓库归档/恢复:归档时清排队任务(镜像 exclude_repo);效果=库默认隐藏+拒入队+RSS/检索排除。"""
+    conn.execute("UPDATE repos SET archived=?, updated_at=? WHERE id=?", (1 if archived else 0, _now(), repo_id))
+    if archived:
+        cancel_pending(conn, repo_id)
+    conn.commit()
+
+
 def recover(conn: sqlite3.Connection) -> int:
     # 启动恢复:崩溃残留的「进行」→「中断」,等待人工重试;产物无半成品(事务保证,REQ-TASK-006)
     cur = conn.execute("UPDATE tasks SET status='中断', fail_reason='服务重启中断' WHERE status='进行'")
@@ -151,8 +165,8 @@ def step(conn: sqlite3.Connection, executor) -> bool:
         marker in reason for marker in ("git clone 失败", "ModelHTTPError", "ModelAPIError")
     )
     turn_capped = status == "失败" and reason == "轮次上限" and task["turn_limit"] < config.TASK_TURN_ESCALATE_CAP
-    excluded = conn.execute("SELECT excluded FROM repos WHERE id=?", (task["repo_id"],)).fetchone()
-    if status == "失败" and not (excluded and excluded["excluded"]) \
+    excluded = conn.execute("SELECT excluded, archived FROM repos WHERE id=?", (task["repo_id"],)).fetchone()
+    if status == "失败" and not (excluded and (excluded["excluded"] or excluded["archived"])) \
             and task["auto_retries"] < config.TASK_AUTO_RETRY_MAX and (network_hit or turn_capped):
         new_limit = min(task["turn_limit"] * 2, config.TASK_TURN_ESCALATE_CAP) if turn_capped else task["turn_limit"]
         conn.execute(

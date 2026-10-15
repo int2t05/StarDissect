@@ -66,3 +66,17 @@ def test_search_no_result_is_empty(tmp_path):
     conn = _seed(tmp_path / "app.db")
     assert indexer.search(conn, "不存在的词组xyzq") == []
     conn.close()
+
+
+def test_archived_content_excluded(tmp_path):
+    # 归档查询期过滤(FTS 索引不动):报告归档→报告/知识点域不命中;仓库归档→三域全不命中
+    conn = _seed(tmp_path / "app.db")
+    conn.execute("UPDATE report_versions SET archived=1")
+    conn.commit()
+    kinds = {r["kind"] for r in indexer.search(conn, "扩展机制")}
+    assert kinds == {"repo"}
+    conn.execute("UPDATE report_versions SET archived=0")
+    conn.execute("UPDATE repos SET archived=1")
+    conn.commit()
+    assert indexer.search(conn, "扩展机制") == []
+    conn.close()

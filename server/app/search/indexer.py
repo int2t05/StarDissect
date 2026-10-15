@@ -72,7 +72,7 @@ def search(conn, query: str, limit: int = 20) -> list[dict]:
         JOIN report_sections s ON s.id = report_fts.rowid
         JOIN report_versions rv ON rv.id = s.report_version_id
         JOIN repos r ON r.id = rv.repo_id
-        WHERE report_fts MATCH ? LIMIT ?"""
+        WHERE report_fts MATCH ? AND rv.archived=0 AND r.archived=0 LIMIT ?"""
     knowledge_sql = """
         SELECT 'knowledge' AS kind, r.id AS repo_id, r.full_name,
                rv.id AS version_id, rv.version_no, NULL AS seq,
@@ -82,7 +82,7 @@ def search(conn, query: str, limit: int = 20) -> list[dict]:
         JOIN knowledge_points kp ON kp.id = knowledge_fts.rowid
         JOIN report_versions rv ON rv.id = kp.report_version_id
         JOIN repos r ON r.id = kp.repo_id
-        WHERE knowledge_fts MATCH ? LIMIT ?"""
+        WHERE knowledge_fts MATCH ? AND rv.archived=0 AND r.archived=0 LIMIT ?"""
     repo_sql = """
         SELECT 'repo' AS kind, r.id AS repo_id, r.full_name,
                NULL AS version_id, NULL AS version_no, NULL AS seq,
@@ -90,7 +90,7 @@ def search(conn, query: str, limit: int = 20) -> list[dict]:
                snippet(repo_fts, 1, '<mark>', '</mark>', '…', 16) AS snippet
         FROM repo_fts
         JOIN repos r ON r.id = repo_fts.rowid
-        WHERE repo_fts MATCH ? LIMIT ?"""
+        WHERE repo_fts MATCH ? AND r.archived=0 LIMIT ?"""
     hits: list[dict] = []
     for sql in (report_sql, knowledge_sql, repo_sql):
         for row in conn.execute(sql, (match, limit)):

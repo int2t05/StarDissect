@@ -102,6 +102,19 @@ def test_exclude_repo_drops_pending_and_blocks(conn):
         queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
 
 
+def test_archived_repo_refused_and_recoverable(conn):
+    # 仓库归档:拒入队 + 清排队任务;恢复后可重新入队
+    queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
+    queue.archive_repo(conn, 1, True)
+    assert conn.execute("SELECT archived FROM repos WHERE id=1").fetchone()["archived"] == 1
+    assert conn.execute("SELECT COUNT(*) c FROM tasks").fetchone()["c"] == 0
+    with pytest.raises(queue.ArchivedRepo):
+        queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
+    queue.archive_repo(conn, 1, False)
+    queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE status='排队'").fetchone()["c"] == 1
+
+
 def test_recover_marks_running_as_interrupted(conn):
     queue.enqueue(conn, 1, "analyze", priority=0, turn_limit=30, time_limit_sec=1800)
     conn.execute("UPDATE tasks SET status='进行', started_at='2026-10-09'")

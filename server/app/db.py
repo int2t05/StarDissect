@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS repos (
     status TEXT NOT NULL DEFAULT '已收录',   -- 仓库态:已收录/已分类/待处理/可阅读(任务态见 tasks 表)
     excluded INTEGER NOT NULL DEFAULT 0,
     unstarred INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,     -- 仓库归档:库默认隐藏/拒入队/RSS 与检索排除,可恢复
+    behind_count INTEGER,                    -- 报告锚点落后远端默认分支 HEAD 的 commits 数;NULL=未检测或已失效
+    behind_checked_at TEXT,                  -- 最近一次检测时间
+    behind_anchor TEXT,                      -- 检测时针对的报告锚点(供新报告后失效判断)
     starred_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -97,6 +101,7 @@ CREATE TABLE IF NOT EXISTS report_versions (
     meta_json TEXT NOT NULL DEFAULT '{}',
     read INTEGER NOT NULL DEFAULT 0,
     favorited INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,     -- 报告归档:阅读中心默认隐藏/RSS 与检索排除,独立于仓库归档
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (repo_id, version_no)
 );
@@ -161,6 +166,14 @@ CREATE VIRTUAL TABLE IF NOT EXISTS repo_fts USING fts5(
 # 版本 → 该版本的增量语句(列变更等 SCHEMA 重放覆盖不到的)
 MIGRATIONS = {
     3: ["ALTER TABLE tasks ADD COLUMN auto_retries INTEGER NOT NULL DEFAULT 0"],
+    # v5:仓库/报告归档 + 更新检测三列(既有库走此路径;列已存在由 init_db 幂等吞掉)
+    5: [
+        "ALTER TABLE repos ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE repos ADD COLUMN behind_count INTEGER",
+        "ALTER TABLE repos ADD COLUMN behind_checked_at TEXT",
+        "ALTER TABLE repos ADD COLUMN behind_anchor TEXT",
+        "ALTER TABLE report_versions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+    ],
 }
 
 ALL_TABLES = {
@@ -171,7 +184,7 @@ ALL_TABLES = {
 }
 
 
-SCHEMA_VERSION = 4  # 结构变更:更新 SCHEMA 并递增版本;SCHEMA 全 IF NOT EXISTS 幂等重放建新表,
+SCHEMA_VERSION = 5  # 结构变更:更新 SCHEMA 并递增版本;SCHEMA 全 IF NOT EXISTS 幂等重放建新表,
                     # 列变更走 MIGRATIONS 显式语句(按版本顺序执行)
 
 

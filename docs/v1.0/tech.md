@@ -33,6 +33,9 @@ docs/                       # 本文档体系
 repos(id PK, github_id UNIQUE, full_name, description, language, default_branch,
       status,                          -- PRD FIG-02 状态
       excluded INT DEFAULT 0, unstarred INT DEFAULT 0,
+      archived INT DEFAULT 0,          -- 仓库归档:库/阅读中心默认隐藏、拒入队、RSS 与检索排除,可恢复(REQ-ARCH-001)
+      behind_count, behind_checked_at, behind_anchor,
+                                       -- 更新检测:报告锚点落后远端默认分支 HEAD 的 commits 数;NULL=未检测或已失效(REQ-UPD-001)
       starred_at, created_at, updated_at)
 
 classifications(id PK, repo_id FK, type, reason, confidence,   -- 高/中/低
@@ -55,6 +58,7 @@ tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
 report_versions(id PK, repo_id FK, version_no, task_id FK,
       commit_anchor, markdown, html, sections_json,   -- markdown=导出原文(REQ-OUT-001)
       meta_json, read, favorited,                     -- 条目级已读/收藏(REQ-READ-006)
+      archived INT DEFAULT 0,                         -- 报告归档:阅读中心默认隐藏、RSS 与检索排除,独立于仓库归档(REQ-ARCH-002);归档后可硬删除(REQ-ARCH-003)
       created_at, UNIQUE(repo_id, version_no))
 
 knowledge_points(id PK, repo_id FK, report_version_id FK,
@@ -86,6 +90,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 - 重试/重分析(REQ-TASK-004/005):新增 tasks 行,不覆盖历史;同仓库「排队/进行」存在则拒绝。
 - 失败自愈(工程补强):网络类失败(clone/模型网关)按原预算自动重排,轮次上限失败按预算加倍(封顶 TASK_TURN_ESCALATE_CAP)重排一次,均以 auto_retries 计数、上限 3 次;排除仓库不重排;人工重试不受此限。
 - 启动恢复(REQ-TASK-006):扫描「进行」→置「中断」;产出的半成品由事务原子性保证不存在。
+- 归档(REQ-ARCH-001):已归档仓库拒绝入队(含失败自动重排路径),归档动作清排队任务;不自动解除(再收藏不恢复)。
 
 ## 4. 分析 agent 规格(ADR-0005)
 
@@ -128,9 +133,10 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | 端点                            | 方法           | 覆盖 REQ                |
 | ------------------------------- | -------------- | ----------------------- |
 | /api/sync                       | POST/GET 状态  | SYNC-001/002/003        |
-| /api/repos                      | GET(筛选/标签/类别) | CLS-005/006、TASK-001   |
-| /api/repos/{id}                 | GET/PATCH      | CLS-001…005、TASK-002 排除 |
+| /api/repos                      | GET(筛选/标签/类别;filter=archived 查看归档页签)| CLS-005/006、TASK-001   |
+| /api/repos/{id}                 | GET/PATCH(excluded/archived) | CLS-001…005、TASK-002 排除、ARCH-001 |
 | /api/repos/{id}/analyze         | POST           | TASK-005                |
+| /api/repos/{id}/updates/check   | POST(单仓更新检测) | UPD-002(手动「检查更新」)|
 | /api/tasks                      | GET/PATCH      | TASK-001…004            |
 | /api/tasks/{id}                 | DELETE         | TASK-002(按 id 取消排队)|
 | /api/tasks/{id}/terminate       | POST           | TASK-002(终止分析中)    |
@@ -143,13 +149,13 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/repos/{id}/categories      | POST / DELETE  | CLS-006(归类/解除,不存在即建)|
 | /api/reading/overview           | GET            | CLS-006(拼图:全部/未分类计数)|
 | /api/repos/{id}/classify        | POST           | CLS-002(人工选择范围)   |
-| /api/reports/{vid}/state        | PATCH          | READ-006(已读/收藏)    |
+| /api/reports/{vid}/state        | PATCH          | READ-006(已读/收藏/归档)|
 | /api/knowledge_points/{id}      | PATCH/DELETE   | KP-002(人工修订/软删除) |
 | /api/knowledge_points/{id}/restore | POST        | KP-002(软删除恢复)      |
 | /api/repos/{id}/reports         | GET(版本列表)  | RPT-004、TASK-005       |
-| /api/reports/{version_id}       | GET(html/sections) | READ-001…005        |
+| /api/reports/{version_id}       | GET(html/sections)/DELETE(仅归档版本) | READ-001…005、ARCH-003 |
 | /api/reports/{version_id}/progress | PUT/GET     | READ-003                |
-| /api/entries                    | GET(state/category=) | READ-006、CLS-006(条目聚合,消 N+1)|
+| /api/entries                    | GET(state/category=;state=archived 查归档条目) | READ-006、CLS-006(条目聚合,消 N+1)|
 | /api/search                     | GET(q=)        | SRCH-001/002            |
 | /api/reports/{version_id}/export | GET(.md)     | OUT-001                 |
 | /rss.xml                        | GET            | OUT-002                 |
