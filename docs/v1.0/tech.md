@@ -144,10 +144,10 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/queue                      | POST           | TASK-002(暂停/恢复)     |
 | /api/repos/{id}/lock            | POST           | CLS-003(分类锁定)       |
 | /api/repos/{id}/tags            | POST / DELETE  | CLS-005(人工标签)       |
-| /api/categories                 | GET/POST       | CLS-006(领域类别,含仓库/报告/未读计数)|
+| /api/categories                 | GET/POST       | CLS-006(领域类别,含可见仓库数)|
 | /api/categories/{id}            | PATCH/DELETE   | CLS-006(改名/删除仅解除关联)|
 | /api/repos/{id}/categories      | POST / DELETE  | CLS-006(归类/解除,不存在即建)|
-| /api/reading/overview           | GET            | CLS-006(拼图:全部/未分类计数)|
+| /api/reading/overview           | GET            | CLS-006(拼图:全部/未分类仓库数)|
 | /api/repos/{id}/classify        | POST           | CLS-002(人工选择范围)   |
 | /api/reports/{vid}/state        | PATCH          | READ-006(已读/收藏/归档)|
 | /api/knowledge_points/{id}      | PATCH/DELETE   | KP-002(人工修订/软删除) |

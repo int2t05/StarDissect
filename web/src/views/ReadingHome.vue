@@ -27,10 +27,10 @@ const filterOptions = [
   { label: '已归档', value: 'archived' },
 ]
 
-// 拼图只呈现有内容的类别;按报告数优先排序
+// 拼图按仓库数呈现:有仓库的类别即显示;按仓库数优先排序
 const sortedCats = computed(() =>
-  categories.value.filter(c => c.reports > 0)
-    .sort((a, b) => b.reports - a.reports || a.name.localeCompare(b.name, 'zh')))
+  categories.value.filter(c => c.repos > 0)
+    .sort((a, b) => b.repos - a.repos || a.name.localeCompare(b.name, 'zh')))
 
 const catName = computed(() =>
   cat.value === 0 ? '全部' : cat.value === -1 ? '未分类'
@@ -65,7 +65,7 @@ function enter(id) {
 
 async function back() {
   cat.value = null
-  await loadMosaic() // 未读/收藏可能在类别内被切换,回拼图前刷新计数
+  await loadMosaic() // 归档/分类可能在类别内变化,回拼图前刷新仓库计数
 }
 
 watch([cat, filter], loadEntries) // 筛选服务端执行(REQ-READ-006)
@@ -175,24 +175,24 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
       <div v-else-if="searchEmpty" class="empty"><n-empty description="无结果" size="small" /></div>
     </div>
 
-    <!-- 类别拼图(UX-64):大号标签块,一类别一入口 -->
+    <!-- 类别拼图(UX-64):大号标签块,一类别一入口;计数以仓库数为准 -->
     <template v-if="cat === null">
       <div class="cloud">
         <button class="tile" @click="enter(0)">
           <span class="name">全部</span>
-          <span class="meta">{{ overview?.total.reports ?? 0 }} 篇<span v-if="overview?.total.unread" class="unread"> · {{ overview.total.unread }} 未读</span></span>
+          <span class="meta">{{ overview?.total.repos ?? 0 }} 个仓库</span>
         </button>
         <button v-for="c in sortedCats" :key="c.id" class="tile" @click="enter(c.id)">
           <span class="name">{{ c.name }}</span>
-          <span class="meta">{{ c.reports }} 篇<span v-if="c.unread" class="unread"> · {{ c.unread }} 未读</span></span>
+          <span class="meta">{{ c.repos }} 个仓库</span>
         </button>
-        <button v-if="overview?.uncategorized.reports" class="tile" @click="enter(-1)">
+        <button v-if="overview?.uncategorized.repos" class="tile" @click="enter(-1)">
           <span class="name">未分类</span>
-          <span class="meta">{{ overview.uncategorized.reports }} 篇<span v-if="overview.uncategorized.unread" class="unread"> · {{ overview.uncategorized.unread }} 未读</span></span>
+          <span class="meta">{{ overview.uncategorized.repos }} 个仓库</span>
         </button>
       </div>
       <n-empty
-        v-if="overview && !overview.total.reports"
+        v-if="overview && !overview.total.repos"
         description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint"
       />
     </template>
@@ -233,7 +233,6 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .tile:hover { background: var(--sd-accent-soft); border-color: var(--sd-accent); }
 .tile .name { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; } /* UX-63 display 负字距 */
 .tile .meta { font-size: 13px; color: var(--sd-text-3); }
-.tile .unread { color: var(--sd-accent); }
 .cat-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cat-title { font-size: 18px; letter-spacing: -0.01em; }
 .cat-head .n-select { margin-left: auto; }
