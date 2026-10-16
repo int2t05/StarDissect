@@ -236,9 +236,9 @@ onMounted(() => { load(); loadCategories() })
             <n-button v-else size="small" quaternary type="primary" @click="toggleArchive">恢复(取消归档)</n-button>
           </div>
           <div v-if="detail.versions.length" class="sec">
-            <h3>报告版本</h3>
+            <h3>报告</h3>
             <p v-for="v in detail.versions" :key="v.id" class="ver">
-              <RouterLink :to="`/repos/${detail.repo.id}/report/${v.id}`" @click="showDetail = false">v{{ v.version_no }} · {{ fmtTime(v.created_at) }}</RouterLink>
+              <RouterLink :to="`/repos/${detail.repo.id}/report/${v.id}`" @click="showDetail = false">第 {{ v.version_no }} 次分析 · {{ fmtTime(v.created_at) }}</RouterLink>
               <n-tag v-if="v.archived" size="tiny" :bordered="false">已归档</n-tag>
               <a :href="`/api/reports/${v.id}/export`">导出</a>
               <a href="#" @click.prevent="toggleVersionArchive(v)">{{ v.archived ? '恢复' : '归档' }}</a>
@@ -246,7 +246,7 @@ onMounted(() => { load(); loadCategories() })
                 <template #trigger>
                   <a href="#" @click.prevent class="danger">删除</a>
                 </template>
-                删除 v{{ v.version_no }} 及其章节/知识点/检索索引?不可恢复。
+                删除该报告及其章节/知识点/检索索引?不可恢复。
               </n-popconfirm>
             </p>
           </div>

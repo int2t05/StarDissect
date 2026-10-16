@@ -327,6 +327,21 @@ async def test_updates_check_guards(client):
     assert r.status_code == 400 and "报告" in r.json()["detail"]
 
 
+async def test_entries_one_report_per_repo(client):
+    # 同一仓库仅保留最新一份报告(DEC-06 修订):entries 天然每仓库一条
+    c, conn = client
+    vid = await _seed_report(conn)
+    from app.agents.runner import ReportDraft, Section
+
+    from app.agents import runner
+    vid2 = runner.persist_report(conn, 1, task_id=None, commit_anchor="b" * 40, draft=ReportDraft(
+        sections=[Section(title="概览", body="第二版。")], knowledge_points=[]))
+    conn.commit()
+    assert vid2 == vid + 1  # 分析序号延续
+    entries = (await c.get("/api/entries")).json()
+    assert len(entries) == 1 and entries[0]["id"] == vid2
+
+
 async def test_report_hard_delete_requires_archive_and_cascades(client):
     # 归档后可硬删除(DEC-06 修订):未归档 400;删除连带章节/知识点/进度/FTS,单事务
     c, conn = client

@@ -81,8 +81,8 @@ CREATE TABLE report_versions (
 """
 
 
-def test_migration_v4_to_v5(db_path):
-    # 旧库(v4)挂到 v5:五列补齐,既有数据保留且默认未归档
+def test_migration_v4_upgrade(db_path):
+    # 旧库(v4)升级:五列补齐 + 数据迁移至当前版本,既有数据保留且默认未归档
     conn = sqlite3.connect(db_path)
     conn.executescript(_V4_SCHEMA)
     conn.execute("INSERT INTO repos(id, full_name, status) VALUES (1, 'o/old', '已分类')")
@@ -93,11 +93,47 @@ def test_migration_v4_to_v5(db_path):
     init_db(db_path)
 
     conn = sqlite3.connect(db_path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 5
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
     repos_cols = {r[1] for r in conn.execute("PRAGMA table_info(repos)")}
     assert {"archived", "behind_count", "behind_checked_at", "behind_anchor"} <= repos_cols
     rv_cols = {r[1] for r in conn.execute("PRAGMA table_info(report_versions)")}
     assert "archived" in rv_cols
     row = conn.execute("SELECT full_name, archived, behind_count FROM repos WHERE id=1").fetchone()
     assert row[0] == "o/old" and row[1] == 0 and row[2] is None
+    conn.close()
+
+
+def test_migration_v6_dedupes_report_versions(db_path):
+    # v6 数据迁移:存量多版本收敛为每仓库最新一份(连带章节/知识点/进度/FTS)
+    init_db(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute("INSERT INTO repos(id, full_name) VALUES (1, 'o/r')")
+    for vid, ver in ((10, 1), (11, 2)):
+        conn.execute(
+            "INSERT INTO report_versions(id, repo_id, version_no, commit_anchor, html, sections_json)"
+            " VALUES (?, 1, ?, 'a', 'x', '[]')", (vid, ver))
+        conn.execute(
+            "INSERT INTO report_sections(id, report_version_id, seq, title, path_chain, text_content)"
+            " VALUES (?, ?, 0, 't', '0', 'x')", (vid * 10, vid))
+        conn.execute("INSERT INTO report_fts(rowid, title, text_content) VALUES (?, 't', 'x')", (vid * 10,))
+        conn.execute(
+            "INSERT INTO knowledge_points(id, repo_id, report_version_id, statement, evidence_json)"
+            " VALUES (?, 1, ?, 's', '[]')", (vid * 100, vid))
+        conn.execute("INSERT INTO knowledge_fts(rowid, statement) VALUES (?, 's')", (vid * 100,))
+    conn.execute("INSERT INTO reading_progress(report_version_id, top_percent, bottom_percent) VALUES (10, 5, 5)")
+    conn.execute("PRAGMA user_version=5")
+    conn.commit()
+    conn.close()
+
+    init_db(db_path)
+
+    conn = sqlite3.connect(db_path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+    rows = conn.execute("SELECT id, version_no FROM report_versions").fetchall()
+    assert rows == [(11, 2)]  # 仅保留最新一份,序号延续
+    assert conn.execute("SELECT COUNT(*) FROM report_sections").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM knowledge_points").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM report_fts").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM knowledge_fts").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM reading_progress").fetchone()[0] == 0  # 旧版进度清除
     conn.close()

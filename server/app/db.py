@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS report_versions (
     id INTEGER PRIMARY KEY,
     repo_id INTEGER NOT NULL REFERENCES repos(id),
-    version_no INTEGER NOT NULL,
+    version_no INTEGER NOT NULL,             -- 累计分析序号(每仓库仅存最新一份报告,DEC-06 修订)
     task_id INTEGER REFERENCES tasks(id),
     commit_anchor TEXT NOT NULL,
     markdown TEXT NOT NULL DEFAULT '',
@@ -164,6 +164,13 @@ CREATE VIRTUAL TABLE IF NOT EXISTS repo_fts USING fts5(
 """
 
 # 版本 → 该版本的增量语句(列变更等 SCHEMA 重放覆盖不到的)
+def _migrate_v6_dedupe_reports(conn: sqlite3.Connection) -> None:
+    # v6 数据迁移:存量多版本收敛为每仓库最新一份(DEC-06 修订:新报告替换旧报告);自身幂等
+    for row in conn.execute("SELECT repo_id, MAX(id) AS keep_id FROM report_versions GROUP BY repo_id"):
+        purge_report_versions(conn, row["repo_id"], keep_id=row["keep_id"])
+
+
+# 版本 → 该版本的增量(SQL 语句或 Python 函数;函数自身幂等,异常如实上抛)
 MIGRATIONS = {
     3: ["ALTER TABLE tasks ADD COLUMN auto_retries INTEGER NOT NULL DEFAULT 0"],
     # v5:仓库/报告归档 + 更新检测三列(既有库走此路径;列已存在由 init_db 幂等吞掉)
@@ -174,6 +181,7 @@ MIGRATIONS = {
         "ALTER TABLE repos ADD COLUMN behind_anchor TEXT",
         "ALTER TABLE report_versions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
     ],
+    6: [_migrate_v6_dedupe_reports],
 }
 
 ALL_TABLES = {
@@ -184,8 +192,8 @@ ALL_TABLES = {
 }
 
 
-SCHEMA_VERSION = 5  # 结构变更:更新 SCHEMA 并递增版本;SCHEMA 全 IF NOT EXISTS 幂等重放建新表,
-                    # 列变更走 MIGRATIONS 显式语句(按版本顺序执行)
+SCHEMA_VERSION = 6  # 结构变更:更新 SCHEMA 并递增版本;SCHEMA 全 IF NOT EXISTS 幂等重放建新表,
+                    # 列变更/数据迁移走 MIGRATIONS(SQL 语句或幂等 Python 函数,按版本顺序执行)
 
 
 def connect(db_path: Path) -> sqlite3.Connection:
@@ -198,6 +206,28 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def purge_report_versions(conn: sqlite3.Connection, repo_id: int, keep_id: int | None = None) -> int:
+    """删除仓库报告版本(keep_id 例外),连带章节/知识点/阅读进度与两域 FTS;不提交,事务归调用方。
+    「同一仓库仅保留最新一份报告」的唯一删除路径(新报告替换/手动删除/v6 数据迁移共用)。"""
+    cond, args = "repo_id=?", [repo_id]
+    if keep_id is not None:
+        cond += " AND id<>?"
+        args.append(keep_id)
+    doomed = [r["id"] for r in conn.execute(f"SELECT id FROM report_versions WHERE {cond}", args)]
+    for vid in doomed:
+        for sid in conn.execute("SELECT id FROM report_sections WHERE report_version_id=?", (vid,)):
+            conn.execute("DELETE FROM report_fts WHERE rowid=?", (sid["id"],))
+        conn.execute(
+            "DELETE FROM knowledge_fts WHERE rowid IN (SELECT id FROM knowledge_points WHERE report_version_id=?)",
+            (vid,),
+        )
+        conn.execute("DELETE FROM report_sections WHERE report_version_id=?", (vid,))
+        conn.execute("DELETE FROM knowledge_points WHERE report_version_id=?", (vid,))
+        conn.execute("DELETE FROM reading_progress WHERE report_version_id=?", (vid,))
+        conn.execute("DELETE FROM report_versions WHERE id=?", (vid,))
+    return len(doomed)
+
+
 def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = connect(db_path)
@@ -207,10 +237,13 @@ def init_db(db_path: Path) -> None:
             conn.executescript(SCHEMA)  # 全 IF NOT EXISTS:新库建全量,旧库幂等补齐
             for v in range(version, SCHEMA_VERSION):
                 for stmt in MIGRATIONS.get(v + 1, []):
-                    try:
-                        conn.execute(stmt)
-                    except sqlite3.OperationalError:
-                        pass  # 幂等:列已存在等场景
+                    if callable(stmt):
+                        stmt(conn)  # 数据迁移自身幂等
+                    else:
+                        try:
+                            conn.execute(stmt)
+                        except sqlite3.OperationalError:
+                            pass  # 幂等:列已存在等场景
             conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
         conn.commit()
     finally:

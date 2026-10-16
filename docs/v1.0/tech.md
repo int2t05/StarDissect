@@ -55,11 +55,11 @@ tasks(id PK, repo_id FK, kind,                     -- analyze / reanalyze
       auto_retries,                                -- 失败自动重排计数(网络类/轮次预算加倍,上限 TASK_AUTO_RETRY_MAX)
       started_at, finished_at, fail_reason)
 
-report_versions(id PK, repo_id FK, version_no, task_id FK,
+report_versions(id PK, repo_id FK, version_no, task_id FK,   -- version_no=累计分析序号;每仓库仅存最新一份(DEC-06)
       commit_anchor, markdown, html, sections_json,   -- markdown=导出原文(REQ-OUT-001)
       meta_json, read, favorited,                     -- 条目级已读/收藏(REQ-READ-006)
       archived INT DEFAULT 0,                         -- 报告归档:阅读中心默认隐藏、RSS 与检索排除,独立于仓库归档(REQ-ARCH-002);归档后可硬删除(REQ-ARCH-003)
-      created_at, UNIQUE(repo_id, version_no))
+      created_at, UNIQUE(repo_id, version_no))        -- 新报告落库即替换旧报告(连带章节/知识点/进度/FTS,单事务)
 
 knowledge_points(id PK, repo_id FK, report_version_id FK,
       statement, evidence_json,                    -- 结论+证据引用(KP-001)
@@ -72,7 +72,7 @@ sync_runs(id PK, started_at, finished_at, added, removed, skipped, failed)
 
 settings(key PK, value)                            -- token/密钥/限额;API 永不回显明文
 
-# 迁移机制:PRAGMA user_version + SCHEMA 幂等重放(IF NOT EXISTS);不支持既有表的列变更,结构性变更需重建路径
+# 迁移机制:PRAGMA user_version + SCHEMA 幂等重放(IF NOT EXISTS);列变更/数据迁移走 MIGRATIONS(SQL 语句或幂等 Python 函数)
 
 report_sections(id PK, report_version_id FK, seq, title, path_chain, text_content)
 report_fts(fts5, 自持分词副本)                      -- snippet 取自索引副本(ADR-0006)
@@ -112,7 +112,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 
 **analyzer**:多步循环 → `ReportDraft{sections[](含证据标注语法), knowledge_points[], classification_correction?}`。修正仅在非锁定时落库并写 classification_history(REQ-CLS-004)。提示词包含:七类模板(项目 PRD 表)、证据五类定义、报告正文中文要求、未知须明示(REQ-RPT-002/003)。
 
-**产物落库**:ReportDraft → 渲染管线(§5)→ report_versions+report_sections(单事务)+ 知识点 → FTS 索引 → RSS 条目生成(REQ-OUT-002)。
+**产物落库**:ReportDraft → 渲染管线(§5)→ report_versions+report_sections(单事务)+ 知识点 → FTS 索引 → RSS 条目生成(REQ-OUT-002);新报告替换同仓库旧报告(连带章节/知识点/进度/FTS),每仓库仅保留最新一份(DEC-06)。
 
 ## 5. 渲染管线(ADR-0008;契约级约定)
 

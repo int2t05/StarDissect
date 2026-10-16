@@ -74,7 +74,8 @@ async def test_list_dir(deps):
     assert "d pkg" in out and "f README.md" in out
 
 
-def test_persist_report_versioning_and_search(db):
+def test_persist_report_replaces_old_version(db):
+    # 每仓库仅保留最新一份报告(DEC-06 修订):新版本替换旧版本,分析序号延续
     db.execute("INSERT INTO repos(id, full_name, status) VALUES (1, 'o/r', '分析中')")
     db.execute("INSERT INTO classifications(repo_id, type, reason, confidence, source) VALUES (1, '框架/库/SDK', '初判', '中', 'auto')")
     db.commit()
@@ -89,11 +90,17 @@ def test_persist_report_versioning_and_search(db):
     v1 = runner.persist_report(db, 1, task_id=None, commit_anchor="a" * 40, draft=draft)
     assert v1 == 1
     v2 = runner.persist_report(db, 1, task_id=None, commit_anchor="a" * 40, draft=draft)
-    assert v2 == 2  # 版本只增不覆(DEC-06)
+    assert v2 == 2  # 序号=累计分析次数,替换后仍延续
+    rows = db.execute("SELECT id, version_no FROM report_versions").fetchall()
+    assert len(rows) == 1 and rows[0]["id"] == v2 and rows[0]["version_no"] == 2
+    # 旧版本连带物清除,最新版本完整
+    assert db.execute("SELECT COUNT(*) c FROM report_sections WHERE report_version_id=1").fetchone()["c"] == 0
+    assert db.execute("SELECT COUNT(*) c FROM knowledge_points WHERE report_version_id=1").fetchone()["c"] == 0
+    assert db.execute("SELECT COUNT(*) c FROM knowledge_fts").fetchone()["c"] == 1
     # 深读修正留痕(REQ-CLS-004)
     hist = db.execute("SELECT old_type, new_type FROM classification_history").fetchone()
     assert (hist["old_type"], hist["new_type"]) == ("框架/库/SDK", "应用/平台/服务")
-    # FTS 可检索(知识点 + 章节)
+    # FTS 可检索(知识点 + 章节,均来自最新版)
     indexer.index_repo(db, 1)
     db.commit()
     kinds = {r["kind"] for r in indexer.search(db, "概览")}

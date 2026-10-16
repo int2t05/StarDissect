@@ -291,7 +291,7 @@ function jump(seq) {
         <div class="pgroup">
           <div class="ptitle">报告</div>
           <div class="pbig">{{ report.repo_name }}</div>
-          <div class="prow">v{{ report.version_no }} · commit {{ report.commit_anchor.slice(0, 8) }}</div>
+          <div class="prow">第 {{ report.version_no }} 次分析 · commit {{ report.commit_anchor.slice(0, 8) }}</div>
           <div class="prow">{{ fmtTime(report.created_at) }}</div>
           <div v-if="violations > 0" class="prow warn">质量提示 {{ violations }} 处</div>
         </div>

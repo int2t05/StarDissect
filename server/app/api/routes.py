@@ -7,7 +7,7 @@ from fastapi.responses import PlainTextResponse, Response
 from feedgen.feed import FeedGenerator
 
 from app import config
-from app.db import connect
+from app.db import connect, purge_report_versions
 
 from app.agents import runner
 from app.search import indexer
@@ -495,7 +495,7 @@ async def get_report(request: Request, version_id: int, conn=Depends(get_conn)):
 
 @router.delete("/reports/{version_id}")
 async def delete_report(request: Request, version_id: int, conn=Depends(get_conn)):
-    # 归档后可硬删除(REQ-ARCH-002,DEC-06 修订):连带章节/知识点/进度/FTS,单事务
+    # 归档后可硬删除(REQ-ARCH-003,DEC-06 修订):连带章节/知识点/进度/FTS,单事务
     row = conn.execute(
         "SELECT repo_id, commit_anchor, archived FROM report_versions WHERE id=?", (version_id,)
     ).fetchone()
@@ -503,19 +503,8 @@ async def delete_report(request: Request, version_id: int, conn=Depends(get_conn
         raise HTTPException(404, "报告版本不存在")
     if not row["archived"]:
         raise HTTPException(400, "须先归档才能删除")
-    section_ids = [r["id"] for r in conn.execute(
-        "SELECT id FROM report_sections WHERE report_version_id=?", (version_id,))]
-    kp_ids = [r["id"] for r in conn.execute(
-        "SELECT id FROM knowledge_points WHERE report_version_id=?", (version_id,))]
-    for sid in section_ids:
-        conn.execute("DELETE FROM report_fts WHERE rowid=?", (sid,))
-    for kid in kp_ids:
-        conn.execute("DELETE FROM knowledge_fts WHERE rowid=?", (kid,))
-    conn.execute("DELETE FROM report_sections WHERE report_version_id=?", (version_id,))
-    conn.execute("DELETE FROM knowledge_points WHERE report_version_id=?", (version_id,))
-    conn.execute("DELETE FROM reading_progress WHERE report_version_id=?", (version_id,))
-    conn.execute("DELETE FROM report_versions WHERE id=?", (version_id,))
-    # 锚点随版本删除:落后数失效,等待下次检测刷新
+    purge_report_versions(conn, row["repo_id"])
+    # 锚点随报告删除:落后数失效,等待下次检测刷新
     conn.execute(
         "UPDATE repos SET behind_count=NULL, behind_checked_at=NULL, behind_anchor=NULL"
         " WHERE id=? AND behind_anchor=?",

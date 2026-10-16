@@ -209,7 +209,6 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
           <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
             <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
             <span class="meta">
-              <n-tag size="tiny" :bordered="false">v{{ e.version_no }}</n-tag>
               <n-tag v-if="e.archived" size="tiny" :bordered="false">已归档</n-tag>
               {{ fmtTime(e.created_at) }}
               <a href="#" @click.prevent.stop="toggleEntryState(e, 'archived')">{{ e.archived ? '恢复' : '归档' }}</a>

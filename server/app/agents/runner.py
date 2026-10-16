@@ -15,6 +15,7 @@ from pydantic_ai.usage import UsageLimits
 
 from app import config
 from app.agents import prompts, tools, websearch
+from app.db import purge_report_versions
 from app.render import pipeline, validator
 from app.search import indexer
 from app.tasks.queue import TaskLimited
@@ -146,7 +147,8 @@ def current_classification(conn, repo_id: int) -> dict | None:
 
 
 def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: ReportDraft) -> int:
-    """报告落库单事务:版本+章节+FTS+知识点;分类修正遇锁定即弃(REQ-CLS-003)。返回 version_id。"""
+    """报告落库单事务:版本+章节+FTS+知识点;新报告替换同仓库旧报告(DEC-06 修订,仅保留最新一份);
+    分类修正遇锁定即弃(REQ-CLS-003)。version_no=累计分析序号。返回 version_id。"""
     version_no = (
         conn.execute("SELECT COALESCE(MAX(version_no),0)+1 AS n FROM report_versions WHERE repo_id=?", (repo_id,)).fetchone()["n"]
     )
@@ -185,6 +187,8 @@ def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: 
                     "INSERT INTO classification_history(repo_id, old_type, new_type, reason) VALUES (?,?,?,?)",
                     (repo_id, old, corr.type, corr.reason),
                 )
+    # 同一仓库仅保留最新一份报告:新版本落库后替换旧版本(连带章节/知识点/进度/FTS)
+    purge_report_versions(conn, repo_id, keep_id=version_id)
     # 新报告=新锚点:旧落后数失效,等待下次检测刷新(更新检测,手动建议式)
     conn.execute(
         "UPDATE repos SET behind_count=NULL, behind_checked_at=NULL, behind_anchor=NULL WHERE id=?",
