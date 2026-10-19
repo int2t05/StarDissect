@@ -53,6 +53,35 @@ async function loadMosaic() {
   ])
 }
 
+// 时间归档(UX-65):拼图下方按月分组;默认仅展开最近一月,点月份头折叠/展开
+const archive = ref([])
+const collapsed = ref([])
+let collapseInit = false
+
+const monthGroups = computed(() => {
+  const map = new Map()
+  for (const e of archive.value) {
+    const m = (e.created_at || '').slice(0, 7)
+    if (!map.has(m)) map.set(m, [])
+    map.get(m).push(e)
+  }
+  return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+})
+
+async function loadArchive() {
+  archive.value = await api('/api/entries?state=all')
+  if (!collapseInit) { // 折叠态只初始化一次,避免每次返回重置用户的展开
+    collapseInit = true
+    collapsed.value = [...new Set(archive.value.map(e => (e.created_at || '').slice(0, 7)))].slice(1)
+  }
+}
+
+function toggleMonth(m) {
+  collapsed.value = collapsed.value.includes(m)
+    ? collapsed.value.filter(x => x !== m)
+    : [...collapsed.value, m]
+}
+
 async function loadEntries() {
   if (cat.value === null) return
   entries.value = await api(`/api/entries?state=${filter.value}&category=${cat.value}`)
@@ -66,6 +95,7 @@ function enter(id) {
 async function back() {
   cat.value = null
   await loadMosaic() // 归档/分类可能在类别内变化,回拼图前刷新仓库计数
+  await loadArchive()
 }
 
 watch([cat, filter], loadEntries) // 筛选服务端执行(REQ-READ-006)
@@ -141,7 +171,7 @@ function goto(hit) {
   else router.push(`/repos/${hit.repo_id}/report/${hit.version_id}`)
 }
 
-onMounted(() => { loadMosaic(); loadEntries(); window.addEventListener('keydown', onListKey) })
+onMounted(() => { loadMosaic(); loadEntries(); loadArchive(); window.addEventListener('keydown', onListKey) })
 onUnmounted(() => window.removeEventListener('keydown', onListKey))
 </script>
 
@@ -195,6 +225,29 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
         v-if="overview && !overview.total.repos"
         description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint"
       />
+
+      <!-- 时间归档(UX-65):按月分组,点月份头折叠 -->
+      <section v-if="monthGroups.length" class="archive">
+        <div class="arch-head">
+          <h2>归档</h2>
+          <span class="arch-hint">共 {{ archive.length }} 篇 · 点月份折叠</span>
+        </div>
+        <div v-for="[m, items] in monthGroups" :key="m" class="month">
+          <button class="month-head" @click="toggleMonth(m)">
+            <span class="m">{{ m }}</span>
+            <span class="c">{{ items.length }} 篇</span>
+            <span class="arrow">{{ collapsed.includes(m) ? '▸' : '▾' }}</span>
+          </button>
+          <ul v-if="!collapsed.includes(m)" class="month-list">
+            <li v-for="e in items" :key="e.id">
+              <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
+                <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
+                <span class="meta">{{ fmtTime(e.created_at) }}</span>
+              </RouterLink>
+            </li>
+          </ul>
+        </div>
+      </section>
     </template>
 
     <!-- 类别内:报告卡片,可切未读/收藏态 -->
@@ -232,6 +285,29 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .tile:hover { background: var(--sd-accent-soft); border-color: var(--sd-accent); }
 .tile .name { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; } /* UX-63 display 负字距 */
 .tile .meta { font-size: 13px; color: var(--sd-text-3); }
+.archive { margin-top: 40px; }
+.arch-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+.arch-head h2 { font-size: 18px; letter-spacing: -0.01em; margin: 0; }
+.arch-hint { color: var(--sd-text-3); font-size: 13px; }
+.month-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 12px 4px; border: 0; border-top: 1px solid var(--sd-border);
+  background: none; color: var(--sd-text); cursor: pointer; text-align: left;
+}
+.month-head:hover { color: var(--sd-accent); }
+.month-head .m { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.month-head .c { color: var(--sd-text-3); font-size: 13px; }
+.month-head .arrow { margin-left: auto; color: var(--sd-text-3); font-size: 12px; }
+.month-list { list-style: none; padding: 0; margin: 0; }
+.month-list li { border-top: 1px solid var(--sd-border); }
+.month-list a {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 10px 4px; color: var(--sd-text); font-size: 0.95em;
+}
+.month-list a:hover { color: var(--sd-accent); }
+.month-list .name { font-weight: 400; }
+.month-list .dot { color: var(--sd-accent); font-size: 0.65em; margin-left: 8px; vertical-align: 2px; }
+.month-list .meta { color: var(--sd-text-3); font-size: 0.82em; white-space: nowrap; }
 .cat-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cat-title { font-size: 18px; letter-spacing: -0.01em; }
 .cat-head .n-select { margin-left: auto; }
