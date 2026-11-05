@@ -12,6 +12,7 @@ export default defineConfig({
   srcDir: 'src',
   outDir: 'dist',
   base: '/reports/',
+  appearance: 'dark',
   ignoreDeadLinks: true,
   markdown: {
     // 外部来源的正文（模型产出的报告）不许当模板：裸 HTML 一律转义，与服务端管线同一条底线
@@ -28,6 +29,8 @@ export default defineConfig({
     },
   },
   themeConfig: {
+    // base 为 /reports/，/../ 抵消站点前缀后回到同源管理面根路径
+    nav: [{ text: '管理面', link: '/../' }],
     outline: [2, 3],
     outlineLabel: '本页大纲',
     darkModeSwitchLabel: '主题',

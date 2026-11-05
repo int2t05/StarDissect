@@ -1,29 +1,95 @@
-/* StarDissect 报告站定制层：排版变量 + 服务端渲染正文的证据块/mermaid/放大层样式。
-   颜色取 VitePress 变量随深浅色翻转；排版变量由 ReaderSettings 写在 documentElement 上。 */
-
-/* —— 排版（UX-09/10）：三档行宽 72/84/100、字号 12–22 可调、强对比 —— */
+/* StarDissect 阅读面：与 FluxSift 共用排版和组件规则，保留琥珀品牌色 */
 :root {
-  --sd-width: 84ch;
-  --sd-line-height: 1.8;
+  --vp-c-brand-1: #965e00;
+  --vp-c-brand-2: #834f00;
+  --vp-c-brand-3: #704300;
+  --vp-c-brand-soft: color-mix(in srgb, var(--vp-c-brand-1) 12%, transparent);
+  --reader-width: 84ch;
+  --reader-font-size: 16.5px;
+  --reader-line-height: 1.8;
 }
 
-:root[data-sd-width='narrow'] { --sd-width: 72ch; }
-:root[data-sd-width='wide'] { --sd-width: 100ch; }
-:root[data-sd-lh='1.6'] { --sd-line-height: 1.6; }
-:root[data-sd-lh='2.0'] { --sd-line-height: 2.0; }
+.dark {
+  --vp-c-brand-1: #e8a33d;
+  --vp-c-brand-2: #f0b45a;
+  --vp-c-brand-3: #c98a2e;
+  --vp-c-brand-soft: color-mix(in srgb, var(--vp-c-brand-1) 16%, transparent);
+}
 
+:root[data-reader-width='narrow'] { --reader-width: 72ch; }
+:root[data-reader-width='wide'] { --reader-width: 100ch; }
+:root[data-reader-lh='1.6'] { --reader-line-height: 1.6; }
+:root[data-reader-lh='2.0'] { --reader-line-height: 2; }
+:root[data-reader-contrast='1'] { --vp-c-text-1: #111; --vp-c-text-2: #343a40; }
+.dark[data-reader-contrast='1'] { --vp-c-text-1: #fff; --vp-c-text-2: #e1e5e9; }
+
+.VPDoc .content-container { max-width: 960px; }
 .vp-doc {
-  font-size: var(--sd-font-size, 15.5px);
-  line-height: var(--sd-line-height);
+  width: 100%;
+  max-width: var(--reader-width);
+  margin-inline: auto;
+  font-size: var(--reader-font-size);
+  line-height: var(--reader-line-height);
   overflow-wrap: break-word;
 }
 
-@media (min-width: 768px) {
-  /* 报告页正文限宽由 ReaderSettings 控制（容器最大宽随档位） */
-  .vp-doc { max-width: var(--sd-width); }
+.reader-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 24px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--vp-c-divider);
 }
+.reader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+.reader-meta b { color: var(--vp-c-text-1); font-weight: 600; }
+.reader-meta a { color: var(--vp-c-brand-1); font-weight: 500; }
+.reader-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.reader-settings { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--vp-c-text-2); font-size: 12px; }
+.reader-setting { display: inline-flex; align-items: center; gap: 6px; }
+.reader-toolbar button,
+.reader-toolbar select {
+  min-height: 30px;
+  padding: 3px 9px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font: inherit;
+}
+.reader-toolbar button { cursor: pointer; }
+.reader-toolbar button:hover,
+.reader-toolbar button.on,
+.reader-toolbar select:hover { border-color: var(--vp-c-brand-1); color: var(--vp-c-brand-1); }
+.reader-toolbar button:focus-visible,
+.reader-toolbar select:focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 2px; }
+.reader-toolbar button.on { background: var(--vp-c-brand-soft); }
 
-/* —— 证据折叠块（UX-43..47）：虚线只属于分析推断 —— */
+.archive-home .VPDoc .content-container { max-width: 900px; }
+.archive-home .vp-doc { max-width: 900px; }
+.archive-home .vp-doc h2 {
+  margin: 34px 0 0;
+  padding: 12px 0 8px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.archive-home .vp-doc ul { margin: 0; padding: 0; list-style: none; }
+.archive-home .vp-doc li { margin: 0; border-bottom: 1px solid var(--vp-c-divider); }
+.archive-home .vp-doc li + li { margin: 0; }
+.archive-home .vp-doc li a { display: block; padding: 12px 4px; color: var(--vp-c-text-1); }
+.archive-home .vp-doc li a:hover { color: var(--vp-c-brand-1); }
+
+/* 证据块：折叠正文保持清楚，强调色只用于状态与链接 */
 .vp-doc details.ev {
   border: 1px solid var(--vp-c-divider); border-radius: 6px; padding: 6px 14px;
   margin: 10px 0; background: var(--vp-c-bg-soft);
@@ -43,14 +109,12 @@
 .vp-doc .ev .ev-links a { word-break: break-all; font-size: 0.82em; color: var(--vp-c-text-2); }
 .vp-doc .ev .ev-links a:hover { color: var(--vp-c-brand-1); }
 
-/* —— mermaid 图（UX-48/RPT-005）—— */
+/* mermaid 图与放大层 */
 .vp-doc .mermaid { text-align: center; }
 .vp-doc figcaption { font-size: 0.75em; color: var(--vp-c-text-3); text-align: center; padding-top: 6px; letter-spacing: 0.04em; }
 .vp-doc .zoomable { cursor: zoom-in; border-radius: 6px; }
 .vp-doc .zoomable:hover { background: color-mix(in srgb, var(--vp-c-brand-1) 4%, var(--vp-c-bg-soft)); }
 .vp-doc details.mermaid-fallback summary { cursor: pointer; color: var(--vp-c-text-3); font-size: 0.82em; }
-
-/* —— 放大层 —— */
 #sd-zoom { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, #000 60%, transparent); display: flex; flex-direction: column; outline: none; }
 #sd-zoom .zoom-head { color: #fff; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; background: color-mix(in srgb, #000 40%, transparent); }
 #sd-zoom .zoom-close { cursor: pointer; background: #ffffff22; color: #fff; border: 1px solid #ffffff44; border-radius: 6px; padding: 2px 10px; }
@@ -59,5 +123,9 @@
 #sd-zoom .zoom-canvas svg { width: 100%; height: auto; }
 #sd-zoom .zoom-hint { color: #ffffffaa; text-align: center; padding: 10px; font-size: 0.82em; }
 
-/* —— 强对比（UX-34）—— */
-:root[data-sd-contrast='1'] .vp-doc { color: var(--vp-c-text-1); }
+@media (max-width: 767px) {
+  .VPDoc .content-container { max-width: 100%; }
+  .vp-doc { max-width: 100%; }
+  .reader-actions { gap: 6px; }
+  .archive-home .vp-doc li a { padding: 11px 2px; }
+}

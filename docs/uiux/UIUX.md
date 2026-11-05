@@ -17,23 +17,23 @@
 ## 2. 设计 tokens
 
 ```css
-/* 深色（默认）——UX-63 Apple 式基线：真黑顶栏、近黑瓦面、hairline 细线 */
---sd-bg:#000000; --sd-surface:#1d1d1f; --sd-elevated:#2a2a2c;
---sd-border:rgba(255,255,255,.1); --sd-border-strong:rgba(255,255,255,.18);
---sd-text:#f5f5f7; --sd-text-2:#a1a1a6; --sd-text-3:#6e6e73;
+/* 深色（默认）：报告站与管理面的中性底色和琥珀色阶 */
+--sd-bg:#1b1b1f; --sd-surface:#202127; --sd-elevated:#292a30;
+--sd-border:rgba(255,255,255,.12); --sd-border-strong:rgba(255,255,255,.22);
+--sd-text:#e6e8eb; --sd-text-2:#b2b6bd; --sd-text-3:#8b9098;
 --sd-accent:#e8a33d; --sd-accent-soft:#e8a33d1c;
---sd-focus:#e8a33d88;          /* 焦点外圈 */
---sd-radius-card:18px; --sd-radius-pill:9999px;
+--sd-focus:rgba(232,163,61,.55); /* 焦点外圈 */
+--sd-radius-card:10px; --sd-radius-control:7px;
 --sd-ev-source:#4ade80; --sd-ev-author:#2997ff; --sd-ev-infer:#e8a33d;
 --sd-ev-external:#bf5af2; --sd-ev-unknown:#7a7a8c;
-/* 浅色轴成对定义（同一变量名换值，parchment #f5f5f7 画布），html 加 color-scheme:dark|light
+/* 浅色轴成对定义（画布 #f6f8fa），html 加 color-scheme:dark|light
    （miniflux dark.css 对 color-scheme 的用法），字体轴仅换 --sd-font-* 两个变量 */
 ```
 
 | ID    | 项   | 规定                                                                                                                                                    |
 | ----- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | UX-06 | 字体 | 正文/标题 `-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui`；等宽 `ui-monospace,"Cascadia Code","JetBrains Mono",Consolas`；衬线轴（可选扩展）：`Georgia,"Songti SC","Noto Serif SC",serif` |
-| UX-07 | 刻度 | 间距 4 基数（4/8/12/16/24/32/48/64）；圆角 6px（surface）+ 4px（inline）；阴影只用于悬浮层（`--sd-glow`）                                                |
+| UX-07 | 刻度 | 间距 4 基数（4/8/12/16/24/32/48/64）；卡片圆角 10px、控件 7px、行内标记 4px；阴影只用于悬浮层（`--sd-glow`）                                                |
 | UX-08 | 动效 | 遵循 `prefers-reduced-motion`（miniflux `common.css` 同款降级），焦点环永远瞬时                                                                          |
 
 ## 3. 排版规格（阅读正文）
@@ -157,10 +157,10 @@
 | UX-58 | composables  | 键盘处理器、格式调节为独立 composable：`useKeyboard` / `useReaderSettings`（SPA 侧；`useReadingProgress`/`useScrollSpy` 随阅读面迁入 reports-site 的 ProgressTracker，ADR-0009）                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | UX-59 | 目录 scrollspy | 直接改写 VitePress `useActiveAnchor`（`reference/vitepress/src/client/theme-default/composables/outline.ts:79-205`）：scroll 监听 + `throttleAndDebounce(100)`（首调立即、尾部防抖）；判定 = 「最后一个越过视口顶（+`scroll-margin-top`+4px 容差）的标题」，页顶置空、页底取最后一个标题；坐标用 `offsetParent` 链累加（`getAbsoluteTop`，过滤 `display:none`）；点击目录置 `ignoreScrollOnce` 防高亮闪跳；左侧滑动指示条按 `offsetTop` 定位并 `scrollIntoView(block:'nearest')`。落地于报告站 `reports-site` 的 ProgressTracker（监听 window，ADR-0009） |
 | UX-60 | 组件库 Naive UI | 主题经 n-config-provider themeOverrides 完全映射本规范 tokens（web/src/theme.js），深浅两轴成对；组件零硬编码色值原则不变                                                          |
-| UX-61 | 布局范式：顶栏 + 居中内容 | VitePress/Linear 式吸顶顶栏；内容列居中占主体；管理页沿用 SPA 三区；报告阅读页由 VitePress 默认主题承接（正文居中 + 右侧大纲原生 outline），工具条（元信息/已读收藏/排版/进度）置于正文顶部（ADR-0009） |
+| UX-61 | 布局范式：顶栏 + 居中内容 | VitePress/Linear 式吸顶顶栏；内容列居中占主体；管理页沿用 SPA 三区；三个阅读面共用深色默认、84ch 版心、16.5px 正文和细边界月份清单；报告页由 VitePress 默认主题承接（右侧大纲原生 outline），工具条置于正文顶部（ADR-0009） |
 | UX-62 | 标签双轨展示 | 仓库抽屉「标签」区:自动标签 info 芯片（AI 分类生成,auto_tags）与人工标签分区显示;自动标签入检索域 |
-| UX-63 | 风格基线:Apple 式克制 | 单一强调色（琥珀系,唯一「可点击」信号）;主色按钮=pill 胶囊;hairline 细线（rgba 0.08/0.1）替代实色边框;无装饰阴影（浮层仅 frosted blur）;display 负字距;顶栏真黑 48px;卡片 18px 圆角;正文默认 16.5px |
-| UX-64 | 阅读中心类别拼图 | 落地即大号标签块云（一类别一块:类别名+报告数+未读数,胶囊形 hairline,悬停强调色软底）,无默认列表;只显示有报告的类别（按报告数排序）,另含「全部」与「未分类」块;点入类别为报告卡片网格 + 未读/收藏状态筛选,「← 全部类别」返回并刷新计数 |
+| UX-63 | 风格基线:克制简洁 | 单一强调色（琥珀系,用于焦点/当前项/激活态）;7px 控件圆角、10px 卡片圆角;细边界替代装饰阴影;吸顶顶栏 52px;正文默认 16.5px、行高 1.8;阅读站保留项目品牌色 |
+| UX-64 | 阅读中心类别拼图 | 类别卡片为轻边界圆角块（一类别一块:类别名+报告数+未读数）,悬停显示强调色软底;只显示有报告的类别（按报告数排序）,另含「全部」与「未分类」块;点入类别为报告卡片网格 + 未读/收藏状态筛选,「← 全部类别」返回并刷新计数 |
 | UX-65 | 阅读中心时间归档 | 拼图下方「归档」区:按月分组（YYYY-MM + 篇数）,月份头即折叠开关,默认仅展开最近一月;条目=仓库名+时间（含收藏星/未读点）,点击进报告;归档条目不出现（随 entries 语义）;返回拼图时刷新,用户折叠态不重置 |
 
 ## 12. 依据索引

@@ -19,26 +19,15 @@ const meta = computed(() => {
 </script>
 
 <template>
-  <div v-if="isReport" class="sd-toolbar">
-    <div class="sd-meta">
+  <div v-if="isReport" class="reader-toolbar">
+    <div class="reader-meta">
       <b>{{ frontmatter.repo }}</b>
       <span v-for="part in meta" :key="part">{{ part }}</span>
     </div>
-    <div class="sd-rows">
+    <div class="reader-actions">
       <ReadState />
       <ReaderSettings />
       <ProgressTracker />
     </div>
   </div>
 </template>
-
-<style scoped>
-.sd-toolbar {
-  display: flex; flex-direction: column; gap: 8px;
-  border: 1px solid var(--vp-c-divider); border-radius: 8px;
-  background: var(--vp-c-bg-soft); padding: 10px 14px; margin: 12px 0 20px;
-}
-.sd-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--vp-c-text-2); }
-.sd-meta b { color: var(--vp-c-text-1); }
-.sd-rows { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
-</style>

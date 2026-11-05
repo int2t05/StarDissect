@@ -54,6 +54,20 @@ def test_export_site_writes_slug_dirs_with_frontmatter(db, site_dir):
     assert "> [source] core.py:1" in page
 
 
+def test_home_lists_each_report_on_its_own_line(db, site_dir):
+    db.execute(
+        "INSERT INTO report_versions(id, repo_id, version_no, commit_anchor, markdown, html, sections_json, meta_json, created_at)"
+        " VALUES (12, 1, 4, ?, '# 另一份', '', '[]', '{}', '2026-01-03 03:04:05')",
+        (ANCHOR,),
+    )
+    db.commit()
+
+    site.export_site(db)
+
+    home = (site_dir / "src" / "index.md").read_text(encoding="utf-8")
+    assert "- [o/demo v4](/o__demo/12/)\n- [o/demo v2](/o__demo/10/)\n" in home
+
+
 def test_export_site_rebuilds_the_whole_tree(db, site_dir):
     site.export_site(db)
     # 追加一份再删一份:整树重摆后,新份在、旧份无、首页不再提

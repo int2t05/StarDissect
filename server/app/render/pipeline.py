@@ -235,3 +235,14 @@ def render(markdown: str) -> tuple[str, list[dict], str]:
     sections, plain = _sections_and_text(tokens)
     html_out = _md.renderer.render(tokens, _md.options, {})
     return html_out, sections, plain
+
+
+def compose_sections(sections: list[tuple[str, str]]) -> str:
+    """结构化报告节转 Markdown；相邻同名节的前一节为空时只保留后一节。"""
+    compact: list[tuple[str, str]] = []
+    for title, body in sections:
+        if compact and compact[-1][0].strip() == title.strip() and not compact[-1][1].strip():
+            compact[-1] = (title, body)
+        else:
+            compact.append((title, body))
+    return "\n\n".join(f"## {title}\n\n{body}" for title, body in compact)

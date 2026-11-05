@@ -71,7 +71,7 @@ def _frontmatter(row) -> str:
 
 def _write_home(src: Path, rows) -> None:
     """首页:未归档报告按月分组的清单,新的在前——阅读站的开门页。"""
-    parts = ['---\ntitle: StarDissect 报告\n---\n']
+    parts = ['---\ntitle: StarDissect 报告\n---\n\n# StarDissect 报告\n\n']
     if not rows:
         parts.append("还没有报告:跑一轮分析后,这里会按月列出全部报告。\n")
     else:
@@ -83,7 +83,7 @@ def _write_home(src: Path, rows) -> None:
         for month, items in groups.items():
             parts.append(f"\n## {month}\n\n")
             parts.extend(
-                f"- [{row['full_name']} v{row['version_no']}](/{repo_slug(row['full_name'])}/{row['id']}/)"
+                f"- [{row['full_name']} v{row['version_no']}](/{repo_slug(row['full_name'])}/{row['id']}/)\n"
                 for row in items
             )
             parts.append("\n")

@@ -2,7 +2,7 @@
 import { reactive, watchEffect } from 'vue'
 
 const KEY = 'sd-reader-settings'
-const defaults = { fontSize: 15.5, width: 'standard', lineHeight: '1.8', theme: 'dark', contrast: false }
+const defaults = { fontSize: 16.5, width: 'standard', lineHeight: '1.8', theme: 'dark', contrast: false }
 
 function load() {
   try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch { return { ...defaults } }

@@ -152,7 +152,7 @@ def persist_report(conn, repo_id: int, task_id: int, commit_anchor: str, draft: 
     version_no = (
         conn.execute("SELECT COALESCE(MAX(version_no),0)+1 AS n FROM report_versions WHERE repo_id=?", (repo_id,)).fetchone()["n"]
     )
-    md = "\n\n".join(f"## {s.title}\n\n{s.body}" for s in draft.sections)
+    md = pipeline.compose_sections([(s.title, s.body) for s in draft.sections])
     html, sections, plain = pipeline.render(md)
     html = nh3.clean(html, tags=CLEAN_TAGS, attributes=CLEAN_ATTRS, url_schemes={"http", "https", "mailto"})
     meta = {"commit_anchor": commit_anchor, "typography_check": _typography_check(plain),

@@ -1,79 +1,134 @@
-/* 设计 tokens(UIUX §2 定稿 + UX-60 组件库 + UX-61 布局范式 + UX-63 Apple 风格基线)
-   明暗轴 × 字体轴成对变量;风格:单一强调色、pill 主动作、hairline 细线、无装饰阴影、display 负字距 */
+/* StarDissect 管理面：阅读站同一套中性底色、琥珀强调色与紧凑组件尺寸 */
 :root {
-  --sd-font-body: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --sd-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --sd-font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
 
-  --sd-bg: #000000;                 /* 全局顶栏/真黑(Apple global-nav) */
-  --sd-surface: #1d1d1f;            /* 卡片/近黑瓦面 */
-  --sd-elevated: #2a2a2c;           /* 浮层/输入 */
-  --sd-border: rgba(255, 255, 255, 0.1);   /* hairline */
-  --sd-border-strong: rgba(255, 255, 255, 0.18);
-  --sd-text: #f5f5f7;
-  --sd-text-2: #a1a1a6;
-  --sd-text-3: #6e6e73;
-  --sd-accent: #e8a33d;             /* 唯一强调色:焦点/当前项/主动作 */
-  --sd-accent-soft: #e8a33d1c;
-  --sd-focus: #e8a33d88;
+  --sd-bg: #1b1b1f;
+  --sd-surface: #202127;
+  --sd-elevated: #292a30;
+  --sd-border: rgba(255, 255, 255, 0.12);
+  --sd-border-strong: rgba(255, 255, 255, 0.22);
+  --sd-text: #e6e8eb;
+  --sd-text-2: #b2b6bd;
+  --sd-text-3: #8b9098;
+  --sd-accent: #e8a33d;
+  --sd-accent-soft: rgba(232, 163, 61, 0.14);
+  --sd-focus: rgba(232, 163, 61, 0.55);
+  --sd-error: #ff8f87;
   --sd-ev-source: #4ade80;
-  --sd-ev-author: #2997ff;          /* 暗面链接蓝(Apple sky-link 同位) */
+  --sd-ev-author: #58a6ff;
   --sd-ev-infer: #e8a33d;
-  --sd-ev-external: #bf5af2;
-  --sd-ev-unknown: #7a7a8c;
+  --sd-ev-external: #d2a8ff;
+  --sd-ev-unknown: #8b9098;
+  --sd-overlay: rgba(0, 0, 0, 0.62);
+  --sd-code-bg: #202127;
   color-scheme: dark;
 }
+
 :root[data-theme="light"] {
-  --sd-bg: #f5f5f7;                 /* parchment */
+  --sd-bg: #f6f8fa;
   --sd-surface: #ffffff;
-  --sd-elevated: #ffffff;
-  --sd-border: rgba(0, 0, 0, 0.08);
-  --sd-border-strong: rgba(0, 0, 0, 0.16);
-  --sd-text: #1d1d1f;
-  --sd-text-2: #515154;
-  --sd-text-3: #86868b;
-  --sd-accent: #b06f0a;
-  --sd-accent-soft: #b06f0a1c;
-  --sd-focus: #b06f0a88;
-  --sd-ev-source: #15803d;
-  --sd-ev-author: #1d4ed8;
-  --sd-ev-infer: #b06f0a;
-  --sd-ev-external: #7c3aed;
-  --sd-ev-unknown: #6e6e73;
+  --sd-elevated: #f6f8fa;
+  --sd-border: rgba(31, 35, 40, 0.12);
+  --sd-border-strong: rgba(31, 35, 40, 0.2);
+  --sd-text: #1f2328;
+  --sd-text-2: #57606a;
+  --sd-text-3: #6e7781;
+  --sd-accent: #965e00;
+  --sd-accent-soft: rgba(150, 94, 0, 0.1);
+  --sd-focus: rgba(150, 94, 0, 0.45);
+  --sd-error: #b42318;
+  --sd-ev-source: #1a7f37;
+  --sd-ev-author: #0969da;
+  --sd-ev-infer: #965e00;
+  --sd-ev-external: #8250df;
+  --sd-ev-unknown: #6e7781;
+  --sd-overlay: rgba(31, 35, 40, 0.42);
+  --sd-code-bg: #f1f3f5;
   color-scheme: light;
 }
+
 :root[data-theme="auto"] { color-scheme: light dark; }
 @media (prefers-color-scheme: light) {
   :root[data-theme="auto"] {
-    --sd-bg: #f5f5f7; --sd-surface: #ffffff; --sd-elevated: #ffffff;
-    --sd-border: rgba(0, 0, 0, 0.08); --sd-border-strong: rgba(0, 0, 0, 0.16);
-    --sd-text: #1d1d1f; --sd-text-2: #515154; --sd-text-3: #86868b;
-    --sd-accent: #b06f0a; --sd-accent-soft: #b06f0a1c; --sd-focus: #b06f0a88;
-    --sd-ev-source: #15803d; --sd-ev-author: #1d4ed8; --sd-ev-infer: #b06f0a;
-    --sd-ev-external: #7c3aed; --sd-ev-unknown: #6e6e73;
+    --sd-bg: #f6f8fa;
+    --sd-surface: #ffffff;
+    --sd-elevated: #f6f8fa;
+    --sd-border: rgba(31, 35, 40, 0.12);
+    --sd-border-strong: rgba(31, 35, 40, 0.2);
+    --sd-text: #1f2328;
+    --sd-text-2: #57606a;
+    --sd-text-3: #6e7781;
+    --sd-accent: #965e00;
+    --sd-accent-soft: rgba(150, 94, 0, 0.1);
+    --sd-focus: rgba(150, 94, 0, 0.45);
+    --sd-error: #b42318;
+    --sd-ev-source: #1a7f37;
+    --sd-ev-author: #0969da;
+    --sd-ev-infer: #965e00;
+    --sd-ev-external: #8250df;
+    --sd-ev-unknown: #6e7781;
+    --sd-overlay: rgba(31, 35, 40, 0.42);
+    --sd-code-bg: #f1f3f5;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --sd-bg: #1b1b1f;
+    --sd-surface: #202127;
+    --sd-elevated: #292a30;
+    --sd-border: rgba(255, 255, 255, 0.12);
+    --sd-border-strong: rgba(255, 255, 255, 0.22);
+    --sd-text: #e6e8eb;
+    --sd-text-2: #b2b6bd;
+    --sd-text-3: #8b9098;
+    --sd-accent: #e8a33d;
+    --sd-accent-soft: rgba(232, 163, 61, 0.14);
+    --sd-focus: rgba(232, 163, 61, 0.55);
+    --sd-error: #ff8f87;
+    --sd-ev-source: #4ade80;
+    --sd-ev-author: #58a6ff;
+    --sd-ev-infer: #e8a33d;
+    --sd-ev-external: #d2a8ff;
+    --sd-ev-unknown: #8b9098;
+    --sd-overlay: rgba(0, 0, 0, 0.62);
+    --sd-code-bg: #202127;
   }
 }
 
-/* 排版(UX-09/UX-10):三档行宽 72/84/100,默认标准 84ch;display 负字距(UX-63) */
+:root[data-theme="light"][data-contrast="1"],
+:root[data-theme="auto"][data-contrast="1"] {
+  --sd-text: #111418;
+  --sd-text-2: #30363d;
+  --sd-text-3: #535d68;
+  --sd-border-strong: rgba(31, 35, 40, 0.32);
+}
+:root[data-theme="dark"][data-contrast="1"] {
+  --sd-text: #ffffff;
+  --sd-text-2: #e6e8eb;
+  --sd-text-3: #c1c7ce;
+  --sd-border-strong: rgba(255, 255, 255, 0.34);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"][data-contrast="1"] {
+    --sd-text: #ffffff;
+    --sd-text-2: #e6e8eb;
+    --sd-text-3: #c1c7ce;
+    --sd-border-strong: rgba(255, 255, 255, 0.34);
+  }
+}
+
 :root {
   --sd-width: 84ch;
-  --sd-font-size: 16.5px;   /* Apple body 17px 同位;阅读控件 12–22 可调 */
-  --sd-line-height: 1.8;    /* 中文长文疏朗,刻意高于西文 1.47 */
+  --sd-font-size: 16.5px;
+  --sd-line-height: 1.8;
   --sd-gap: 20px;
-  --sd-code-bg: #111114;    /* 代码块底(UIUX-13) */
-  --sd-overlay: #0009;      /* 抽屉/弹层遮罩 */
-  --sd-radius-card: 18px;   /* 卡片(UX-63 rounded.lg) */
-  --sd-radius-pill: 9999px; /* pill 主动作语法 */
+  --sd-radius-card: 10px;
 }
 :root[data-width="narrow"] { --sd-width: 72ch; }
 :root[data-width="wide"] { --sd-width: 100ch; }
 :root[data-lh="1.6"] { --sd-line-height: 1.6; }
-:root[data-lh="2.0"] { --sd-line-height: 2.0; }
-:root[data-contrast="1"] { /* 强对比文本(UX-34) */
-  --sd-text: #ffffff;
-  --sd-text-2: #d0d0d6;
-  --sd-text-3: #98989e;
-  --sd-border-strong: rgba(255, 255, 255, 0.3);
-}
+:root[data-lh="2.0"] { --sd-line-height: 2; }
 
 * { box-sizing: border-box; }
 body {
@@ -87,35 +142,45 @@ body {
 }
 a { color: var(--sd-accent); text-decoration: none; }
 kbd {
-  font-size: 11px; color: var(--sd-text-3); font-family: var(--sd-font-mono);
-  border: 1px solid var(--sd-border); border-radius: 4px; padding: 0 4px;
+  border: 1px solid var(--sd-border);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: var(--sd-text-3);
+  font: 11px var(--sd-font-mono);
 }
 button, input, select {
-  font: inherit; color: inherit;
-  background: var(--sd-elevated); border: 1px solid var(--sd-border); border-radius: 8px; padding: 4px 10px;
+  font: inherit;
+  color: inherit;
+  background: var(--sd-elevated);
+  border: 1px solid var(--sd-border);
+  border-radius: 7px;
+  padding: 4px 10px;
 }
 button { cursor: pointer; }
-button:hover, input:focus-visible, select:focus-visible, [tabindex]:focus-visible, a:focus-visible {
-  border-color: var(--sd-accent); outline: 2px solid var(--sd-focus);
+button:hover { border-color: var(--sd-border-strong); }
+button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible, a:focus-visible {
+  outline: 2px solid var(--sd-focus);
+  outline-offset: 2px;
 }
-/* pill 主动作语法:主色按钮 = 胶囊(UX-63) */
-.n-button--primary-type { border-radius: var(--sd-radius-pill) !important; }
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } } /* UX-08/53 */
+.n-button--primary-type { border-radius: 7px !important; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
-/* 页面容器(UX-61):统一居中 + 纵向间距体系 */
 .page {
-  width: 100%; max-width: 1080px; margin: 0 auto;
-  padding: 40px 24px 80px;
-  display: flex; flex-direction: column; gap: var(--sd-gap);
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sd-gap);
 }
-.page h1 {
-  font-size: 24px; font-weight: 600; margin: 0;
-  letter-spacing: -0.02em;  /* Apple tight display */
-}
+.page h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
 .page .bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .page .bar-tools { display: flex; gap: 12px; align-items: center; }
 .hint { color: var(--sd-text-3); }
-
-/* 全局 toast(api.js 错误透出) */
 #sd-toast { position: fixed; top: 68px; right: 16px; z-index: 99; display: flex; flex-direction: column; gap: 8px; }
-.sd-toast-item { background: var(--sd-elevated); color: var(--sd-text); border: 1px solid var(--sd-border-strong); border-radius: 12px; padding: 10px 16px; font-size: 0.9em; }
+.sd-toast-item { background: var(--sd-elevated); color: var(--sd-text); border: 1px solid var(--sd-border-strong); border-radius: 10px; padding: 10px 16px; font-size: 0.9em; }
+
+@media (max-width: 767px) {
+  .page { padding: 24px 16px 56px; }
+}

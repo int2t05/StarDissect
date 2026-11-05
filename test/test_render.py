@@ -68,6 +68,22 @@ def test_heading_map_builds_section_chain():
     assert sections[2]["path_chain"] == "1" and sections[2]["seq"] == 2
 
 
+def test_compose_sections_drops_an_empty_adjacent_duplicate_heading():
+    # agent 产出的空同名节与实节相邻时,落库前只保留实节
+    md = pipeline.compose_sections([
+        ("定位概览", ""),
+        ("定位概览", "实际内容"),
+        ("定位概览", "后续同名内容"),
+    ])
+
+    assert md.count("## 定位概览") == 2
+    html, sections, _ = pipeline.render(md)
+    assert [section["title"] for section in sections] == ["定位概览", "定位概览"]
+    assert html.count("<h2") == 2
+    assert sections[0]["text"] == "定位概览\n实际内容"
+    assert pipeline.compose_sections([("同名", "已有正文"), ("同名", "后续正文")]).count("## 同名") == 2
+
+
 def test_plain_text_skips_code():
     md = "段落甲 `inline_code` 尾\n\n```python\nx = 'block_code'\n```\n\n段落乙"
     _, _, text = _sections(md)

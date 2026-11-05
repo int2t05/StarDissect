@@ -2,13 +2,14 @@
 // 报告页外壳：默认主题 + 路由（页面）变化时对正文做 DOM 加工。
 // 移植自 SPA ReportView.vue 的 onMounted 逻辑（decorateEvidence/injectSourceLinks/
 // renderMermaid/openZoom），布局侧栏简化为 ReportToolbar（VitePress outline 接管目录）。
-import { nextTick, onMounted, watch } from 'vue'
+import { computed, nextTick, onMounted, watch } from 'vue'
 import { useData } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import ReportToolbar from './ReportToolbar.vue'
 
 const { Layout } = DefaultTheme
 const { page } = useData()
+const isHome = computed(() => page.value.relativePath === 'index.md')
 
 onMounted(() => decorate())
 
@@ -208,9 +209,11 @@ function openZoom(svg: SVGElement, title: string): void {
 </script>
 
 <template>
-  <Layout>
-    <template #doc-top>
-      <ReportToolbar />
-    </template>
-  </Layout>
+  <div :class="{ 'archive-home': isHome }">
+    <Layout>
+      <template #doc-top>
+        <ReportToolbar />
+      </template>
+    </Layout>
+  </div>
 </template>
