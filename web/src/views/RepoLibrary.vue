@@ -4,6 +4,11 @@ import { computed, onMounted, ref } from 'vue'
 import { NAutoComplete, NButton, NCard, NDrawer, NDrawerContent, NEmpty, NInput, NModal, NPopconfirm, NTag } from 'naive-ui'
 import { api, fmtTime } from '../api'
 
+// 报告阅读面在 /reports 静态站(ADR-0009):整页跳转,hash 路由不得拦截
+function reportUrl(fullName, id) {
+  return `/reports/${fullName.replace(/\//g, '__')}/${id}/`
+}
+
 const repos = ref([])
 const q = ref('')
 const filter = ref('active')
@@ -238,7 +243,7 @@ onMounted(() => { load(); loadCategories() })
           <div v-if="detail.versions.length" class="sec">
             <h3>报告</h3>
             <p v-for="v in detail.versions" :key="v.id" class="ver">
-              <RouterLink :to="`/repos/${detail.repo.id}/report/${v.id}`" @click="showDetail = false">第 {{ v.version_no }} 次分析 · {{ fmtTime(v.created_at) }}</RouterLink>
+              <a :href="reportUrl(detail.repo.full_name, v.id)" @click="showDetail = false">第 {{ v.version_no }} 次分析 · {{ fmtTime(v.created_at) }}</a>
               <n-tag v-if="v.archived" size="tiny" :bordered="false">已归档</n-tag>
               <a :href="`/api/reports/${v.id}/export`">导出</a>
               <a href="#" @click.prevent="toggleVersionArchive(v)">{{ v.archived ? '恢复' : '归档' }}</a>

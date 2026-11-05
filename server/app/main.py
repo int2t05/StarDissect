@@ -167,6 +167,10 @@ def create_app(data_dir: str | None = None, workers: bool = True) -> FastAPI:
     app = FastAPI(title="StarDissect", lifespan=lifespan)
     app.include_router(routes.router)
     app.include_router(routes.public)
+    # /reports 报告阅读站在 /api 路由之后、SPA 之前:精确前缀不被 SPA 的 "/" 兜底吃掉(ADR-0009)
+    reports_dist = config.reports_site_dist()
+    if reports_dist.exists():
+        app.mount("/reports", StaticFiles(directory=reports_dist, html=True), name="reports")
     dist = config.web_dist()
     if dist.exists():
         app.mount("/", StaticFiles(directory=dist, html=True), name="spa")

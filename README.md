@@ -10,7 +10,7 @@
 - **智能分类**:七类主类型(应用/框架/CLI/教程/清单/论文/混合),输出判定理由与高/中/低置信;深读可修正分类,人工锁定不可被覆盖
 - **领域归类**:自建大方向类别(如 前端/后端/AI),一仓库可归多类;筛选条/管理面板/详情归类一体,与主类型和标签相互独立
 - **分析队列**:自动推进可干预(暂停/优先级/取消/重试),agent 受轮次上限与任务时限双重约束,重启后任务状态完整恢复
-- **证据化报告**:通用骨架+类型化模块的中文精读报告;目录锚点、排版校验、Markdown 导出、RSS 订阅
+- **证据化报告**:通用骨架+类型化模块的中文精读报告;目录锚点、代码高亮、本地搜索、排版校验、Markdown 导出、RSS 订阅(阅读面为 `/reports` VitePress 静态站,ADR-0009)
 - **知识点沉淀**:带证据引用的知识点独立条目,随报告版本保存,支持全文检索
 - **舒适阅读**:三档行宽/字号/行高/明暗主题,跨设备进度恢复(高水位防回退),miniflux 式键盘导航
 - **全文检索**:报告/知识点/仓库元信息三域中文检索,按「报告>章节」分组命中
@@ -37,8 +37,9 @@ flowchart LR
 # 1. 配置密钥(不入库;.env 已被 .gitignore 排除)
 cp .env.example .env   # 填入 GITHUB_TOKEN / AI_* / 搜索 key
 
-# 2. 前端构建
+# 2. 前端与报告站构建(报告站缺失只影响 /reports 阅读面,管理面不受影响)
 cd web && npm install && npm run build && cd ..
+cd reports-site && npm install && npm run build && cd ..
 
 # 3. 启动(仓库根运行;数据落 data/)
 uv run --project server python -m uvicorn app.main:app --app-dir server --port 8000
@@ -46,13 +47,14 @@ uv run --project server python -m uvicorn app.main:app --app-dir server --port 8
 # 4. 打开 http://127.0.0.1:8000 →「系统设置」核对配置 →「立即同步」
 ```
 
-同步完成后仓库自动入队分析;新报告出现在「阅读中心」与 `/rss.xml`。
+同步完成后仓库自动入队分析;新报告出现在「阅读中心」、报告站 `/reports/`(新报告落库/删除/手动「重建报告站」时自动重摆)与 `/rss.xml`。
 
 ## 测试
 
 ```bash
-uv run --project server pytest          # 真实调用无 mock;网络用例由环境变量门控
+uv run --project server pytest          # 真实调用无 mock;网络用例由环境变量门控;报告站构建以 STARDISSECT_SITE_REBUILD=0 关停
 cd web && npm run build                  # 前端构建校验
+cd reports-site && npm run build         # 报告站构建校验
 ```
 
 ## 文档地图
@@ -62,7 +64,7 @@ cd web && npm run build                  # 前端构建校验
 | [docs/PRD.md](docs/PRD.md) | 项目级需求视图(目标/流程/边界) |
 | [docs/v1.0/prd.md](docs/v1.0/prd.md) | v1.0 详细规格(用户故事/验收准则/审计项) |
 | [docs/TECH.md](docs/TECH.md) | 架构总览与决策索引 |
-| [docs/design/adr/](docs/design/adr/) | 八份架构决策记录(含真实参考) |
+| [docs/design/adr/](docs/design/adr/) | 九份架构决策记录(含真实参考;ADR-0009=报告阅读面迁 VitePress 报告站) |
 | [docs/uiux/UIUX.md](docs/uiux/UIUX.md) | 界面设计定稿(tokens/排版/交互) |
 | [docs/audit/](docs/audit/) | 纯净性与一致性审计报告 |
 

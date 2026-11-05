@@ -290,4 +290,7 @@ async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[st
     version_id = persist_report(conn, repo["id"], task["id"], sha, result.output)
     conn.execute("UPDATE repos SET status='可阅读', updated_at=datetime('now') WHERE id=?", (repo["id"],))
     conn.commit()
+    from app import site  # 延迟导入:persist_report 被测试直调,重建钩子只属于任务执行路径
+
+    site.schedule_rebuild()
     return "ok", version_id

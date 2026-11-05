@@ -78,3 +78,7 @@ def logs_dir() -> Path:
 
 def web_dist() -> Path:
     return repo_root() / "web" / "dist"
+
+
+def reports_site_dist() -> Path:
+    return repo_root() / "reports-site" / "dist"

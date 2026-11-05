@@ -107,7 +107,7 @@ function onListKey(e) {
   const list = entries.value
   if (e.key === 'j') { active.value = Math.min(active.value + 1, list.length - 1); scrollActiveEntry() }
   else if (e.key === 'k') { active.value = Math.max(active.value - 1, 0); scrollActiveEntry() }
-  else if ((e.key === 'o' || e.key === 'Enter') && list[active.value]) router.push(`/repos/${list[active.value].repo_id}/report/${list[active.value].id}`)
+  else if ((e.key === 'o' || e.key === 'Enter') && list[active.value]) location.assign(reportUrl(list[active.value]))
   else if ((e.key === 'm' || e.key === 'f') && list[active.value]) toggleEntryState(list[active.value], e.key === 'm' ? 'read' : 'favorited')
 }
 function scrollActiveEntry() {
@@ -165,10 +165,15 @@ function trapFocus(e) {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
 }
 
+// 报告阅读面在 /reports 静态站(ADR-0009):整页跳转,hash 路由不得拦截
+function reportUrl(e) {
+  return `/reports/${e.full_name.replace(/\//g, '__')}/${e.id}/`
+}
+
 function goto(hit) {
   searchOpen.value = false
   if (hit.kind === 'repo') router.push('/repos')
-  else router.push(`/repos/${hit.repo_id}/report/${hit.version_id}`)
+  else location.assign(reportUrl({ full_name: hit.full_name, id: hit.version_id }))
 }
 
 onMounted(() => { loadMosaic(); loadEntries(); loadArchive(); window.addEventListener('keydown', onListKey) })
@@ -240,10 +245,10 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
           </button>
           <ul v-if="!collapsed.includes(m)" class="month-list">
             <li v-for="e in items" :key="e.id">
-              <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
+              <a :href="reportUrl(e)">
                 <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
                 <span class="meta">{{ fmtTime(e.created_at) }}</span>
-              </RouterLink>
+              </a>
             </li>
           </ul>
         </div>
@@ -259,14 +264,14 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
       </div>
       <ul class="entries">
         <li v-for="(e, i) in entries" :key="e.id" :class="{ active: i === active }">
-          <RouterLink :to="`/repos/${e.repo_id}/report/${e.id}`">
+          <a :href="reportUrl(e)">
             <span class="name">{{ e.full_name }} <span v-if="e.favorited">★</span><span v-if="!e.read" class="dot">●</span></span>
             <span class="meta">
               <n-tag v-if="e.archived" size="tiny" :bordered="false">已归档</n-tag>
               {{ fmtTime(e.created_at) }}
               <a href="#" @click.prevent.stop="toggleEntryState(e, 'archived')">{{ e.archived ? '恢复' : '归档' }}</a>
             </span>
-          </RouterLink>
+          </a>
         </li>
       </ul>
       <n-empty v-if="!entries.length" description="该类别暂无可看的报告。" class="hint" />

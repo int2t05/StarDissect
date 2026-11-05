@@ -511,6 +511,15 @@ async def delete_report(request: Request, version_id: int, conn=Depends(get_conn
         (row["repo_id"], row["commit_anchor"]),
     )
     conn.commit()
+    # 报告站同步消失:对应导出文件在才触发(无站时天然 no-op)
+    from app import site
+    from app.config import repo_root
+
+    exported = repo_root() / "reports-site" / "src" / site.repo_slug(
+        conn.execute("SELECT full_name FROM repos WHERE id=?", (row["repo_id"],)).fetchone()["full_name"]
+    ) / str(version_id)
+    if exported.parent.exists():
+        site.schedule_rebuild()
     return {"ok": True}
 
 
@@ -652,12 +661,23 @@ async def rss(request: Request, conn=Depends(get_conn)):
     for row in rows:
         e = fg.add_entry()
         title = f"【{row['full_name']}】v{row['version_no']}"
-        e.id(f"/report/{row['id']}")
+        e.id(f"/report/{row['id']}")  # guid 不变:订阅端不因阅读站迁移重复推送
         e.title(title)
-        e.link(href=f"/report/{row['id']}")
+        e.link(href=f"/reports/{row['full_name'].replace('/', '__')}/{row['id']}/")
         summary = (row["text_content"] or "")[:200]
         e.description(summary)
     return Response(content=fg.atom_str(pretty=True), media_type="application/atom+xml")
+
+
+# ---------- 报告站(ADR-0009) ----------
+
+@router.post("/site/rebuild")
+async def rebuild_site():
+    # 手动重建报告阅读站:排程异步工人后立即返回,进度看 data/logs/site-build.log
+    from app import site
+
+    site.schedule_rebuild()
+    return {"started": True}
 
 
 # ---------- 设置(REQ-CFG) ----------

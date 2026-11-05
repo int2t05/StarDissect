@@ -1,0 +1,15 @@
+{
+  "name": "stardissect-reports-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "markdown-it": "^14.1.0",
+    "mermaid": "^12.1.0",
+    "vitepress": "1.6.4"
+  }
+}

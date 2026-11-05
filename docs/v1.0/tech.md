@@ -18,12 +18,14 @@ server/                     # 单进程 FastAPI 应用(ADR-0001)
     sync/                   # 同步器(ADR-0003)
     tasks/                  # 队列与状态机(ADR-0004)
     agents/                 # classifier / analyzer 及工具集(ADR-0005)
-    render/                 # 渲染管线(ADR-0008)
+    render/                 # 渲染管线(ADR-0008;服务端保留供章节/校验/RSS/导出)
     search/                 # 分词与索引(ADR-0006)
     api/                    # REST 路由(§6)
-web/                        # Vue 3 SPA(UIUX §11 结构:tokens/组件树/composables)
+    site.py                 # 报告阅读站导出与重建(ADR-0009)
+reports-site/               # VitePress 报告阅读站(ADR-0009):config+theme 入库,src/dist 由导出器与 npm 生成
+web/                        # Vue 3 SPA=管理面(UIUX §11 结构:tokens/组件树/composables)
 test/                       # 测试(真实调用,无 mock,见 §8)
-data/                       # 运行产物:app.db、仓库克隆克隆区(不入库)
+data/                       # 运行产物:app.db、仓库克隆区、logs/site-build.log(不入库)
 docs/                       # 本文档体系
 ```
 
@@ -116,7 +118,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 
 ## 5. 渲染管线(ADR-0008;契约级约定)
 
-1. agent 产出的证据块语法(共同契约,提示词与渲染器同步维护):
+1. agent 产出的证据块语法(共同契约,提示词与两处渲染器同步维护):
    - `> [source] path:line` → 源码事实引用块(UX-43)
    - `> [author] 文本 (url, 日期)` → 作者说明(UX-44)
    - `> [infer] 文本` → 分析推断(UX-45)
@@ -124,11 +126,18 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
    - `> [unknown] 文本` → 未知/冲突提示条(UX-47)
 1a. 围栏整形 `_normalize_fences`:把写进段落句中的 ``` 块整形为独立围栏(修复 agent 粘连输出);
 1b. mermaid 标签规范化 `_quote_mermaid_labels`:未引号节点标签补双引号(标签含 {} 必解析失败);
-2. markdown-it-py 解析 → token 流:渲染器把上述引用块转为 UIUX §8 折叠结构;```mermaid fence 由专用渲染规则输出 `<div class="mermaid">` 容器(前端渲染+文字后备)。前端 ReportView 内置同源修复规则作最后兜底。
-3. 同一 token 流派生:h2/h3 章节+`map` 行号链+锚点 id/data-seq(ADR-0007)→ sections_json;跳过代码区段的纯文本 → report_sections.text_content(校验输入与 FTS 索引共用)。
-4. 排版校验(REQ-RPT-003):UIUX-16…20 规则作用于纯文本流,违规记录入 meta_json(标记不阻断,→OPN-04)。
+2. 双渲染层(ADR-0009):
+   - **服务端管线**(render/pipeline.py,SPA 数据源):markdown-it-py 解析 → token 流,证据块转
+     UIUX §8 折叠结构、mermaid fence 出 `<div class="mermaid">` 容器;同一 token 流派生
+     h2/h3 章节+`map` 行号链+锚点 id/data-seq(ADR-0007)→ sections_json;跳过代码区段的
+     纯文本 → report_sections.text_content(校验输入与 FTS 索引共用)。**保留供章节提取/
+     排版校验/RSS/导出**。
+   - **报告站插件**(reports-site/.vitepress/theme/plugins/,VitePress 渲染):同一套契约的 JS
+     移植——证据块折叠(含 _REF_SHAPE/_DEMOTE_CHARS 准入)、mermaid 容器、h2/h3 `sec-N`
+     锚点与 `data-seq`;正文 `{{` 输出成实体(报告由 Vue 编译,插值会破坏页面)。
+3. 排版校验(REQ-RPT-003):UIUX-16…20 规则作用于纯文本流,违规记录入 meta_json(标记不阻断,→OPN-04)。
 
-## 6. API 面(REST,`/api` 前缀;SPA 由同进程静态托管)
+## 6. API 面(REST,`/api` 前缀;SPA=管理面与报告站 `/reports` 由同进程静态托管)
 
 | 端点                            | 方法           | 覆盖 REQ                |
 | ------------------------------- | -------------- | ----------------------- |
@@ -160,14 +169,20 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 | /api/reports/{version_id}/export | GET(.md)     | OUT-001                 |
 | /rss.xml                        | GET            | OUT-002                 |
 | /api/settings                   | GET/PATCH      | CFG-001/002(密钥仅尾号) |
+| /api/site/rebuild               | POST(排程异步重建报告站) | ADR-0009(手动追平,进度看 data/logs/site-build.log) |
+| /reports/…                      | GET(报告站静态页,VitePress dist) | READ-001(阅读面,ADR-0009) |
 | /healthz                        | GET            | 运维探活(库可读即健康) |
 
 ## 7. 部署形态
 
-单命令启动(uvicorn 单 worker + 前端构建产物);首次运行建库/迁移;外网暴露由部署者反代保护(DEC-04/OPN-08);RSS 地址供本人阅读器添加(REQ-OUT-002)。
+单命令启动(uvicorn 单 worker + 前端与报告站构建产物);首次运行建库/迁移;外网暴露由部署者反代
+保护(DEC-04/OPN-08);RSS 地址供本人阅读器添加(REQ-OUT-002,item 链接指向 `/reports/…`,guid 不变)。
+报告站需要 node/npm:`reports-site/` 下 `npm install` 后由部署脚本 `npm ci && npm run build`
+(ADR-0009);缺失时报告站 404,管理面与 API 不受影响。触发时机:分析任务落库(commit 后)、
+报告删除、`POST /api/site/rebuild` 手动排程;`STARDISSECT_SITE_REBUILD=0` 可整体关停(测试/排障)。
 
 ## 8. 测试策略(test/,真实调用无 mock)
 
-- 单元:分词、渲染管线(证据块→结构、map 行号)、限额归档逻辑、高水位进度写入。
-- 集成:SQLite 全链路(同步模拟数据→分类→任务→渲染→检索→导出);GitHub/LLM 走真实接口,依赖 settings 密钥,无密钥环境的用例显式跳过并标注。
+- 单元:分词、渲染管线(证据块→结构、map 行号)、限额归档逻辑、高水位进度写入、报告站导出(frontmatter/整树重摆)与重建守卫。
+- 集成:SQLite 全链路(同步模拟数据→分类→任务→渲染→检索→导出);GitHub/LLM 走真实接口,依赖 settings 密钥,无密钥环境的用例显式跳过并标注;测试进程以 `STARDISSECT_SITE_REBUILD=0` 关停报告站构建(conftest)。
 - 验收:AC 验收映射由审计台账(docs/audit/)追踪;UIUX 断点(NFR-05)手测记录归审计。

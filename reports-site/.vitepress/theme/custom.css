@@ -1,0 +1,63 @@
+/* StarDissect 报告站定制层：排版变量 + 服务端渲染正文的证据块/mermaid/放大层样式。
+   颜色取 VitePress 变量随深浅色翻转；排版变量由 ReaderSettings 写在 documentElement 上。 */
+
+/* —— 排版（UX-09/10）：三档行宽 72/84/100、字号 12–22 可调、强对比 —— */
+:root {
+  --sd-width: 84ch;
+  --sd-line-height: 1.8;
+}
+
+:root[data-sd-width='narrow'] { --sd-width: 72ch; }
+:root[data-sd-width='wide'] { --sd-width: 100ch; }
+:root[data-sd-lh='1.6'] { --sd-line-height: 1.6; }
+:root[data-sd-lh='2.0'] { --sd-line-height: 2.0; }
+
+.vp-doc {
+  font-size: var(--sd-font-size, 15.5px);
+  line-height: var(--sd-line-height);
+  overflow-wrap: break-word;
+}
+
+@media (min-width: 768px) {
+  /* 报告页正文限宽由 ReaderSettings 控制（容器最大宽随档位） */
+  .vp-doc { max-width: var(--sd-width); }
+}
+
+/* —— 证据折叠块（UX-43..47）：虚线只属于分析推断 —— */
+.vp-doc details.ev {
+  border: 1px solid var(--vp-c-divider); border-radius: 6px; padding: 6px 14px;
+  margin: 10px 0; background: var(--vp-c-bg-soft);
+}
+.vp-doc details.ev summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 10px; }
+.vp-doc details.ev summary::-webkit-details-marker { display: none; }
+.vp-doc details.ev .ev-label { font-size: 0.72em; letter-spacing: 0.1em; color: var(--vp-c-text-3); flex: none; }
+.vp-doc details.ev .ev-snip { color: var(--vp-c-text-3); font-size: 0.82em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vp-doc details.ev .ev-body { padding: 6px 0 4px; border-top: 1px dashed var(--vp-c-divider); margin-top: 6px; }
+.vp-doc details.ev[open] { padding-bottom: 10px; }
+.vp-doc .ev .ev-item { padding: 3px 0; }
+.vp-doc .ev .ev-item .ev-label { font-size: 0.72em; letter-spacing: 0.08em; color: var(--vp-c-text-3); display: inline-block; margin-right: 10px; }
+.vp-doc .ev .ev-item p { margin: 2px 0; display: inline; }
+.vp-doc .ev .ev-ref { font-family: var(--vp-font-family-mono); font-size: 0.9em; }
+.vp-doc .ev .ev-date { color: var(--vp-c-text-3); font-size: 0.8em; margin-left: 8px; }
+.vp-doc .ev .ev-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.vp-doc .ev .ev-links a { word-break: break-all; font-size: 0.82em; color: var(--vp-c-text-2); }
+.vp-doc .ev .ev-links a:hover { color: var(--vp-c-brand-1); }
+
+/* —— mermaid 图（UX-48/RPT-005）—— */
+.vp-doc .mermaid { text-align: center; }
+.vp-doc figcaption { font-size: 0.75em; color: var(--vp-c-text-3); text-align: center; padding-top: 6px; letter-spacing: 0.04em; }
+.vp-doc .zoomable { cursor: zoom-in; border-radius: 6px; }
+.vp-doc .zoomable:hover { background: color-mix(in srgb, var(--vp-c-brand-1) 4%, var(--vp-c-bg-soft)); }
+.vp-doc details.mermaid-fallback summary { cursor: pointer; color: var(--vp-c-text-3); font-size: 0.82em; }
+
+/* —— 放大层 —— */
+#sd-zoom { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, #000 60%, transparent); display: flex; flex-direction: column; outline: none; }
+#sd-zoom .zoom-head { color: #fff; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; background: color-mix(in srgb, #000 40%, transparent); }
+#sd-zoom .zoom-close { cursor: pointer; background: #ffffff22; color: #fff; border: 1px solid #ffffff44; border-radius: 6px; padding: 2px 10px; }
+#sd-zoom .zoom-stage { flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none; }
+#sd-zoom .zoom-canvas { width: min(92vw, 1100px); transition: transform 0.06s; }
+#sd-zoom .zoom-canvas svg { width: 100%; height: auto; }
+#sd-zoom .zoom-hint { color: #ffffffaa; text-align: center; padding: 10px; font-size: 0.82em; }
+
+/* —— 强对比（UX-34）—— */
+:root[data-sd-contrast='1'] .vp-doc { color: var(--vp-c-text-1); }

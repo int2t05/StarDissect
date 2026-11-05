@@ -27,6 +27,17 @@ async function togglePause() {
   await load()
 }
 
+// 报告阅读站在 /reports 静态站(ADR-0009):手动重建,异步执行,进度看 data/logs/site-build.log
+const rebuilding = ref(false)
+async function rebuildSite() {
+  rebuilding.value = true
+  try {
+    await api('/api/site/rebuild', { method: 'POST' })
+  } finally {
+    setTimeout(() => { rebuilding.value = false }, 3000) // 后台构建,按钮只做防连点
+  }
+}
+
 async function cancel(id) {
   await api(`/api/tasks/${id}`, { method: 'DELETE' })
   await load()
@@ -57,6 +68,7 @@ onUnmounted(() => clearInterval(timer))
       <div class="bar-tools">
         <n-button size="small" :type="data.paused ? 'primary' : 'default'" secondary @click="togglePause">{{ data.paused ? '恢复队列' : '暂停队列' }}</n-button>
         <n-button size="small" secondary @click="syncNow">立即同步</n-button>
+        <n-button size="small" secondary :loading="rebuilding" @click="rebuildSite">重建报告站</n-button>
       </div>
     </header>
 
