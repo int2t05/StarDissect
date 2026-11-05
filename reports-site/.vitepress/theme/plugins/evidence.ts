@@ -55,11 +55,17 @@ function braceEscape(raw: string): string {
   return escapeHtml(raw).replace(MUSTACHE, '&#123;&#123;')
 }
 
+/** 证据块自拼 HTML 里的模型文本出口：escapeHtml 之外还要拆 {{——
+ * html_block 绕过正文 text 通道，插值防护（protectMustache）罩不到这里。 */
+function esc(raw: string): string {
+  return escapeHtml(raw).replace(MUSTACHE, '&#123;&#123;')
+}
+
 /** 折叠体内单条证据:自带标签,正文片段。 */
 function evidenceEntry(kind: string, body: string): string {
   const label = EVIDENCE_LABELS[kind]
   if (kind === 'source') {
-    return `<div class="ev-item"><span class="ev-label">${label}</span><code class="ev-ref">${escapeHtml(body.trim())}</code></div>`
+    return `<div class="ev-item"><span class="ev-label">${label}</span><code class="ev-ref">${esc(body.trim())}</code></div>`
   }
   const tail = TAIL.exec(body)
   let text = body.trim()
@@ -68,9 +74,9 @@ function evidenceEntry(kind: string, body: string): string {
     text = tail[1].trim()
     const url = tail[2].trim()
     const date = tail[3].trim()
-    link = `<p><a href="${escapeHtml(url)}" rel="noopener">${escapeHtml(url)}</a><span class="ev-date">${escapeHtml(date)}</span></p>`
+    link = `<p><a href="${esc(url)}" rel="noopener">${esc(url)}</a><span class="ev-date">${esc(date)}</span></p>`
   }
-  return `<div class="ev-item"><span class="ev-label">${label}</span><p>${escapeHtml(text)}</p>${link}</div>`
+  return `<div class="ev-item"><span class="ev-label">${label}</span><p>${esc(text)}</p>${link}</div>`
 }
 
 /** 连续证据(混合类型)合并为一个折叠块:单行摘要「证据 ×n」,展开看逐条标签与内容。
@@ -80,14 +86,14 @@ function evidenceDetails(entries: Array<[string, string]>): string {
   const firstKind = entries[0][0]
   const refs = entries.filter(([k]) => k === 'source').map(([, b]) => b.trim())
   const refsAttr = refs.length
-    ? ` data-refs="${escapeHtml(refs.join(String.fromCharCode(31)))}"`
+    ? ` data-refs="${esc(refs.join(String.fromCharCode(31)))}"`
     : ''
   const items = entries.map(([k, b]) => evidenceEntry(k, b)).join('')
   const firstLabel = EVIDENCE_LABELS[firstKind]
   const firstExcerpt = entries[0][1].trim().replace(/\n/g, ' ')
   const snip = firstExcerpt.slice(0, 40) + (firstExcerpt.length > 40 ? '…' : '')
   const countChip = n > 1 ? `<span class="ev-count">×${n}</span>` : ''
-  const summary = `<span class="ev-label">${firstLabel}</span><span class="ev-snip">${escapeHtml(snip)}</span>${countChip}`
+  const summary = `<span class="ev-label">${firstLabel}</span><span class="ev-snip">${esc(snip)}</span>${countChip}`
   return (
     `<details class="ev ev-${firstKind}"${refsAttr}>` +
     `<summary>${summary}</summary>` +
@@ -140,12 +146,18 @@ function splitEvidence(tokens: Token[]): Token[] {
           block.content = evidenceDetails(fold)
           out.push(block)
         }
-        // 引用块内非证据行与降级叙述重建为真段落 token:HTML 与纯文本流都保留
+        // 引用块内非证据行与降级叙述重建为真段落 token:HTML 与纯文本流都保留。
+        // 此 token 在 sections 规则(先行)之后创建,插值防护要在这里自己补标
         if (leftovers.length || demoted.length) {
           const allText = [...leftovers, ...demoted].join('\n')
           const textToken = new Token('inline', '', 0)
           textToken.content = allText
-          textToken.children = [Object.assign(new Token('text', '', 0), { content: allText })]
+          const text = new Token('text', '', 0)
+          text.content = allText
+          if (allText.includes('{{')) {
+            text.meta = { sdBraceEscaped: true }
+          }
+          textToken.children = [text]
           out.push(new Token('paragraph_open', 'p', 1), textToken, new Token('paragraph_close', 'p', -1))
         }
         i = j
