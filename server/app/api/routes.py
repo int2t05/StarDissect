@@ -511,15 +511,13 @@ async def delete_report(request: Request, version_id: int, conn=Depends(get_conn
         (row["repo_id"], row["commit_anchor"]),
     )
     conn.commit()
-    # 报告站同步消失:对应导出文件在才触发(无站时天然 no-op)
+    # 报告站同步消失:导出布局与守卫归 site 模块
     from app import site
-    from app.config import repo_root
 
-    exported = repo_root() / "reports-site" / "src" / site.repo_slug(
-        conn.execute("SELECT full_name FROM repos WHERE id=?", (row["repo_id"],)).fetchone()["full_name"]
-    ) / str(version_id)
-    if exported.parent.exists():
-        site.schedule_rebuild()
+    site.schedule_rebuild_for(
+        conn.execute("SELECT full_name FROM repos WHERE id=?", (row["repo_id"],)).fetchone()["full_name"],
+        version_id,
+    )
     return {"ok": True}
 
 

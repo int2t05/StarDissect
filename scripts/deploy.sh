@@ -19,7 +19,7 @@ ssh int2t@192.168.2.172 '
   for i in 1 2 3; do git pull -q origin main 2>/dev/null && break; sleep 5; done
   echo "✓ 服务器代码: $(git log --oneline -1)"
   cd web && npm run build >/dev/null && echo "✓ 前端已构建"
-  cd ../reports-site && npm ci >/dev/null 2>&1 && npm run build >/dev/null && echo "✓ 报告站已构建"
+  cd ../reports-site && npm ci >/dev/null && npm run build >/dev/null && echo "✓ 报告站已构建"
   cd ..
   systemctl --user restart stardissect
   sleep 3

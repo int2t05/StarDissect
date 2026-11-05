@@ -181,7 +181,7 @@ function openZoom(svg: SVGElement, title: string): void {
     ov.removeEventListener('pointerdown', onDown)
     ov.removeEventListener('pointermove', onMove)
     ov.removeEventListener('pointerup', onUp)
-    ov.removeEventListener('pointerup', onUp)
+    ov.removeEventListener('pointercancel', onUp)
     ov.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', onKey, true)
     ov.remove()

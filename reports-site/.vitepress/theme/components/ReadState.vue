@@ -1,18 +1,19 @@
 <script setup lang="ts">
 // 已读/收藏（REQ-READ-006）：PATCH /api/reports/{vid}/state，服务端落库
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useData } from 'vitepress'
 
-const vid = useData().frontmatter.value.vid as number | undefined
+const frontmatter = useData().frontmatter
+const vid = computed(() => frontmatter.value.vid as number | undefined)
 const state = ref({ read: false, favorited: false })
 
 onMounted(load)
-watch(() => useData().frontmatter.value.vid, load)
+watch(vid, load)
 
 async function load(): Promise<void> {
-  if (!vid) return
+  if (!vid.value) return
   try {
-    const r = await fetch(`/api/reports/${vid}`)
+    const r = await fetch(`/api/reports/${vid.value}`)
     if (!r.ok) return
     const report = await r.json()
     state.value = { read: !!report.read, favorited: !!report.favorited }
@@ -22,9 +23,9 @@ async function load(): Promise<void> {
 }
 
 async function toggle(field: 'read' | 'favorited'): Promise<void> {
-  if (!vid) return
+  if (!vid.value) return
   try {
-    await fetch(`/api/reports/${vid}/state`, {
+    await fetch(`/api/reports/${vid.value}/state`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [field]: !state.value[field] }),

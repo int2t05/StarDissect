@@ -11,6 +11,7 @@ import threading
 from pathlib import Path
 
 from app import config
+from app.db import connect
 from app.render import pipeline
 
 logger = logging.getLogger("stardissect.site")
@@ -89,6 +90,15 @@ def _write_home(src: Path, rows) -> None:
     (src / "index.md").write_text("".join(parts), encoding="utf-8")
 
 
+def schedule_rebuild_for(full_name: str, version_id: int) -> None:
+    """报告删除后的定向触发:对应导出目录在才排程(站点未建过时天然 no-op)。
+
+    导出布局的知识归本模块(src/<repo-slug>/<vid>/),调用方只给仓库名与版本 id。
+    """
+    if (SITE_DIR / "src" / repo_slug(full_name) / str(version_id)).exists():
+        schedule_rebuild()
+
+
 def schedule_rebuild() -> None:
     """异步重建:守卫不过即跳过;过了就立 dirty,没有工人在做就派一个 daemon 线程。
 
@@ -103,14 +113,12 @@ def schedule_rebuild() -> None:
 
 
 def _guards_ok() -> bool:
-    import shutil as _shutil
-
     if os.environ.get("STARDISSECT_SITE_REBUILD") == "0":
         return False
     if not (SITE_DIR / "package.json").is_file():
         logger.warning("跳过报告站重建:reports-site/package.json 不存在")
         return False
-    if _shutil.which("npm") is None:
+    if shutil.which("npm") is None:
         logger.warning("跳过报告站重建:npm 不在 PATH")
         return False
     if not (SITE_DIR / "node_modules").is_dir():
@@ -125,7 +133,8 @@ def _worker() -> None:
         while _dirty.is_set():
             _dirty.clear()
             try:
-                export_site(_connect())
+                # 工人线程自建自管连接(sqlite 严格同线程)
+                export_site(connect(config.db_path()))
                 _run_npm_build()
             except Exception:
                 logger.exception("报告站重建失败(不致命,下次触发再试)")
@@ -137,15 +146,8 @@ def rebuild_now() -> None:
     """同步重建(CLI/调试用):导出 + 构建,做完才返回;失败抛异常。"""
     if not _guards_ok():
         raise RuntimeError("报告站重建守卫未过:检查 package.json/node_modules/npm 与 STARDISSECT_SITE_REBUILD")
-    export_site(_connect())
+    export_site(connect(config.db_path()))
     _run_npm_build()
-
-
-def _connect():
-    # 工人线程自建自管连接(sqlite 严格同线程)
-    from app.db import connect
-
-    return connect(config.db_path())
 
 
 def _run_npm_build() -> None:
