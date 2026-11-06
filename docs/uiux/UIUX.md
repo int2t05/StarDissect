@@ -1,33 +1,29 @@
-# UIUX — 前端设计定稿（夜航 · 开发者深色）
+# UIUX — 前端设计定稿（浅色优先 · 编辑式工具界面）
 
-> 视觉方向 **C 夜航**（[mockups/style-c-nocturne.html](mockups/style-c-nocturne.html)）；产品图标 **A 解剖星**（[icons/icon-a-dissected-star.svg](icons/icon-a-dissected-star.svg)）。本文是实现依据：tokens、排版、交互、组件规格，每项关键选择标注来源依据（`reference/<仓库>/<路径>`）。
-> 备选方向（style-a/style-b、icon-b/c/d）为落选存档，仅供回溯。
+> 视觉方向为浅色优先的编辑式工具界面；产品图标 **A 解剖星**（[icons/icon-a-dissected-star.svg](icons/icon-a-dissected-star.svg)）。本文是实现依据：tokens、排版、交互、组件规格，每项关键选择标注来源依据（`reference/<仓库>/<路径>`）。
 > 编号约定：本文规则 ID（UX-xx）全文档顺序编号；全库 ID 体系见 TECH 头部约定行。
 
 ## 1. 设计原则
 
 | ID    | 原则                               | 内容                                                                                                                                              |
 | ----- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UX-01 | 灰阶主体 + 单一强调色 + 状态聚焦   | 与 miniflux 深色主题同构（`reference/miniflux/internal/ui/static/css/dark.css`：低饱和灰阶正文、唯一蓝强调只用于焦点/当前项）；夜航的琥珀 `--sd-accent` 收敛为三个用途：焦点态、当前项、激活态 |
+| UX-01 | 中性色主体 + 单一强调色 + 状态聚焦 | 浅色画布与低饱和正文优先；克制的琥珀 `--sd-accent` 只用于焦点、当前项与激活态，不用渐变和装饰性高光 |
 | UX-02 | 内容优先                           | 阅读页一等公民；管理页允许工具化密度                                                                                                              |
 | UX-03 | 证据可见                           | 事实/作者说明/推断/未知的区分用「图标+文字标签+结构差异」表达，不依赖颜色（PRD REQ-RPT-002）                                                             |
-| UX-04 | 双轴正交                           | 明暗轴（浅/深/跟随系统）×字体轴（无衬线/衬线）互相独立，同 miniflux 的 6 bundle 模型（`internal/ui/static/static.go`）；夜航以深色为第一公民，浅色轴同 tokens 成对补齐 |
+| UX-04 | 双轴正交                           | 明暗轴（浅/深）×字体轴（无衬线/衬线）互相独立；默认浅色，深色作为显式可选项，字体设置不改变颜色 |
 | UX-05 | 键盘可达                           | miniflux 式键盘模型（§7）                                                                                                                         |
 
 ## 2. 设计 tokens
 
 ```css
-/* 深色（默认）：报告站与管理面的中性底色和琥珀色阶 */
---sd-bg:#1b1b1f; --sd-surface:#202127; --sd-elevated:#292a30;
---sd-border:rgba(255,255,255,.12); --sd-border-strong:rgba(255,255,255,.22);
---sd-text:#e6e8eb; --sd-text-2:#b2b6bd; --sd-text-3:#8b9098;
---sd-accent:#e8a33d; --sd-accent-soft:#e8a33d1c;
---sd-focus:rgba(232,163,61,.55); /* 焦点外圈 */
---sd-radius-card:10px; --sd-radius-control:7px;
---sd-ev-source:#4ade80; --sd-ev-author:#2997ff; --sd-ev-infer:#e8a33d;
---sd-ev-external:#bf5af2; --sd-ev-unknown:#7a7a8c;
-/* 浅色轴成对定义（画布 #f6f8fa），html 加 color-scheme:dark|light
-   （miniflux dark.css 对 color-scheme 的用法），字体轴仅换 --sd-font-* 两个变量 */
+/* 浅色默认：管理面与报告面共享中性色和低饱和琥珀 */
+--sd-bg:#f6f8fa; --sd-surface:#fff; --sd-elevated:#f0f2f4;
+--sd-border:rgba(31,35,40,.12); --sd-border-strong:rgba(31,35,40,.22);
+--sd-text:#20242a; --sd-text-2:#515963; --sd-text-3:#68717c;
+--sd-accent:#875b1b; --sd-accent-soft:rgba(135,91,27,.08);
+--sd-focus:rgba(135,91,27,.42); /* 焦点外圈 */
+--sd-radius-card:8px; --sd-radius-control:6px;
+/* 深色模式使用成对 token；浅/深色偏好在 SPA 与 VitePress 间共用 */
 ```
 
 | ID    | 项   | 规定                                                                                                                                                    |
@@ -92,7 +88,7 @@
 | UX-30 | 字号     | 12–22px，±1，键盘 `[` `]`                               | localStorage           |
 | UX-31 | 正文宽   | 72ch / 84ch / 100ch 三档（UX-10 定稿）                  | localStorage（本地保存,DEC-04） |
 | UX-32 | 行高     | 1.6 / 1.8 / 2.0                                         | localStorage           |
-| UX-33 | 主题     | 浅 / 深 / 跟随系统（auto 同 wallabag `dark-theme#useAuto`） | localStorage + 账户配置 |
+| UX-33 | 主题     | 浅色默认 / 深色可选，管理面与报告站共用偏好 | localStorage |
 | UX-34 | 强对比文本 | bool                                                  | localStorage           |
 
 ## 7. 键盘与搜索交互
@@ -145,7 +141,7 @@
 
 | ID    | 项     | 规定                                                                                                                                                              |
 | ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UX-54 | 图标   | 五角星三层切片、顶片琥珀（提取出的设计）、逐级右移——「星剖」直译；单色变体（[icons/mono/icon-a-mono.svg](icons/mono/icon-a-mono.svg)，`fill:currentColor` 随上下文着色）用于 favicon、暗色顶栏与单色场景；落地：favicon.svg（全细节）+ favicon-bold.svg（小尺寸简化变体）+ 16/32/48px favicon + favicon.ico + apple-touch 180 + PWA 192/512 + site.webmanifest（web/public/，`npm run icons` 再生成）；页面已接线 index.html；预览基准见 [icons/preview.html](icons/preview.html) 的 A 行 |
+| UX-54 | 图标   | 五角星三层切片、顶片琥珀（提取出的设计）、逐级右移——「星剖」直译；单色变体（[icons/mono/icon-a-mono.svg](icons/mono/icon-a-mono.svg)，`fill:currentColor` 随上下文着色）用于 favicon、浅/深色导航栏与单色场景；落地：favicon.svg（全细节）+ favicon-bold.svg（小尺寸简化变体）+ 16/32/48px favicon + favicon.ico + apple-touch 180 + PWA 192/512 + site.webmanifest（web/public/，`npm run icons` 再生成）；页面已接线 index.html；预览基准见 [icons/preview.html](icons/preview.html) 的 A 行 |
 
 ## 11. 实施映射（Vue 3）
 
@@ -157,9 +153,9 @@
 | UX-58 | composables  | 键盘处理器、格式调节为独立 composable：`useKeyboard` / `useReaderSettings`（SPA 侧；`useReadingProgress`/`useScrollSpy` 随阅读面迁入 reports-site 的 ProgressTracker，ADR-0009）                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | UX-59 | 目录 scrollspy | 直接改写 VitePress `useActiveAnchor`（`reference/vitepress/src/client/theme-default/composables/outline.ts:79-205`）：scroll 监听 + `throttleAndDebounce(100)`（首调立即、尾部防抖）；判定 = 「最后一个越过视口顶（+`scroll-margin-top`+4px 容差）的标题」，页顶置空、页底取最后一个标题；坐标用 `offsetParent` 链累加（`getAbsoluteTop`，过滤 `display:none`）；点击目录置 `ignoreScrollOnce` 防高亮闪跳；左侧滑动指示条按 `offsetTop` 定位并 `scrollIntoView(block:'nearest')`。落地于报告站 `reports-site` 的 ProgressTracker（监听 window，ADR-0009） |
 | UX-60 | 组件库 Naive UI | 主题经 n-config-provider themeOverrides 完全映射本规范 tokens（web/src/theme.js），深浅两轴成对；组件零硬编码色值原则不变                                                          |
-| UX-61 | 布局范式：顶栏 + 居中内容 | VitePress/Linear 式吸顶顶栏；内容列居中占主体；管理页沿用 SPA 三区；三个阅读面共用深色默认、84ch 版心、16.5px 正文和细边界月份清单；报告页由 VitePress 默认主题承接（右侧大纲原生 outline），工具条置于正文顶部（ADR-0009） |
+| UX-61 | 布局范式：顶栏 + 居中内容 | 吸顶顶栏；内容列居中占主体；SPA 管理面与 VitePress 报告面双向导航；两面共用浅色默认、中性底色、琥珀强调、明暗偏好、84ch 阅读版心和 16.5px 正文；报告目录由 VitePress outline 承接（ADR-0009） |
 | UX-62 | 标签双轨展示 | 仓库抽屉「标签」区:自动标签 info 芯片（AI 分类生成,auto_tags）与人工标签分区显示;自动标签入检索域 |
-| UX-63 | 风格基线:克制简洁 | 单一强调色（琥珀系,用于焦点/当前项/激活态）;7px 控件圆角、10px 卡片圆角;细边界替代装饰阴影;吸顶顶栏 52px;正文默认 16.5px、行高 1.8;阅读站保留项目品牌色 |
+| UX-63 | 风格基线:克制简洁 | 浅色优先；单一低饱和琥珀用于焦点/当前项/激活态；6px 控件圆角、8px 卡片圆角；细边界替代装饰阴影；顶栏 56px；正文默认 16.5px、行高 1.8；阅读站保留项目品牌色 |
 | UX-64 | 阅读中心类别拼图 | 类别卡片为轻边界圆角块（一类别一块:类别名+报告数+未读数）,悬停显示强调色软底;只显示有报告的类别（按报告数排序）,另含「全部」与「未分类」块;点入类别为报告卡片网格 + 未读/收藏状态筛选,「← 全部类别」返回并刷新计数 |
 | UX-65 | 阅读中心时间归档 | 拼图下方「归档」区:按月分组（YYYY-MM + 篇数）,月份头即折叠开关,默认仅展开最近一月;条目=仓库名+时间（含收藏星/未读点）,点击进报告;归档条目不出现（随 entries 语义）;返回拼图时刷新,用户折叠态不重置 |
 

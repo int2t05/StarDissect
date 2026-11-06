@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "preview:mermaid-qa": "vitepress dev test/fixtures/mermaid --host 127.0.0.1 --port 5174",
+    "test": "node --test"
   },
   "devDependencies": {
     "markdown-it": "^14.1.0",

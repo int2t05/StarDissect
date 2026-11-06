@@ -16,4 +16,5 @@ exports/
 # 报告阅读站(reports-site/):脚手架与主题入库;内容树由导出器生成、依赖与产物不入库
 reports-site/src/
 reports-site/.vitepress/cache/
+reports-site/test/fixtures/mermaid/.vitepress/cache/
 reports-site/dist/

@@ -5,24 +5,21 @@ import naive from 'naive-ui'
 
 import App from './App.vue'
 import './styles/tokens.css'
-import AnalysisBoard from './views/AnalysisBoard.vue'
-import ReadingHome from './views/ReadingHome.vue'
-import RepoLibrary from './views/RepoLibrary.vue'
-import SettingsView from './views/SettingsView.vue'
+import { toast } from './api'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', redirect: '/reading' },
-    { path: '/reading', component: ReadingHome },
-    { path: '/repos', component: RepoLibrary },
-    { path: '/analysis', component: AnalysisBoard },
-    { path: '/settings', component: SettingsView },
+    { path: '/reading', component: () => import('./views/ReadingHome.vue') },
+    { path: '/repos', component: () => import('./views/RepoLibrary.vue') },
+    { path: '/analysis', component: () => import('./views/AnalysisBoard.vue') },
+    { path: '/settings', component: () => import('./views/SettingsView.vue') },
   ],
 })
 
 createApp({ render: () => h(App) }).use(router).use(naive).mount('#app')
 
 window.addEventListener('unhandledrejection', (e) => {
-  import('./api').then(({ toast }) => toast(`出错了:${e.reason?.message ?? '未知错误'}`))
+  toast(`出错了:${e.reason?.message ?? '未知错误'}`)
 })

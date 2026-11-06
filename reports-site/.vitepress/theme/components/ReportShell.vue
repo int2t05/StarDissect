@@ -1,24 +1,29 @@
 <script setup lang="ts">
-// 报告页外壳：默认主题 + 路由（页面）变化时对正文做 DOM 加工。
-// 移植自 SPA ReportView.vue 的 onMounted 逻辑（decorateEvidence/injectSourceLinks/
-// renderMermaid/openZoom），布局侧栏简化为 ReportToolbar（VitePress outline 接管目录）。
-import { computed, nextTick, onMounted, watch } from 'vue'
+// 报告页外壳：VitePress 负责排版与目录，本组件收口证据处理和图表交互。
+import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useData } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
+import { createMermaidRenderer } from '../mermaid.js'
 import ReportToolbar from './ReportToolbar.vue'
 
 const { Layout } = DefaultTheme
 const { page } = useData()
 const isHome = computed(() => page.value.relativePath === 'index.md')
 
-onMounted(() => decorate())
+let mermaidRenderer: ReturnType<typeof createMermaidRenderer> | undefined
+onMounted(() => {
+  mermaidRenderer = createMermaidRenderer({ onZoom: openZoom })
+  mermaidRenderer.observeAppearance()
+  decorate()
+})
+onUnmounted(() => mermaidRenderer?.dispose())
 
 // VitePress 的 SPA 导航会换掉正文内容：每次页面切换后重新加工
 watch(() => page.value.relativePath, () => nextTick(decorate))
 
 function decorate(): void {
   decorateEvidence()
-  renderMermaid()
+  void mermaidRenderer?.render()
 }
 
 // 证据折叠:全报告所有证据收进唯一的置底折叠块「证据 ×n」,
@@ -85,63 +90,36 @@ function injectSourceLinks(det: HTMLElement): void {
   det.querySelector('.ev-body')!.appendChild(row)
 }
 
-// mermaid 渲染 + 图题 + 放大层 + 文字后备(UX-48/RPT-005):渲染失败展开源码,不空块
-let figIndex = 0
-async function renderMermaid(): Promise<void> {
-  const blocks = [...document.querySelectorAll<HTMLElement>('.vp-doc .mermaid')]
-  if (!blocks.length) return
-  const dark = document.documentElement.classList.contains('dark')
-  const theme = dark ? 'dark' : 'neutral'
-  for (const b of blocks) {
-    const src = b.textContent ?? ''
-    const fig = document.createElement('figure')
-    const holder = document.createElement('div')
-    holder.className = 'zoomable' // 放大触发/hover 仅作用于图本体,不与源码折叠区重叠
-    const cap = document.createElement('figcaption')
-    cap.textContent = `图 ${++figIndex} · 点击放大`
-    const fallback = document.createElement('details')
-    fallback.innerHTML = `<summary>图表源码</summary><pre>${src.replace(/</g, '&lt;')}</pre>`
-    b.replaceWith(fig)
-    fig.append(holder, cap, fallback)
-    const mermaid = (await import('mermaid')).default // 本地依赖随构建打包(内网自托管不依赖外部 CDN)
-    mermaid.initialize({ startOnLoad: false, theme })
-    // parse 先行验证:失败不产生 mermaid 的孤儿错误图;修复/后备而非页面报错炸弹
-    const tryRender = async (text: string) => {
-      if (!(await mermaid.parse(text, { suppressErrors: true }))) throw new Error('parse failed')
-      const { svg } = await mermaid.render(`m${Math.random().toString(36).slice(2)}`, text)
-      holder.innerHTML = svg
-      holder.addEventListener('click', () => openZoom(holder.querySelector('svg')!, cap.textContent ?? ''))
-    }
-    // 确定性修复:未加引号的节点标签补双引号(引号内 {} 合法);与服务端 _quote_mermaid_labels 同一规则
-    const repaired = src.replace(/([A-Za-z0-9_]+)\[(?!")([^\]\[\n"]+)\]/g, '$1["$2"]')
-    try {
-      await tryRender(src)
-    } catch {
-      try {
-        if (repaired === src) throw new Error('unrepairable')
-        await tryRender(repaired)
-        cap.textContent += ' · 已自动修复语法'
-      } catch {
-        fallback.open = true // 仍失败才走源码后备
-      }
-    }
-  }
-}
-
 // 放大层(UX-48):滚轮缩放、拖拽平移、Esc/点背景退出、焦点圈闭
-function openZoom(svg: SVGElement, title: string): void {
+function openZoom(svg: SVGElement, title: string, origin?: HTMLElement): void {
   if (!svg || document.getElementById('sd-zoom')) return
   const ov = document.createElement('div')
   ov.id = 'sd-zoom'
   ov.tabIndex = -1
-  ov.innerHTML = `
-    <div class="zoom-head">${title.replace(/</g, '&lt;')}<button type="button" class="zoom-close">关闭 (Esc)</button></div>
-    <div class="zoom-stage"><div class="zoom-canvas"></div></div>
-    <div class="zoom-hint">滚轮缩放 · 拖拽平移 · Esc 关闭</div>`
-  const canvas = ov.querySelector<HTMLElement>('.zoom-canvas')!
+  ov.setAttribute('role', 'dialog')
+  ov.setAttribute('aria-modal', 'true')
+  ov.setAttribute('aria-label', title)
+  const head = document.createElement('div')
+  head.className = 'zoom-head'
+  const titleEl = document.createElement('span')
+  titleEl.textContent = title
+  const closeButton = document.createElement('button')
+  closeButton.className = 'zoom-close'
+  closeButton.type = 'button'
+  closeButton.textContent = '关闭 (Esc)'
+  head.append(titleEl, closeButton)
+  const stage = document.createElement('div')
+  stage.className = 'zoom-stage'
+  const canvas = document.createElement('div')
+  canvas.className = 'zoom-canvas'
+  stage.appendChild(canvas)
+  const hint = document.createElement('div')
+  hint.className = 'zoom-hint'
+  hint.textContent = '滚轮缩放 · 拖拽平移 · Esc 关闭'
+  ov.append(head, stage, hint)
   canvas.appendChild(svg.cloneNode(true))
   document.body.appendChild(ov)
-  ov.focus()
+  closeButton.focus()
   let scale = 1, tx = 0, ty = 0
   const applyT = () => { canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})` }
   const onWheel = (e: WheelEvent) => {
@@ -151,7 +129,6 @@ function openZoom(svg: SVGElement, title: string): void {
   }
   // 拖拽状态机:pointer capture 会让松开后的合成 click 目标落到覆盖层,
   // 因此「点空白关闭」在 pointerup 时按按下位置+是否真拖动判定,而非 click 事件
-  const stage = ov.querySelector<HTMLElement>('.zoom-stage')!
   let drag: { x: number; y: number; moved: boolean } | null = null
   let downOnBackdrop = false
   const onDown = (e: PointerEvent) => {
@@ -186,7 +163,7 @@ function openZoom(svg: SVGElement, title: string): void {
     ov.removeEventListener('keydown', onKey)
     window.removeEventListener('keydown', onKey, true)
     ov.remove()
-    document.querySelector('.vp-doc .zoomable')?.focus?.()
+    origin?.focus()
   }
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') { e.preventDefault(); close() }
@@ -202,7 +179,7 @@ function openZoom(svg: SVGElement, title: string): void {
   ov.addEventListener('pointermove', onMove)
   ov.addEventListener('pointerup', onUp)
   ov.addEventListener('pointercancel', onUp)
-  ov.querySelector('.zoom-close')!.addEventListener('click', close)
+  closeButton.addEventListener('click', close)
   ov.addEventListener('keydown', onKey)
   window.addEventListener('keydown', onKey, true)
 }

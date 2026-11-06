@@ -211,7 +211,7 @@ onMounted(() => { load(); loadCategories() })
               <n-tag v-for="c in detail.categories" :key="c.id" size="small" type="primary" :bordered="false" closable @close="delRepoCat(c.id)">{{ c.name }}</n-tag>
               <span v-if="!detail.categories.length" class="desc">尚无类别(大方向,一库可多类)</span>
             </div>
-            <n-autocomplete
+            <n-auto-complete
               v-model:value="catInput" size="small" :options="catOptions" :on-select="v => { catInput = v; addCat() }"
               placeholder="+ 类别,回车添加;输入新名即创建" @keydown.enter="addCat"
             />
@@ -286,7 +286,8 @@ onMounted(() => { load(); loadCategories() })
 
 <style scoped>
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-.grid :deep(.n-card) { border-radius: var(--sd-radius-card); }
+.grid :deep(.n-card) { border-radius: var(--sd-radius-card); box-shadow: none; }
+.grid :deep(.n-card--hoverable:hover) { box-shadow: none; }
 .card { cursor: pointer; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }

@@ -9,7 +9,6 @@
     "icons": "node ../scripts/gen_icons.mjs"
   },
   "dependencies": {
-    "mermaid": "^12.1.0",
     "naive-ui": "^2.45.3",
     "vue": "^3.5.0",
     "vue-router": "^4.4.0"

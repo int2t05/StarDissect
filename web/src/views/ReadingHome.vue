@@ -326,9 +326,8 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .entries .meta { color: var(--sd-text-3); font-size: 0.85em; display: flex; align-items: center; gap: 8px; }
 .search-pop {
   position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
-  width: min(680px, 92vw); background: var(--sd-elevated);
-  border: 1px solid var(--sd-border); border-radius: 10px; padding: 10px; z-index: 25;
-  backdrop-filter: saturate(180%) blur(20px);
+  width: min(680px, 92vw); background: var(--sd-surface);
+  border: 1px solid var(--sd-border); border-radius: 8px; padding: 10px; z-index: 25;
 }
 .group { margin-top: 6px; }
 .group-name { color: var(--sd-text-3); font-size: 0.78em; padding: 8px 8px 2px; }

@@ -25,6 +25,7 @@ SPA 保留 useReaderSettings(全局主题)与全部管理面。阅读交互移�
   GitHub 源码链接(锚定 commit)、mermaid 渲染+放大层、已读/收藏(PATCH state)、
   高水位进度(PUT progress 契约不变)、字号/行宽/行高/强对比(localStorage 改用
   `reports-` 前缀);目录由 VitePress outline 原生接管。
+- **双向导航**：SPA 顶栏可进入 `/reports/`；报告站导航直达 SPA 的阅读中心、仓库库、分析管理与系统设置，迁移阅读面不替换管理功能。
 
 服务端管线(ADR-0008)**原样保留**:章节提取、排版校验、FTS、RSS、`/reports/{vid}/export`
 都消费它,渲染逻辑不双写——站点插件只服务阅读站的呈现层。重建走 daemon 线程

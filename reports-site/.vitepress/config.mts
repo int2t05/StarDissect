@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitepress'
 import evidence from './theme/plugins/evidence'
-import mermaidFence from './theme/plugins/mermaidFence'
+import mermaidFence from './theme/plugins/mermaidFence.js'
 import sections from './theme/plugins/sections'
 
 // 报告阅读站：SPA 瘦身为管理面，阅读面整体迁到这里（ADR-0009）
@@ -12,7 +12,8 @@ export default defineConfig({
   srcDir: 'src',
   outDir: 'dist',
   base: '/reports/',
-  appearance: 'dark',
+  // 两个阅读面共用 VitePress 主题偏好键；首次访问默认浅色，用户选择仍可同步。
+  appearance: { initialValue: 'light', storageKey: 'vitepress-theme-appearance' },
   ignoreDeadLinks: true,
   markdown: {
     // 外部来源的正文（模型产出的报告）不许当模板：裸 HTML 一律转义，与服务端管线同一条底线
@@ -29,8 +30,13 @@ export default defineConfig({
     },
   },
   themeConfig: {
-    // base 为 /reports/，/../ 抵消站点前缀后回到同源管理面根路径
-    nav: [{ text: '管理面', link: '/../' }],
+    // 阅读站与 SPA 共用同源根路径；hash 路由保留全部管理功能页
+    nav: [
+      { text: '阅读中心', link: '/../#/reading' },
+      { text: '仓库库', link: '/../#/repos' },
+      { text: '分析管理', link: '/../#/analysis' },
+      { text: '系统设置', link: '/../#/settings' },
+    ],
     outline: [2, 3],
     outlineLabel: '本页大纲',
     darkModeSwitchLabel: '主题',

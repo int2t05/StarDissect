@@ -2,10 +2,15 @@
 import { reactive, watchEffect } from 'vue'
 
 const KEY = 'sd-reader-settings'
-const defaults = { fontSize: 16.5, width: 'standard', lineHeight: '1.8', theme: 'dark', contrast: false }
+const THEME_KEY = 'vitepress-theme-appearance'
+const defaults = { fontSize: 16.5, width: 'standard', lineHeight: '1.8', theme: 'light', contrast: false }
 
 function load() {
-  try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch { return { ...defaults } }
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || '{}')
+    const theme = localStorage.getItem(THEME_KEY)
+    return { ...defaults, ...saved, theme: theme === 'dark' ? 'dark' : 'light' }
+  } catch { return { ...defaults } }
 }
 
 let instance = null
@@ -20,7 +25,15 @@ export function useReaderSettings() {
     root.dataset.lh = settings.lineHeight
     root.style.setProperty('--sd-font-size', settings.fontSize + 'px')
     root.dataset.contrast = settings.contrast ? '1' : '0'  // 匹配 tokens 的 [data-contrast] 选择器
-    localStorage.setItem(KEY, JSON.stringify({ ...settings }))
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ ...settings }))
+      localStorage.setItem(THEME_KEY, settings.theme)
+    } catch {
+      // 隐私模式禁用本地存储时，当前会话仍可切换主题与排版
+    }
+  })
+  window.addEventListener('storage', (event) => {
+    if (event.key === THEME_KEY && ['light', 'dark'].includes(event.newValue)) settings.theme = event.newValue
   })
   instance = { settings }
   return instance

@@ -1,8 +1,8 @@
 <!-- 应用壳:顶栏导航 + 居中内容范式(UX-61);组件库 Naive UI 主题映射(UX-60) -->
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { NConfigProvider, NMessageProvider, useOsTheme } from 'naive-ui'
+import { useRoute } from 'vue-router'
+import { NConfigProvider, NMessageProvider } from 'naive-ui'
 import { useKeyboard } from './composables/useKeyboard'
 import { useReaderSettings } from './composables/useReaderSettings'
 import { naiveTheme, overridesFor } from './theme'
@@ -13,21 +13,20 @@ onMounted(() => window.addEventListener('keydown', handler))
 onUnmounted(() => window.removeEventListener('keydown', handler))
 
 const route = useRoute()
-const router = useRouter()
-const osTheme = useOsTheme()
 const { settings } = useReaderSettings()
 
-const nTheme = computed(() => naiveTheme(settings.theme, osTheme.value))
-const nOverrides = computed(() => overridesFor(settings.theme, osTheme.value))
+const nTheme = computed(() => naiveTheme(settings.theme))
+const nOverrides = computed(() => overridesFor(settings.theme))
 
 const menuOptions = [
   { label: '阅读中心', key: '/reading' },
   { label: '仓库库', key: '/repos' },
   { label: '分析管理', key: '/analysis' },
   { label: '系统设置', key: '/settings' },
+  { label: '报告', key: '/reports/', external: true },
 ]
-function onMenu(key) {
-  router.push(key)
+function toggleTheme() {
+  settings.theme = settings.theme === 'dark' ? 'light' : 'dark'
 }
 </script>
 
@@ -38,15 +37,18 @@ function onMenu(key) {
         <header class="topbar">
           <div class="topbar-inner">
             <RouterLink class="brand" to="/reading">星剖</RouterLink>
-            <nav class="nav">
-              <RouterLink
-                v-for="m in menuOptions"
-                :key="m.key"
-                :to="m.key"
-                :class="{ active: route.path.startsWith(m.key) }"
-              >{{ m.label }}</RouterLink>
+            <nav class="nav" aria-label="主导航">
+              <template v-for="m in menuOptions" :key="m.key">
+                <a v-if="m.external" :href="m.key">{{ m.label }}</a>
+                <RouterLink v-else :to="m.key" :class="{ active: route.path.startsWith(m.key) }">{{ m.label }}</RouterLink>
+              </template>
             </nav>
-            <span class="kbd-hint"><kbd>/</kbd> 搜索 <kbd>?</kbd> 快捷键</span>
+            <div class="topbar-tools">
+              <button class="theme-toggle" type="button" @click="toggleTheme">
+                {{ settings.theme === 'dark' ? '浅色模式' : '深色模式' }}
+              </button>
+              <span class="kbd-hint"><kbd>/</kbd> 搜索 <kbd>?</kbd> 快捷键</span>
+            </div>
           </div>
         </header>
         <main class="main"><RouterView /></main>
@@ -70,20 +72,22 @@ function onMenu(key) {
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 .topbar {
   position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--sd-bg) 94%, transparent);
-  backdrop-filter: saturate(140%) blur(12px);
+  background: var(--sd-bg);
   border-bottom: 1px solid var(--sd-border);
 }
 .topbar-inner {
-  max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 52px;
+  max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 56px;
   display: flex; align-items: center; gap: 24px;
 }
 .brand { font-size: 16px; font-weight: 600; color: var(--sd-text); letter-spacing: 0.02em; }
 .nav { display: flex; gap: 4px; flex: 1; }
 .nav a { padding: 6px 10px; border-radius: 6px; color: var(--sd-text-2); font-size: 13px; white-space: nowrap; }
 .nav a:hover { color: var(--sd-text); background: var(--sd-accent-soft); }
-.nav a.router-link-active { color: var(--sd-accent); background: var(--sd-accent-soft); } /* 当前项单强调色(UX-01) */
+.nav a.router-link-active { color: var(--sd-accent); box-shadow: inset 0 -2px var(--sd-accent); }
 .kbd-hint { color: var(--sd-text-3); font-size: 12px; }
+.topbar-tools { display: flex; align-items: center; gap: 14px; white-space: nowrap; }
+.theme-toggle { padding: 4px 9px; border-color: var(--sd-border); background: transparent; color: var(--sd-text-2); font-size: 12px; }
+.theme-toggle:hover { color: var(--sd-accent); border-color: var(--sd-border-strong); }
 .main { flex: 1; }
 .key-echo {
   position: fixed; left: 20px; bottom: 20px; z-index: 40;
@@ -99,8 +103,9 @@ function onMenu(key) {
 .help-panel h3 { margin-top: 0; color: var(--sd-accent); }
 @media (max-width: 767px) {
   .topbar-inner { gap: 12px; padding: 0 12px; }
-  .nav { gap: 0; overflow-x: auto; }
-  .nav a { padding-inline: 8px; }
+  .nav { min-width: 0; gap: 0; overflow-x: auto; }
+  .nav a { padding-inline: 6px; font-size: 12px; }
+  .topbar-tools { gap: 8px; }
   .kbd-hint { display: none; }
 }
 </style>
