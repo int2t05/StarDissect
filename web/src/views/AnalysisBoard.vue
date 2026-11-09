@@ -2,11 +2,10 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { NButton, NPagination, NSelect, NTable, NTag } from 'naive-ui'
+import { api } from '../api'
 
 const pageSize = ref(15)
 const page = ref(1)
-import { api } from '../api'
-
 const data = ref({ paused: false, tasks: [] })
 let timer = null
 
@@ -102,21 +101,29 @@ onUnmounted(() => clearInterval(timer))
       </tbody>
       </n-table>
     </div>
-    <n-pagination
-      v-model:page="page"
-      :page-size="pageSize"
-      :item-count="data.tasks.length"
-      :page-slot="7"
-      show-size-picker
-      :page-sizes="[15, 30, 50]"
-      @update:page-size="(s) => (pageSize = s)"
-    />
+    <div class="pager-wrap">
+      <n-pagination
+        v-model:page="page"
+        :page-size="pageSize"
+        :item-count="data.tasks.length"
+        :page-slot="7"
+        show-size-picker
+        :page-sizes="[15, 30, 50]"
+        @update:page-size="(s) => (pageSize = s)"
+      />
+    </div>
     <p v-if="!data.tasks.length" class="hint">队列为空。在「仓库库」触发分析,或同步 star 自动入库。</p>
   </div>
 </template>
 
 <style scoped>
-.table-wrap { max-height: calc(100vh - 230px); overflow-y: auto; border: 1px solid var(--sd-border); border-radius: 6px; }
+.table-wrap { max-width: 100%; max-height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--sd-border); border-radius: 6px; }
+.table-wrap :deep(table) { min-width: 860px; }
 .table-wrap :deep(th) { position: sticky; top: 0; background: var(--sd-surface); z-index: 1; }
 .why { color: var(--sd-text-3); font-size: 0.85em; max-width: 260px; overflow-wrap: break-word; }
+.pager-wrap { max-width: 100%; overflow-x: auto; align-self: flex-end; }
+@media (max-width: 767px) {
+  .table-wrap { max-height: calc(100vh - 260px); }
+  .pager-wrap { align-self: stretch; }
+}
 </style>

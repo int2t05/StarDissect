@@ -7,8 +7,9 @@ import { createMermaidRenderer } from '../mermaid.js'
 import ReportToolbar from './ReportToolbar.vue'
 
 const { Layout } = DefaultTheme
-const { page } = useData()
+const { page, frontmatter } = useData()
 const isHome = computed(() => page.value.relativePath === 'index.md')
+const isReport = computed(() => !!frontmatter.value.vid)
 
 let mermaidRenderer: ReturnType<typeof createMermaidRenderer> | undefined
 onMounted(() => {
@@ -186,9 +187,9 @@ function openZoom(svg: SVGElement, title: string, origin?: HTMLElement): void {
 </script>
 
 <template>
-  <div :class="{ 'archive-home': isHome }">
+  <div :class="{ 'archive-home': isHome, 'report-page': isReport }">
     <Layout>
-      <template #doc-top>
+      <template #sidebar-nav-before>
         <ReportToolbar />
       </template>
     </Layout>

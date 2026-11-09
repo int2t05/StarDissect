@@ -188,7 +188,7 @@ onMounted(() => { load(); loadCategories() })
     </div>
     <n-empty v-if="!repos.length" description="库为空。先在「系统设置」配置凭据并同步 star。" class="hint" />
 
-    <n-drawer v-model:show="showDetail" :width="540" placement="right">
+    <n-drawer v-model:show="showDetail" :width="'min(540px, 100vw)'" placement="right">
       <n-drawer-content v-if="detail" :title="detail.repo.full_name" closable>
         <div class="detail">
           <p class="desc">{{ detail.repo.description }}</p>
@@ -265,7 +265,7 @@ onMounted(() => { load(); loadCategories() })
       </n-drawer-content>
     </n-drawer>
 
-    <n-modal v-model:show="showManage" preset="card" title="管理类别" style="width: 420px">
+    <n-modal v-model:show="showManage" preset="card" title="管理类别" style="width: min(420px, calc(100vw - 32px))">
       <p class="desc">大方向归类,独立于七类主类型与标签;删除类别只解除关联,仓库数据不动。</p>
       <div class="mgr-list">
         <div v-for="c in categories" :key="c.id" class="mgr-row">
@@ -285,7 +285,7 @@ onMounted(() => { load(); loadCategories() })
 </template>
 
 <style scoped>
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
 .grid :deep(.n-card) { border-radius: var(--sd-radius-card); box-shadow: none; }
 .grid :deep(.n-card--hoverable:hover) { box-shadow: none; }
 .card { cursor: pointer; }
@@ -297,13 +297,18 @@ onMounted(() => { load(); loadCategories() })
 .mgr-row { display: flex; gap: 8px; align-items: center; }
 .mgr-row .n-input { flex: 1; }
 .count { color: var(--sd-text-3); font-size: 12px; white-space: nowrap; }
-.desc { color: var(--sd-text-2); margin: 6px 0 0; font-size: 0.9em; }
+.desc { color: var(--sd-text-2); margin: 6px 0 0; font-size: 0.9em; overflow-wrap: anywhere; }
 .desc.behind { color: var(--sd-error, #d03050); }
 .detail { display: flex; flex-direction: column; gap: 16px; }
 .sec h3 { font-size: 0.95em; color: var(--sd-text-2); border-top: 1px solid var(--sd-border); padding-top: 14px; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 h3.sub { padding-top: 10px; margin-top: 2px; border-top: 0; font-size: 0.88em; }
-.actions { display: flex; gap: 8px; }
-.ver { display: flex; gap: 12px; align-items: center; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ver { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .ver .danger { color: var(--sd-error, #d03050); }
+@media (max-width: 767px) {
+  .grid { gap: 10px; }
+  .page .bar-tools { justify-content: flex-start; }
+  .mgr-row { align-items: flex-start; }
+}
 </style>

@@ -269,24 +269,30 @@ def _require_repo(conn, repo_id: int):
 
 @router.get("/categories")
 async def list_categories(request: Request, conn=Depends(get_conn)):
-    # repos=类别下可见仓库数(仓库库类别条与阅读中心拼图共用);归档仓库排除
+    # 阅读中心显示可读报告与未读数;仓库库仍使用仓库数管理类别。
     return [dict(r) for r in conn.execute(
         """SELECT c.id, c.name,
-                  COUNT(DISTINCT CASE WHEN r.archived=0 THEN rc.repo_id END) AS repos
+                  COUNT(DISTINCT CASE WHEN r.archived=0 THEN rc.repo_id END) AS repos,
+                  COUNT(DISTINCT CASE WHEN r.archived=0 AND v.archived=0 THEN v.id END) AS reports,
+                  COUNT(DISTINCT CASE WHEN r.archived=0 AND v.archived=0 AND v.read=0 THEN v.id END) AS unread
            FROM categories c
            LEFT JOIN repo_categories rc ON rc.category_id=c.id
            LEFT JOIN repos r ON r.id=rc.repo_id
+           LEFT JOIN report_versions v ON v.repo_id=r.id
            GROUP BY c.id ORDER BY c.name""")]
 
 
 @router.get("/reading/overview")
 async def reading_overview(request: Request, conn=Depends(get_conn)):
-    # 拼图首块「全部」与「未分类」的仓库数(口径=有可见报告的仓库;未分类=该仓库未归入任何领域类别)
+    # 拼图计数以未归档报告为准;报告数与未读数按报告计,仓库数用于管理面。
     base = """FROM report_versions v JOIN repos r ON r.id=v.repo_id
            WHERE v.archived=0 AND r.archived=0"""
-    total = conn.execute(f"SELECT COUNT(DISTINCT v.repo_id) AS repos {base}").fetchone()
+    counts = """COUNT(DISTINCT v.repo_id) AS repos,
+                 COUNT(DISTINCT v.id) AS reports,
+                 COUNT(DISTINCT CASE WHEN v.read=0 THEN v.id END) AS unread"""
+    total = conn.execute(f"SELECT {counts} {base}").fetchone()
     uncat = conn.execute(
-        f"""SELECT COUNT(DISTINCT v.repo_id) AS repos {base}
+        f"""SELECT {counts} {base}
            AND NOT EXISTS (SELECT 1 FROM repo_categories rc WHERE rc.repo_id=v.repo_id)""").fetchone()
     return {"total": dict(total), "uncategorized": dict(uncat)}
 

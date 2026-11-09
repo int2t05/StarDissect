@@ -27,10 +27,10 @@ const filterOptions = [
   { label: '已归档', value: 'archived' },
 ]
 
-// 拼图按仓库数呈现:有仓库的类别即显示;按仓库数优先排序
+// 阅读入口只呈现有可读报告的类别,按报告数排序。
 const sortedCats = computed(() =>
-  categories.value.filter(c => c.repos > 0)
-    .sort((a, b) => b.repos - a.repos || a.name.localeCompare(b.name, 'zh')))
+  categories.value.filter(c => c.reports > 0)
+    .sort((a, b) => b.reports - a.reports || a.name.localeCompare(b.name, 'zh')))
 
 const catName = computed(() =>
   cat.value === 0 ? '全部' : cat.value === -1 ? '未分类'
@@ -210,35 +210,40 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
       <div v-else-if="searchEmpty" class="empty"><n-empty description="无结果" size="small" /></div>
     </div>
 
-    <!-- 类别拼图(UX-64):大号标签块,一类别一入口;计数以仓库数为准 -->
+    <!-- 类别是主阅读入口;时间列表收进折叠面板,避免重复占满首页。 -->
     <template v-if="cat === null">
-      <div class="cloud">
+      <section class="category-section" aria-labelledby="category-heading">
+        <header class="section-head">
+          <h2 id="category-heading">按类别浏览</h2>
+          <span class="section-hint">选择类别查看报告</span>
+        </header>
+        <div class="cloud">
         <button class="tile" @click="enter(0)">
           <span class="name">全部</span>
-          <span class="meta">{{ overview?.total.repos ?? 0 }} 个仓库</span>
+          <span class="meta">{{ overview?.total.reports ?? 0 }} 篇报告 · {{ overview?.total.unread ?? 0 }} 篇未读</span>
         </button>
         <button v-for="c in sortedCats" :key="c.id" class="tile" @click="enter(c.id)">
           <span class="name">{{ c.name }}</span>
-          <span class="meta">{{ c.repos }} 个仓库</span>
+          <span class="meta">{{ c.reports }} 篇报告 · {{ c.unread }} 篇未读</span>
         </button>
-        <button v-if="overview?.uncategorized.repos" class="tile" @click="enter(-1)">
+        <button v-if="overview?.uncategorized.reports" class="tile" @click="enter(-1)">
           <span class="name">未分类</span>
-          <span class="meta">{{ overview.uncategorized.repos }} 个仓库</span>
+          <span class="meta">{{ overview.uncategorized.reports }} 篇报告 · {{ overview.uncategorized.unread }} 篇未读</span>
         </button>
-      </div>
+        </div>
+      </section>
       <n-empty
-        v-if="overview && !overview.total.repos"
+        v-if="overview && !overview.total.reports"
         description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint"
       />
 
-      <!-- 时间归档(UX-65):按月分组,点月份头折叠 -->
-      <section v-if="monthGroups.length" class="archive">
-        <div class="arch-head">
-          <h2>归档</h2>
-          <span class="arch-hint">共 {{ archive.length }} 篇 · 点月份折叠</span>
-        </div>
+      <details v-if="monthGroups.length" class="archive">
+        <summary class="archive-summary">
+          <span>按时间浏览</span>
+          <span class="arch-hint">共 {{ archive.length }} 篇</span>
+        </summary>
         <div v-for="[m, items] in monthGroups" :key="m" class="month">
-          <button class="month-head" @click="toggleMonth(m)">
+          <button class="month-head" :aria-expanded="!collapsed.includes(m)" @click="toggleMonth(m)">
             <span class="m">{{ m }}</span>
             <span class="c">{{ items.length }} 篇</span>
             <span class="arrow">{{ collapsed.includes(m) ? '▸' : '▾' }}</span>
@@ -252,7 +257,7 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
             </li>
           </ul>
         </div>
-      </section>
+      </details>
     </template>
 
     <!-- 类别内:报告卡片,可切未读/收藏态 -->
@@ -280,20 +285,24 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 </template>
 
 <style scoped>
-.cloud { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+.category-section { display: flex; flex-direction: column; gap: 12px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.section-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.section-hint, .arch-hint { color: var(--sd-text-3); font-size: 13px; }
+.cloud { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; align-items: stretch; }
 .tile {
   display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
-  padding: 14px 20px; border: 1px solid var(--sd-border); border-radius: var(--sd-radius-card);
+  min-height: 82px; padding: 14px 16px; border: 1px solid var(--sd-border); border-radius: var(--sd-radius-card);
   background: var(--sd-surface); color: var(--sd-text); cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 .tile:hover { background: var(--sd-accent-soft); border-color: var(--sd-accent); }
-.tile .name { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; } /* UX-63 display 负字距 */
+.tile .name { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
 .tile .meta { font-size: 13px; color: var(--sd-text-3); }
-.archive { margin-top: 40px; }
-.arch-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
-.arch-head h2 { font-size: 18px; letter-spacing: -0.01em; margin: 0; }
-.arch-hint { color: var(--sd-text-3); font-size: 13px; }
+.archive { margin-top: 8px; border-top: 1px solid var(--sd-border); }
+.archive-summary { display: flex; align-items: baseline; gap: 12px; padding: 14px 2px; color: var(--sd-text-2); cursor: pointer; }
+.archive-summary:hover { color: var(--sd-accent); }
+.archive-summary::marker { color: var(--sd-text-3); }
 .month-head {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 12px 4px; border: 0; border-top: 1px solid var(--sd-border);
@@ -316,7 +325,7 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .cat-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cat-title { font-size: 18px; letter-spacing: -0.01em; }
 .cat-head .n-select { margin-left: auto; }
-.entries { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.entries { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
 .entries li { border: 1px solid var(--sd-border); border-radius: var(--sd-radius-card); content-visibility: auto; contain-intrinsic-size: auto 84px; } /* UX-15 */
 .entries li.active { background: var(--sd-accent-soft); }
 .entries a { display: flex; flex-direction: column; gap: 6px; height: 100%; padding: 14px 16px; color: var(--sd-text); box-sizing: border-box; }
@@ -337,4 +346,11 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .snip { display: block; color: var(--sd-text-2); font-size: 0.85em; }
 .snip :deep(mark) { background: var(--sd-accent-soft); color: var(--sd-accent); }
 .empty { padding: 12px; }
+@media (max-width: 600px) {
+  .section-head { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .tile { min-height: 72px; }
+  .cat-head { flex-wrap: wrap; }
+  .cat-head .n-select { margin-left: auto; }
+  .month-list a { align-items: flex-start; flex-direction: column; gap: 2px; }
+}
 </style>

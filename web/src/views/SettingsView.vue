@@ -70,5 +70,6 @@ onMounted(load)
 <style scoped>
 .page.narrow { max-width: 640px; }
 .form { display: flex; flex-direction: column; gap: 4px; }
-.row { display: flex; gap: 12px; align-items: center; }
+.row { display: flex; gap: 10px 12px; align-items: center; flex-wrap: wrap; }
+.row a { font-size: 0.9em; }
 </style>

@@ -30,6 +30,8 @@ export default defineConfig({
     },
   },
   themeConfig: {
+    // 空侧栏只用于承载报告页阅读工具;首页通过 frontmatter 显式关闭。
+    sidebar: [{ text: '阅读工具', link: '/', items: [] }],
     // 阅读站与 SPA 共用同源根路径；hash 路由保留全部管理功能页
     nav: [
       { text: '阅读中心', link: '/../#/reading' },

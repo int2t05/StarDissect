@@ -229,7 +229,7 @@ async def test_repo_categories_multi_assign_and_filter(client):
 
 
 async def test_reading_mosaic_counts_and_category_filter(client):
-    # 阅读中心拼图:类别仓库数、/api/entries 类别过滤、未分类与全部的仓库口径(REQ-CLS-006)
+    # 阅读中心类别显示报告与未读计数;类别筛选仍按仓库关联执行。
     c, conn = client
     await _seed_report(conn)  # o/demo:repo 1,一篇未读报告
     conn.execute("INSERT INTO repos(id, github_id, full_name, status) VALUES (2, 22, 'o/other', '可阅读')")
@@ -244,11 +244,14 @@ async def test_reading_mosaic_counts_and_category_filter(client):
 
     await c.post("/api/repos/1/categories", json={"name": "AI"})
     cats = (await c.get("/api/categories")).json()
-    assert cats[0]["name"] == "AI" and cats[0]["repos"] == 1
+    assert cats[0]["name"] == "AI"
+    assert {key: cats[0][key] for key in ("repos", "reports", "unread")} == {
+        "repos": 1, "reports": 1, "unread": 1,
+    }
 
     ov = (await c.get("/api/reading/overview")).json()
-    assert ov["total"] == {"repos": 2}
-    assert ov["uncategorized"] == {"repos": 1}
+    assert ov["total"] == {"repos": 2, "reports": 2, "unread": 1}
+    assert ov["uncategorized"] == {"repos": 1, "reports": 1, "unread": 0}
 
     ai_id = cats[0]["id"]
     r = (await c.get("/api/entries", params={"category": ai_id})).json()
@@ -289,9 +292,9 @@ async def test_report_archive_entries_rss_and_counts(client):
     assert len(arch) == 1 and arch[0]["archived"] == 1
     assert b"<entry>" not in (await c.get("/rss.xml")).content
     ov = (await c.get("/api/reading/overview")).json()
-    assert ov["total"] == {"repos": 0}  # 全部=有可见报告的仓库数;报告归档后归零
+    assert ov["total"] == {"repos": 0, "reports": 0, "unread": 0}
     cats = (await c.get("/api/categories")).json()
-    assert cats[0]["repos"] == 1  # 类别拼图按仓库数:仓库仍在类别,不随报告归档消失
+    assert cats[0]["repos"] == 1 and cats[0]["reports"] == 0 and cats[0]["unread"] == 0
     await c.patch(f"/api/reports/{vid}/state", json={"archived": False})  # 恢复
     assert len((await c.get("/api/entries")).json()) == 1
     assert b"<entry>" in (await c.get("/rss.xml")).content
@@ -305,9 +308,9 @@ async def test_repo_archive_hides_reports_and_counts(client):
     assert (await c.patch("/api/repos/1", json={"archived": True})).status_code == 200
     assert (await c.get("/api/entries")).json() == []
     ov = (await c.get("/api/reading/overview")).json()
-    assert ov["total"] == {"repos": 0}
+    assert ov["total"] == {"repos": 0, "reports": 0, "unread": 0}
     cats = (await c.get("/api/categories")).json()
-    assert cats[0]["repos"] == 0
+    assert cats[0]["repos"] == 0 and cats[0]["reports"] == 0 and cats[0]["unread"] == 0
     assert b"<entry>" not in (await c.get("/rss.xml")).content
     await c.patch("/api/repos/1", json={"archived": False})
     assert len((await c.get("/api/entries")).json()) == 1

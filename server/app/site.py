@@ -71,7 +71,7 @@ def _frontmatter(row) -> str:
 
 def _write_home(src: Path, rows) -> None:
     """首页:未归档报告按月分组的清单,新的在前——阅读站的开门页。"""
-    parts = ['---\ntitle: StarDissect 报告\n---\n\n# StarDissect 报告\n\n']
+    parts = ['---\ntitle: StarDissect 报告\nsidebar: false\n---\n\n# StarDissect 报告\n\n']
     if not rows:
         parts.append("还没有报告:跑一轮分析后,这里会按月列出全部报告。\n")
     else:
@@ -153,10 +153,13 @@ def rebuild_now() -> None:
 def _run_npm_build() -> None:
     """跑一次 npm run build;失败把输出尾巴带回来。构建前先删 dist:旧产物上原地覆盖
     时(大量文件先删后写)会触发 node fail-fast 崩溃,清空重来既避开也符合整树重建语义。"""
+    npm = shutil.which("npm")
+    if npm is None:
+        raise RuntimeError("报告站构建失败:npm 不在 PATH")
     config.logs_dir().mkdir(parents=True, exist_ok=True)
     shutil.rmtree(config.reports_site_dist(), ignore_errors=True)
     proc = subprocess.run(
-        ["npm", "run", "build"],
+        [npm, "run", "build"],
         cwd=SITE_DIR,
         timeout=BUILD_TIMEOUT_SEC,
         capture_output=True,

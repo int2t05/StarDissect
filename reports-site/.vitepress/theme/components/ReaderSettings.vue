@@ -68,20 +68,22 @@ function adjustFont(delta: number): void {
 </script>
 
 <template>
-  <span class="reader-settings">
-    <label class="reader-setting">字号
+  <div class="reader-settings">
+    <label class="reader-setting"><span>字号</span>
       <select v-model.number="settings.fontSize" aria-label="阅读字号">
         <option v-for="o in fontOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
       </select>
     </label>
-    <button class="reader-action" type="button" title="字号减一（[）" aria-label="字号减一" @click="adjustFont(-1)">A−</button>
-    <button class="reader-action" type="button" title="字号加一（]）" aria-label="字号加一" @click="adjustFont(1)">A＋</button>
-    <label class="reader-setting">行宽
+    <div class="reader-font-buttons">
+      <button class="reader-action" type="button" title="字号减一（[）" aria-label="字号减一" @click="adjustFont(-1)">A−</button>
+      <button class="reader-action" type="button" title="字号加一（]）" aria-label="字号加一" @click="adjustFont(1)">A＋</button>
+    </div>
+    <label class="reader-setting"><span>行宽</span>
       <select v-model="settings.width" aria-label="阅读行宽">
         <option v-for="o in widthOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
       </select>
     </label>
-    <label class="reader-setting">行高
+    <label class="reader-setting"><span>行高</span>
       <select v-model="settings.lineHeight" aria-label="阅读行高">
         <option v-for="o in lhOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
       </select>
@@ -89,5 +91,5 @@ function adjustFont(delta: number): void {
     <button class="reader-action" type="button" :class="{ on: settings.contrast }" aria-label="切换强对比" @click="settings.contrast = !settings.contrast">
       {{ settings.contrast ? '✓ 强对比' : '强对比' }}
     </button>
-  </span>
+  </div>
 </template>

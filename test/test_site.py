@@ -65,7 +65,31 @@ def test_home_lists_each_report_on_its_own_line(db, site_dir):
     site.export_site(db)
 
     home = (site_dir / "src" / "index.md").read_text(encoding="utf-8")
+    assert "sidebar: false" in home
     assert "- [o/demo v4](/o__demo/12/)\n- [o/demo v2](/o__demo/10/)\n" in home
+
+
+def test_build_uses_the_resolved_npm_executable(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    logs = tmp_path / "logs"
+    npm = str(tmp_path / "npm.cmd")
+    calls = []
+    monkeypatch.setattr(config, "reports_site_dist", lambda: dist)
+    monkeypatch.setattr(config, "logs_dir", lambda: logs)
+    monkeypatch.setattr(site.shutil, "which", lambda _name: npm)
+    monkeypatch.setattr(
+        site.subprocess,
+        "run",
+        lambda args, **_kwargs: calls.append(args) or SimpleNamespace(returncode=0, stdout="ok", stderr=""),
+    )
+
+    site._run_npm_build()
+
+    assert calls == [[npm, "run", "build"]]
+    assert not dist.exists()
 
 
 def test_export_site_rebuilds_the_whole_tree(db, site_dir):

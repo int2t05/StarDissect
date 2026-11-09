@@ -19,8 +19,10 @@ ssh int2t@192.168.2.172 '
   for i in 1 2 3; do git pull -q origin main 2>/dev/null && break; sleep 5; done
   echo "✓ 服务器代码: $(git log --oneline -1)"
   cd web && npm run build >/dev/null && echo "✓ 前端已构建"
-  cd ../reports-site && npm ci >/dev/null && npm run build >/dev/null && echo "✓ 报告站已构建"
+  cd ../reports-site && npm ci >/dev/null
   cd ..
+  STARDISSECT_SITE_REBUILD=1 PYTHONPATH=server server/.venv/bin/python -c "from app.site import rebuild_now; rebuild_now()" >/dev/null
+  echo "✓ 报告站已导出并构建"
   systemctl --user restart stardissect
   sleep 3
   systemctl --user is-active stardissect
