@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 import evidence from './theme/plugins/evidence'
 import mermaidFence from './theme/plugins/mermaidFence.js'
 import sections from './theme/plugins/sections'
+import { managementNavigation } from './managementNavigation.mjs'
 
 // 报告阅读站：SPA 瘦身为管理面，阅读面整体迁到这里（ADR-0009）
 // 与 FluxSift 阅读站同版本（package.json 钉死）、同 Shiki 主题：两站阅读面统一
@@ -32,13 +33,8 @@ export default defineConfig({
   themeConfig: {
     // 空侧栏只用于承载报告页阅读工具;首页通过 frontmatter 显式关闭。
     sidebar: [{ text: '阅读工具', link: '/', items: [] }],
-    // 阅读站与 SPA 共用同源根路径；hash 路由保留全部管理功能页
-    nav: [
-      { text: '阅读中心', link: '/../#/reading' },
-      { text: '仓库库', link: '/../#/repos' },
-      { text: '分析管理', link: '/../#/analysis' },
-      { text: '系统设置', link: '/../#/settings' },
-    ],
+    // target=_self 绕过 VitePress 对同源链接的拦截，交给根路径下的 SPA。
+    nav: managementNavigation,
     outline: [2, 3],
     outlineLabel: '本页大纲',
     darkModeSwitchLabel: '主题',
