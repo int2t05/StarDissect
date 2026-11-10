@@ -125,11 +125,24 @@ def test_persist_locked_classification_not_corrected(db):
 
 def test_structure_check_does_not_require_a_diagram_quota():
     titles = ["定位：入口与边界", "系统设计：模块关系", "流程：请求如何执行", "取舍：数据存储", "经验：扩展方式"]
-    sections = [{"title": title} for title in titles]
+    sections = [{"title": title, "level": 2} for title in titles]
 
     result = runner._structure_check("\n\n".join(f"## {title}" for title in titles), sections)
 
-    assert result == {"mermaid_blocks": 0, "missing_base_sections": [], "issues": []}
+    assert result == {
+        "mermaid_blocks": 0,
+        "heading_counts": {"h2": 5, "h3": 0},
+        "missing_base_sections": [],
+        "issues": [],
+    }
+
+
+def test_structure_check_records_nested_heading_levels():
+    sections = [{"title": "系统设计", "level": 2}, {"title": "写入路径", "level": 3}]
+
+    result = runner._structure_check("## 系统设计\n\n### 写入路径", sections)
+
+    assert result["heading_counts"] == {"h2": 1, "h3": 1}
 
 
 def test_structure_check_still_reports_missing_base_topics():
@@ -145,6 +158,8 @@ def test_analyzer_prompt_uses_natural_style_rules_without_fixed_quotas():
     assert "每段不超过 4 句" not in prompts.ANALYZER_INSTRUCTIONS
     assert "全文不少于 3 张图" not in prompts.ANALYZER_INSTRUCTIONS
     assert "每个标题须保留对应识别词" in prompts.ANALYZER_INSTRUCTIONS
+    assert "用 `###` 拆出有意义的子节" in prompts.ANALYZER_INSTRUCTIONS
+    assert "多个未解释的名称" in prompts.ANALYZER_INSTRUCTIONS
 
 
 @pytest.mark.skipif(

@@ -68,6 +68,17 @@ def test_heading_map_builds_section_chain():
     assert sections[2]["path_chain"] == "1" and sections[2]["seq"] == 2
 
 
+def test_composed_report_keeps_nested_subheadings():
+    md = pipeline.compose_sections([
+        ("系统设计", "整体由两个部分组成。\n\n### 写入路径\n\n写入先落日志,再更新索引。"),
+    ])
+
+    html, sections, _ = pipeline.render(md)
+    assert [section["level"] for section in sections] == [2, 3]
+    assert [section["path_chain"] for section in sections] == ["0", "0/0"]
+    assert '<h2 id="sec-0"' in html and '<h3 id="sec-1"' in html
+
+
 def test_compose_sections_drops_an_empty_adjacent_duplicate_heading():
     # agent 产出的空同名节与实节相邻时,落库前只保留实节
     md = pipeline.compose_sections([

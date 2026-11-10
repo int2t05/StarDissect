@@ -213,12 +213,14 @@ _BASE_SECTIONS = [("定位", "概览"), ("系统设计", "架构"), ("流程", "
 
 
 def _structure_check(md: str, sections: list[dict]) -> dict:
-    # 产物结构校验(REQ-RPT-001):基础主题覆盖;图表数量只记录,不设最低配额
+    # 产物结构校验(REQ-RPT-001):记录主题与标题层级;图表数量不设最低配额
     titles = " ".join(s["title"] for s in sections)
     missing = ["/".join(keys) for keys in _BASE_SECTIONS if not any(k in titles for k in keys)]
     mermaid_blocks = md.count("```mermaid")
+    heading_counts = {f"h{level}": sum(s.get("level") == level for s in sections) for level in (2, 3)}
     issues = [f"缺基础主题: {m}" for m in missing]
-    return {"mermaid_blocks": mermaid_blocks, "missing_base_sections": missing, "issues": issues}
+    return {"mermaid_blocks": mermaid_blocks, "heading_counts": heading_counts,
+            "missing_base_sections": missing, "issues": issues}
 
 
 async def run_task(conn, task, repo, clones_dir: Path | None = None) -> tuple[str, int]:
