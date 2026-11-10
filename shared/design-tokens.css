@@ -1,0 +1,87 @@
+/* StarDissect 管理面与报告站共用的颜色、字号和形状变量。 */
+:root {
+  --sd-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --sd-font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+
+  --sd-bg: #f6f8fa;
+  --sd-surface: #ffffff;
+  --sd-elevated: #f0f2f4;
+  --sd-border: rgba(31, 35, 40, 0.12);
+  --sd-border-strong: rgba(31, 35, 40, 0.22);
+  --sd-text: #20242a;
+  --sd-text-2: #515963;
+  --sd-text-3: #68717c;
+  --sd-accent: #875b1b;
+  --sd-accent-hover: #754c15;
+  --sd-accent-strong: #63400f;
+  --sd-accent-soft: rgba(135, 91, 27, 0.08);
+  --sd-focus: rgba(135, 91, 27, 0.42);
+  --sd-error: #b42318;
+  --sd-ev-source: #1a7f37;
+  --sd-ev-author: #0969da;
+  --sd-ev-infer: #875b1b;
+  --sd-ev-external: #8250df;
+  --sd-ev-unknown: #68717c;
+  --sd-overlay: rgba(31, 35, 40, 0.45);
+  --sd-code-bg: #f1f3f5;
+  --sd-width: 74ch;
+  --sd-font-size: 16.5px;
+  --sd-line-height: 1.8;
+  --sd-gap: 20px;
+  --sd-radius-card: 8px;
+  --sd-radius-control: 6px;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"],
+:root.dark {
+  --sd-bg: #1b1b1f;
+  --sd-surface: #202127;
+  --sd-elevated: #292a30;
+  --sd-border: rgba(255, 255, 255, 0.12);
+  --sd-border-strong: rgba(255, 255, 255, 0.22);
+  --sd-text: #e6e8eb;
+  --sd-text-2: #b2b6bd;
+  --sd-text-3: #8b9098;
+  --sd-accent: #d5a052;
+  --sd-accent-hover: #e0ad62;
+  --sd-accent-strong: #c28d40;
+  --sd-accent-soft: rgba(213, 160, 82, 0.12);
+  --sd-focus: rgba(213, 160, 82, 0.5);
+  --sd-error: #ff8f87;
+  --sd-ev-source: #4ade80;
+  --sd-ev-author: #58a6ff;
+  --sd-ev-infer: #d5a052;
+  --sd-ev-external: #d2a8ff;
+  --sd-ev-unknown: #8b9098;
+  --sd-overlay: rgba(0, 0, 0, 0.62);
+  --sd-code-bg: #202127;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"][data-contrast="1"],
+:root[data-reader-contrast="1"] {
+  --sd-text: #111418;
+  --sd-text-2: #30363d;
+  --sd-text-3: #535d68;
+  --sd-border-strong: rgba(31, 35, 40, 0.32);
+}
+
+:root[data-theme="dark"][data-contrast="1"],
+:root.dark[data-reader-contrast="1"] {
+  --sd-text: #ffffff;
+  --sd-text-2: #e6e8eb;
+  --sd-text-3: #c1c7ce;
+  --sd-border-strong: rgba(255, 255, 255, 0.34);
+}
+
+:root[data-width="narrow"],
+:root[data-reader-width="narrow"] { --sd-width: 62ch; }
+:root[data-width="wide"],
+:root[data-reader-width="wide"] { --sd-width: 90ch; }
+:root[data-lh="1.6"],
+:root[data-reader-lh="1.6"] { --sd-line-height: 1.6; }
+:root[data-lh="2.0"],
+:root[data-reader-lh="2.0"] { --sd-line-height: 2; }
+
+::selection { background: var(--sd-accent-soft); color: var(--sd-text); }

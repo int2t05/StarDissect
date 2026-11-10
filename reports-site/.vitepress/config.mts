@@ -35,9 +35,13 @@ export default defineConfig({
     sidebar: [{ text: '阅读工具', link: '/', items: [] }],
     // target=_self 绕过 VitePress 对同源链接的拦截，交给根路径下的 SPA。
     nav: managementNavigation,
-    outline: [2, 3],
-    outlineLabel: '本页大纲',
+    outline: { level: [2, 3], label: '本页目录' },
+    sidebarMenuLabel: '阅读工具',
+    returnToTopLabel: '返回顶部',
+    skipToContentLabel: '跳转到正文',
     darkModeSwitchLabel: '主题',
+    lightModeSwitchTitle: '切换到浅色模式',
+    darkModeSwitchTitle: '切换到深色模式',
     docFooter: { prev: '上一篇', next: '下一篇' },
     search: {
       provider: 'local',

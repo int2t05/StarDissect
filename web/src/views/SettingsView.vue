@@ -7,10 +7,18 @@ import { api, fmtTime } from '../api'
 const form = ref({})
 const lastSync = ref(null)
 const saved = ref(false)
+const loading = ref(true)
+const loadError = ref(false)
 
 async function load() {
-  form.value = await api('/api/settings')
-  lastSync.value = await api('/api/sync')
+  try {
+    [form.value, lastSync.value] = await Promise.all([api('/api/settings'), api('/api/sync')])
+    loadError.value = false
+  } catch {
+    loadError.value = true
+  } finally {
+    loading.value = false
+  }
 }
 
 async function save() {
@@ -35,7 +43,15 @@ onMounted(load)
 <template>
   <div class="page narrow">
     <header class="bar"><h1>系统设置</h1></header>
-    <n-form label-placement="top" class="form" @submit.prevent="save">
+    <div v-if="loading" class="settings-loading" role="status">
+      <span v-for="i in 6" :key="i" class="setting-skeleton" aria-hidden="true"></span>
+      <span class="hint">正在读取系统设置</span>
+    </div>
+    <div v-else-if="loadError" class="load-error" role="alert">
+      <span>系统设置读取失败，请重试。</span>
+      <n-button size="small" secondary @click="load">重试</n-button>
+    </div>
+    <n-form v-else label-placement="top" class="form" @submit.prevent="save">
       <n-form-item label="GitHub Token(仅存服务端)">
         <n-input v-model:value="form.github_token" type="password" show-password-on="click" :placeholder="form.github_token || 'ghp_…'" />
       </n-form-item>
@@ -70,6 +86,9 @@ onMounted(load)
 <style scoped>
 .page.narrow { max-width: 640px; }
 .form { display: flex; flex-direction: column; gap: 4px; }
+.settings-loading { display: flex; flex-direction: column; gap: 18px; }
+.setting-skeleton { height: 58px; border-radius: 6px; background: var(--sd-elevated); }
+.load-error { display: flex; align-items: center; gap: 12px; color: var(--sd-text-2); }
 .row { display: flex; gap: 10px 12px; align-items: center; flex-wrap: wrap; }
 .row a { font-size: 0.9em; }
 </style>

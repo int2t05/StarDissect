@@ -2,7 +2,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { NConfigProvider, NMessageProvider } from 'naive-ui'
+import { dateZhCN, NConfigProvider, NMessageProvider, zhCN } from 'naive-ui'
 import { useKeyboard } from './composables/useKeyboard'
 import { useReaderSettings } from './composables/useReaderSettings'
 import { naiveTheme, overridesFor } from './theme'
@@ -31,7 +31,7 @@ function toggleTheme() {
 </script>
 
 <template>
-  <n-config-provider :theme="nTheme" :theme-overrides="nOverrides">
+  <n-config-provider :locale="zhCN" :date-locale="dateZhCN" :theme="nTheme" :theme-overrides="nOverrides">
     <n-message-provider>
       <div class="app">
         <header class="topbar">
@@ -102,10 +102,12 @@ function toggleTheme() {
 .help-panel { background: var(--sd-surface); border: 1px solid var(--sd-border-strong); border-radius: 10px; padding: 20px 28px; }
 .help-panel h3 { margin-top: 0; color: var(--sd-accent); }
 @media (max-width: 767px) {
-  .topbar-inner { gap: 12px; padding: 0 12px; }
-  .nav { min-width: 0; gap: 0; overflow-x: auto; }
-  .nav a { padding-inline: 6px; font-size: 12px; }
-  .topbar-tools { gap: 8px; }
+  .topbar-inner { height: auto; min-height: 56px; gap: 4px 12px; padding: 8px 12px 4px; flex-wrap: wrap; }
+  .brand { order: 0; }
+  .topbar-tools { order: 1; gap: 8px; margin-left: auto; }
+  .nav { order: 2; flex: 1 0 100%; width: 100%; min-width: 0; gap: 4px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { flex: 0 0 auto; min-height: 32px; display: inline-flex; align-items: center; padding-inline: 8px; font-size: 12px; }
   .kbd-hint { display: none; }
 }
 </style>

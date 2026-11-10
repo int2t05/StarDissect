@@ -8,6 +8,8 @@ import { api, fmtTime } from '../api'
 const router = useRouter()
 const categories = ref([])
 const overview = ref(null)
+const homeLoading = ref(true)
+const homeError = ref(false)
 const cat = ref(null) // null=拼图;0=全部;-1=未分类;>0=领域类别 id(REQ-CLS-006)
 const entries = ref([])
 const filter = ref('all')
@@ -53,6 +55,17 @@ async function loadMosaic() {
   ])
 }
 
+async function loadHome() {
+  try {
+    await Promise.all([loadMosaic(), loadArchive()])
+    homeError.value = false
+  } catch {
+    homeError.value = true
+  } finally {
+    homeLoading.value = false
+  }
+}
+
 // 时间归档(UX-65):拼图下方按月分组;默认仅展开最近一月,点月份头折叠/展开
 const archive = ref([])
 const collapsed = ref([])
@@ -94,8 +107,7 @@ function enter(id) {
 
 async function back() {
   cat.value = null
-  await loadMosaic() // 归档/分类可能在类别内变化,回拼图前刷新仓库计数
-  await loadArchive()
+  await loadHome() // 归档/分类可能在类别内变化,回拼图前刷新计数
 }
 
 watch([cat, filter], loadEntries) // 筛选服务端执行(REQ-READ-006)
@@ -176,7 +188,7 @@ function goto(hit) {
   else location.assign(reportUrl({ full_name: hit.full_name, id: hit.version_id }))
 }
 
-onMounted(() => { loadMosaic(); loadEntries(); loadArchive(); window.addEventListener('keydown', onListKey) })
+onMounted(() => { loadHome(); loadEntries(); window.addEventListener('keydown', onListKey) })
 onUnmounted(() => window.removeEventListener('keydown', onListKey))
 </script>
 
@@ -217,7 +229,15 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
           <h2 id="category-heading">按类别浏览</h2>
           <span class="section-hint">选择类别查看报告</span>
         </header>
-        <div class="cloud">
+        <div v-if="homeLoading" class="category-loading" role="status">
+          <span v-for="i in 6" :key="i" class="category-skeleton" aria-hidden="true"></span>
+          <span class="hint">正在读取报告分类</span>
+        </div>
+        <div v-else-if="homeError" class="load-error" role="alert">
+          <span>阅读数据加载失败，请重试。</span>
+          <n-button size="small" secondary @click="loadHome">重试</n-button>
+        </div>
+        <div v-else class="cloud">
         <button class="tile" @click="enter(0)">
           <span class="name">全部</span>
           <span class="meta">{{ overview?.total.reports ?? 0 }} 篇报告 · {{ overview?.total.unread ?? 0 }} 篇未读</span>
@@ -233,11 +253,11 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
         </div>
       </section>
       <n-empty
-        v-if="overview && !overview.total.reports"
+        v-if="!homeLoading && !homeError && overview && !overview.total.reports"
         description="还没有报告。到「仓库库」触发分析,或先在「系统设置」配置凭据。" class="hint"
       />
 
-      <details v-if="monthGroups.length" class="archive">
+      <details v-if="!homeLoading && !homeError && monthGroups.length" class="archive">
         <summary class="archive-summary">
           <span>按时间浏览</span>
           <span class="arch-hint">共 {{ archive.length }} 篇</span>
@@ -290,6 +310,10 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .section-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .section-hint, .arch-hint { color: var(--sd-text-3); font-size: 13px; }
 .cloud { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; align-items: stretch; }
+.category-loading { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.category-skeleton { min-height: 82px; border: 1px solid var(--sd-border); border-radius: var(--sd-radius-card); background: var(--sd-surface); }
+.category-loading .hint { grid-column: 1 / -1; }
+.load-error { display: flex; align-items: center; gap: 12px; color: var(--sd-text-2); }
 .tile {
   display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
   min-height: 82px; padding: 14px 16px; border: 1px solid var(--sd-border); border-radius: var(--sd-radius-card);
@@ -348,9 +372,14 @@ onUnmounted(() => window.removeEventListener('keydown', onListKey))
 .empty { padding: 12px; }
 @media (max-width: 600px) {
   .section-head { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .tile { min-height: 72px; }
+  .cloud, .category-loading { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tile { min-height: 76px; padding: 11px 12px; }
+  .tile .name { font-size: 15px; line-height: 1.35; }
+  .tile .meta { font-size: 12px; line-height: 1.45; }
+  .category-skeleton { min-height: 76px; }
   .cat-head { flex-wrap: wrap; }
   .cat-head .n-select { margin-left: auto; }
   .month-list a { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .month-list .meta { white-space: normal; }
 }
 </style>

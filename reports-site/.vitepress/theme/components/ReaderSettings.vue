@@ -63,7 +63,15 @@ const lhOptions = [
 ]
 
 function adjustFont(delta: number): void {
-  settings.fontSize = Math.min(22, Math.max(12, settings.fontSize + delta))
+  const current = fontOptions.reduce(
+    (best, option, index) =>
+      Math.abs(option.value - settings.fontSize) < Math.abs(fontOptions[best].value - settings.fontSize)
+        ? index
+        : best,
+    0,
+  )
+  const next = Math.min(fontOptions.length - 1, Math.max(0, current + Math.sign(delta)))
+  settings.fontSize = fontOptions[next].value
 }
 </script>
 

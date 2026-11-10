@@ -1,4 +1,4 @@
-// Naive UI 映射与 tokens.css 对齐，两个界面共用中性底色与克制的琥珀强调色
+// Naive UI 需要 JS 色值；中性色与琥珀强调色按 shared/design-tokens.css 同步。
 import { darkTheme, lightTheme } from 'naive-ui'
 
 export { darkTheme, lightTheme }

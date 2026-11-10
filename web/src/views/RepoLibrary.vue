@@ -10,6 +10,8 @@ function reportUrl(fullName, id) {
 }
 
 const repos = ref([])
+const loading = ref(true)
+const loadError = ref(false)
 const q = ref('')
 const filter = ref('active')
 const detail = ref(null)
@@ -38,7 +40,14 @@ async function loadCategories() {
 }
 
 async function load() {
-  repos.value = await api(`/api/repos?filter=${filter.value}&q=${encodeURIComponent(q.value)}&category=${cat.value}`)
+  loadError.value = false
+  try {
+    repos.value = await api(`/api/repos?filter=${filter.value}&q=${encodeURIComponent(q.value)}&category=${cat.value}`)
+  } catch {
+    loadError.value = true
+  } finally {
+    loading.value = false
+  }
 }
 
 function setCat(id) {
@@ -108,7 +117,7 @@ async function delCat(c) {
   await api(`/api/categories/${c.id}`, { method: 'DELETE' })
   await loadCategories()
   await load()
-  if (detail.value) await open(detail.value.repo.id)
+  if (showDetail.value && detail.value) await open(detail.value.repo.id)
 }
 
 async function toggleExclude() {
@@ -169,7 +178,18 @@ onMounted(() => { load(); loadCategories() })
       <n-button size="tiny" quaternary @click="showManage = true">管理</n-button>
     </div>
 
-    <div class="grid">
+    <div v-if="loading" class="grid loading-grid" role="status" aria-label="正在加载仓库">
+      <div v-for="i in 6" :key="i" class="repo-skeleton" aria-hidden="true">
+        <span class="skeleton-line title"></span>
+        <span class="skeleton-line"></span>
+        <span class="skeleton-line short"></span>
+      </div>
+    </div>
+    <div v-else-if="loadError" class="load-error" role="alert">
+      <span>仓库列表加载失败，请重试。</span>
+      <n-button size="small" secondary @click="load">重试</n-button>
+    </div>
+    <div v-else class="grid">
       <n-card v-for="r in repos" :key="r.id" size="small" hoverable class="card" @click="open(r.id)">
         <div class="card-head">
           <b>{{ r.full_name }}</b>
@@ -186,7 +206,7 @@ onMounted(() => { load(); loadCategories() })
         </p>
       </n-card>
     </div>
-    <n-empty v-if="!repos.length" description="库为空。先在「系统设置」配置凭据并同步 star。" class="hint" />
+    <n-empty v-if="!loading && !loadError && !repos.length" description="库为空。先在「系统设置」配置凭据并同步 star。" class="hint" />
 
     <n-drawer v-model:show="showDetail" :width="'min(540px, 100vw)'" placement="right">
       <n-drawer-content v-if="detail" :title="detail.repo.full_name" closable>
@@ -286,6 +306,11 @@ onMounted(() => { load(); loadCategories() })
 
 <style scoped>
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.repo-skeleton { min-height: 112px; display: flex; flex-direction: column; justify-content: flex-start; gap: 13px; padding: 16px; border: 1px solid var(--sd-border); border-radius: var(--sd-radius-card); background: var(--sd-surface); }
+.skeleton-line { display: block; width: 76%; height: 10px; border-radius: 4px; background: var(--sd-elevated); }
+.skeleton-line.title { width: 46%; height: 14px; }
+.skeleton-line.short { width: 34%; }
+.load-error { display: flex; align-items: center; gap: 12px; color: var(--sd-text-2); }
 .grid :deep(.n-card) { border-radius: var(--sd-radius-card); box-shadow: none; }
 .grid :deep(.n-card--hoverable:hover) { box-shadow: none; }
 .card { cursor: pointer; }
@@ -308,6 +333,7 @@ h3.sub { padding-top: 10px; margin-top: 2px; border-top: 0; font-size: 0.88em; }
 .ver .danger { color: var(--sd-error, #d03050); }
 @media (max-width: 767px) {
   .grid { gap: 10px; }
+  .loading-grid { grid-template-columns: 1fr; }
   .page .bar-tools { justify-content: flex-start; }
   .mgr-row { align-items: flex-start; }
 }

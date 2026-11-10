@@ -1,48 +1,29 @@
-/* StarDissect 阅读面：与 FluxSift 共用排版和组件规则，保留琥珀品牌色 */
+/* 报告站复用 StarDissect 管理面的中性色与琥珀品牌变量。 */
+@import '../../../shared/design-tokens.css';
+
 :root {
-  --vp-c-bg: #f6f8fa;
-  --vp-c-bg-alt: #f0f2f4;
-  --vp-c-bg-elv: #ffffff;
-  --vp-c-bg-soft: #ffffff;
-  --vp-c-text-1: #20242a;
-  --vp-c-text-2: #515963;
-  --vp-c-text-3: #68717c;
-  --vp-c-divider: rgba(31, 35, 40, 0.12);
+  --vp-c-bg: var(--sd-bg);
+  --vp-c-bg-alt: var(--sd-elevated);
+  --vp-c-bg-elv: var(--sd-surface);
+  --vp-c-bg-soft: var(--sd-surface);
+  --vp-c-text-1: var(--sd-text);
+  --vp-c-text-2: var(--sd-text-2);
+  --vp-c-text-3: var(--sd-text-3);
+  --vp-c-divider: var(--sd-border);
   --vp-nav-height: 56px;
-  --vp-nav-bg-color: #f6f8fa;
-  --vp-c-brand-1: #875b1b;
-  --vp-c-brand-2: #754c15;
-  --vp-c-brand-3: #63400f;
-  --vp-c-brand-soft: color-mix(in srgb, var(--vp-c-brand-1) 8%, transparent);
-  --vp-font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  --vp-font-family-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
-  --reader-width: 84ch;
-  --reader-font-size: 16.5px;
-  --reader-line-height: 1.8;
+  --vp-nav-bg-color: var(--sd-bg);
+  --vp-c-brand-1: var(--sd-accent);
+  --vp-c-brand-2: var(--sd-accent-hover);
+  --vp-c-brand-3: var(--sd-accent-strong);
+  --vp-c-brand-soft: var(--sd-accent-soft);
+  --vp-font-family-base: var(--sd-font-body);
+  --vp-font-family-mono: var(--sd-font-mono);
+  --reader-width: var(--sd-width);
+  --reader-font-size: var(--sd-font-size);
+  --reader-line-height: var(--sd-line-height);
 }
 
-.dark {
-  --vp-c-bg: #1b1b1f;
-  --vp-c-bg-alt: #161618;
-  --vp-c-bg-elv: #202127;
-  --vp-c-bg-soft: #202127;
-  --vp-c-text-1: #e6e8eb;
-  --vp-c-text-2: #b2b6bd;
-  --vp-c-text-3: #8b9098;
-  --vp-c-divider: rgba(255, 255, 255, 0.12);
-  --vp-nav-bg-color: #1b1b1f;
-  --vp-c-brand-1: #d5a052;
-  --vp-c-brand-2: #e0ad62;
-  --vp-c-brand-3: #c28d40;
-  --vp-c-brand-soft: color-mix(in srgb, var(--vp-c-brand-1) 16%, transparent);
-}
-
-:root[data-reader-width='narrow'] { --reader-width: 72ch; }
-:root[data-reader-width='wide'] { --reader-width: 100ch; }
-:root[data-reader-lh='1.6'] { --reader-line-height: 1.6; }
-:root[data-reader-lh='2.0'] { --reader-line-height: 2; }
-:root[data-reader-contrast='1'] { --vp-c-text-1: #111418; --vp-c-text-2: #30363d; }
-.dark[data-reader-contrast='1'] { --vp-c-text-1: #fff; --vp-c-text-2: #e1e5e9; }
+:root[data-reader-contrast='1'] { --vp-c-text-1: var(--sd-text); --vp-c-text-2: var(--sd-text-2); }
 
 .VPDoc .content-container { max-width: 960px; }
 .vp-doc {
@@ -115,8 +96,16 @@
 .archive-home .vp-doc ul { margin: 0; padding: 0; list-style: none; }
 .archive-home .vp-doc li { margin: 0; border-bottom: 1px solid var(--vp-c-divider); }
 .archive-home .vp-doc li + li { margin: 0; }
-.archive-home .vp-doc li a { display: block; padding: 12px 4px; color: var(--vp-c-text-1); }
-.archive-home .vp-doc li a:hover { color: var(--vp-c-brand-1); }
+.archive-home .vp-doc li a {
+  display: block;
+  padding: 12px 6px;
+  border-radius: 4px;
+  font-size: 15px;
+  line-height: 1.6;
+  text-decoration: none;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.archive-home .vp-doc li a:hover { color: var(--vp-c-brand-1); background: var(--vp-c-brand-soft); }
 
 /* 证据块：折叠正文保持清楚，强调色只用于状态与链接 */
 .vp-doc details.ev {
@@ -173,5 +162,5 @@
   .VPDoc .content-container { max-width: 100%; }
   .vp-doc { max-width: 100%; }
   .reader-actions { gap: 6px; }
-  .archive-home .vp-doc li a { padding: 11px 2px; }
+  .archive-home .vp-doc li a { padding: 11px 6px; }
 }
