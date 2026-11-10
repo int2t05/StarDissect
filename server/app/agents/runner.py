@@ -213,13 +213,11 @@ _BASE_SECTIONS = [("定位", "概览"), ("系统设计", "架构"), ("流程", "
 
 
 def _structure_check(md: str, sections: list[dict]) -> dict:
-    # 产物结构校验(REQ-RPT-001):通用基础章节覆盖、mermaid 围栏数量;标记不阻断
+    # 产物结构校验(REQ-RPT-001):基础主题覆盖;图表数量只记录,不设最低配额
     titles = " ".join(s["title"] for s in sections)
     missing = ["/".join(keys) for keys in _BASE_SECTIONS if not any(k in titles for k in keys)]
     mermaid_blocks = md.count("```mermaid")
-    issues = [f"缺基础章节: {m}" for m in missing]
-    if mermaid_blocks < 3:
-        issues.append(f"mermaid 图仅 {mermaid_blocks} 张(要求 ≥3)")
+    issues = [f"缺基础主题: {m}" for m in missing]
     return {"mermaid_blocks": mermaid_blocks, "missing_base_sections": missing, "issues": issues}
 
 

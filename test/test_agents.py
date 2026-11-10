@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from app.agents import runner, tools
+from app.agents import prompts, runner, tools
 from app.agents.runner import ClassificationResult, KnowledgePoint, ReportDraft, Section
 from app.db import connect, init_db
 from app.search import indexer
@@ -121,6 +121,30 @@ def test_persist_locked_classification_not_corrected(db):
     # 锁定不被覆盖,无修正留痕(REQ-CLS-003)
     assert db.execute("SELECT type FROM classifications").fetchone()["type"] == "框架/库/SDK"
     assert db.execute("SELECT COUNT(*) c FROM classification_history").fetchone()["c"] == 0
+
+
+def test_structure_check_does_not_require_a_diagram_quota():
+    titles = ["定位：入口与边界", "系统设计：模块关系", "流程：请求如何执行", "取舍：数据存储", "经验：扩展方式"]
+    sections = [{"title": title} for title in titles]
+
+    result = runner._structure_check("\n\n".join(f"## {title}" for title in titles), sections)
+
+    assert result == {"mermaid_blocks": 0, "missing_base_sections": [], "issues": []}
+
+
+def test_structure_check_still_reports_missing_base_topics():
+    result = runner._structure_check("## 定位概览", [{"title": "定位概览"}])
+
+    assert result["missing_base_sections"] == ["系统设计/架构", "流程/精读", "取舍/方案", "可迁移/经验"]
+    assert result["issues"] == [f"缺基础主题: {topic}" for topic in result["missing_base_sections"]]
+
+
+def test_analyzer_prompt_uses_natural_style_rules_without_fixed_quotas():
+    assert "不要使用“术语(一句话:...)”这类固定格式" in prompts.ANALYZER_INSTRUCTIONS
+    assert "不设数量指标" in prompts.ANALYZER_INSTRUCTIONS
+    assert "每段不超过 4 句" not in prompts.ANALYZER_INSTRUCTIONS
+    assert "全文不少于 3 张图" not in prompts.ANALYZER_INSTRUCTIONS
+    assert "每个标题须保留对应识别词" in prompts.ANALYZER_INSTRUCTIONS
 
 
 @pytest.mark.skipif(
