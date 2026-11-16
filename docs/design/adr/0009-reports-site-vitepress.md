@@ -13,15 +13,10 @@ Shiki、本地搜索、深浅色),两站阅读体验不统一是直接动因。
 
 新建 `reports-site/`(VitePress,版本钉死 1.6.4,与 FluxSift 同版本同 Shiki 主题):
 `base=/reports/`,由 `server/app/site.py` 从 `report_versions`(未归档)整树导出
-`src/<full_name 换 __>/<vid>/index.md`(frontmatter:repo/version/commit/generated_at/vid/aside),
+`src/<full_name 换 __>/<vid>/index.md`(frontmatter:repo/version/commit/generated_at/vid),
 正文经 `_normalize_fences` 预整形;FastAPI 在 `/api` 路由后、SPA 前以 StaticFiles 挂
 `/reports`。SPA 删除 ReportView 与 scrollspy/进度 composables,报告链接改为整页跳转静态站;
 SPA 保留 useReaderSettings(全局主题)与全部管理面。阅读交互移植到 VitePress 主题层:
-
-- **阅读大纲**:报告页 frontmatter 将 `aside` 设为 `left`,复用 VitePress 固定侧栏显示 H2/H3 大纲;
-  归档首页显式关闭大纲,避免空栏。目录标签和工具栏元信息使用简体中文。
-- **生成内容**:提示词要求主章节用简体中文结论式短标题,每个 H2 以一句中文导语开场,
-  链接显示简洁中文名称并保留原 URL。该规则仅影响之后生成的报告,不会改写数据库中的存量报告。
 
 - **JS 插件**(与 Python 管线同源移植,ADR-0008 契约不变):证据块 blockquote → `details.ev`
   (含 `data-refs`,准入 `_REF_SHAPE`/`_DEMOTE_CHARS` 一致);mermaid fence → 专用容器;

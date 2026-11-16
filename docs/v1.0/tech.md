@@ -112,7 +112,7 @@ repo_fts(fts5, 自持分词副本)                         -- 仓库元信息检
 
 **classifier**:一次调用(README+树)→ `{type, reason, confidence, tags[2-4]}`;tags 写 auto_tags 并入检索域;锁定仓库跳过分类。
 
-**analyzer**:多步循环 → `ReportDraft{sections[](含证据标注语法), knowledge_points[], classification_correction?}`。修正仅在非锁定时落库并写 classification_history(REQ-CLS-004)。提示词包含:七类模板(项目 PRD 表)、证据五类定义、简体中文结论式标题与章首短导语、陌生名称解释及链接中文标签、未知须明示(REQ-RPT-002/003)。
+**analyzer**:多步循环 → `ReportDraft{sections[](含证据标注语法), knowledge_points[], classification_correction?}`。修正仅在非锁定时落库并写 classification_history(REQ-CLS-004)。提示词包含:七类模板(项目 PRD 表)、证据五类定义、报告正文中文要求、未知须明示(REQ-RPT-002/003)。
 
 **产物落库**:ReportDraft → 渲染管线(§5)→ report_versions+report_sections(单事务)+ 知识点 → FTS 索引 → RSS 条目生成(REQ-OUT-002);新报告替换同仓库旧报告(连带章节/知识点/进度/FTS),每仓库仅保留最新一份(DEC-06)。
 

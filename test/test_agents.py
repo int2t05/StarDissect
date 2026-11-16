@@ -160,9 +160,6 @@ def test_analyzer_prompt_uses_natural_style_rules_without_fixed_quotas():
     assert "每个标题须保留对应识别词" in prompts.ANALYZER_INSTRUCTIONS
     assert "用 `###` 拆出有意义的子节" in prompts.ANALYZER_INSTRUCTIONS
     assert "多个未解释的名称" in prompts.ANALYZER_INSTRUCTIONS
-    assert "简洁中文导语" in prompts.ANALYZER_INSTRUCTIONS
-    assert "大纲标题以简体中文为主" in prompts.ANALYZER_INSTRUCTIONS
-    assert "链接显示文字使用简洁中文来源名" in prompts.ANALYZER_INSTRUCTIONS
 
 
 @pytest.mark.skipif(

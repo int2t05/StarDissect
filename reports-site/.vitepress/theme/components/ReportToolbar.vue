@@ -12,8 +12,8 @@ const meta = computed(() => {
   const fm = frontmatter.value
   const parts: string[] = []
   if (fm.version) parts.push(`第 ${fm.version} 次分析`)
-  if (fm.commit) parts.push(`代码版本 ${String(fm.commit).slice(0, 8)}`)
-  if (fm.generated_at) parts.push(`生成日期 ${String(fm.generated_at).slice(0, 10)}`)
+  if (fm.commit) parts.push(`commit ${String(fm.commit).slice(0, 8)}`)
+  if (fm.generated_at) parts.push(String(fm.generated_at).slice(0, 10))
   return parts
 })
 </script>

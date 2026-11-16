@@ -33,11 +33,9 @@ export default defineConfig({
   themeConfig: {
     // 空侧栏只用于承载报告页阅读工具;首页通过 frontmatter 显式关闭。
     sidebar: [{ text: '阅读工具', link: '/', items: [] }],
-    // 目录由报告页 frontmatter 单独启用,归档首页不占大纲栏。
-    aside: false,
     // target=_self 绕过 VitePress 对同源链接的拦截，交给根路径下的 SPA。
     nav: managementNavigation,
-    outline: { level: [2, 3], label: '报告大纲' },
+    outline: { level: [2, 3], label: '本页目录' },
     sidebarMenuLabel: '阅读工具',
     returnToTopLabel: '返回顶部',
     skipToContentLabel: '跳转到正文',
