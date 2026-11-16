@@ -43,13 +43,14 @@ def test_export_site_writes_slug_dirs_with_frontmatter(db, site_dir):
     site.export_site(db)
 
     page = (site_dir / "src" / "o__demo" / "10" / "index.md").read_text(encoding="utf-8")
-    # frontmatter 六字段:工具条与源码链接的消费契约
+    # frontmatter 是工具条、左侧大纲与源码链接的消费契约
     assert 'title: "o/demo v2"' in page
     assert 'repo: "o/demo"' in page
     assert 'version: 2' in page
     assert f'commit: "{"a" * 40}"' in page
     assert 'generated_at: "2026-01-02 03:04:05"' in page
     assert 'vid: 10' in page
+    assert 'aside: "left"' in page
     # 正文经 _normalize_fences 预整形,证据块语法原样(渲染加工归站点插件)
     assert "> [source] core.py:1" in page
 
@@ -66,6 +67,7 @@ def test_home_lists_each_report_on_its_own_line(db, site_dir):
 
     home = (site_dir / "src" / "index.md").read_text(encoding="utf-8")
     assert "sidebar: false" in home
+    assert "aside: false" in home
     assert "- [o/demo v4](/o__demo/12/)\n- [o/demo v2](/o__demo/10/)\n" in home
 
 

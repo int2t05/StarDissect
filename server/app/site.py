@@ -64,6 +64,7 @@ def _frontmatter(row) -> str:
         "commit": row["commit_anchor"],
         "generated_at": row["created_at"],
         "vid": row["id"],
+        "aside": "left",
     }
     lines = [f"{key}: {json.dumps(value, ensure_ascii=False)}" for key, value in fields.items()]
     return "---\n" + "\n".join(lines) + "\n---\n\n"
@@ -71,7 +72,7 @@ def _frontmatter(row) -> str:
 
 def _write_home(src: Path, rows) -> None:
     """首页:未归档报告按月分组的清单,新的在前——阅读站的开门页。"""
-    parts = ['---\ntitle: StarDissect 报告\nsidebar: false\n---\n\n# StarDissect 报告\n\n']
+    parts = ['---\ntitle: StarDissect 报告\nsidebar: false\naside: false\n---\n\n# StarDissect 报告\n\n']
     if not rows:
         parts.append("还没有报告:跑一轮分析后,这里会按月列出全部报告。\n")
     else:
